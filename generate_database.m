@@ -88,13 +88,10 @@ outputs(:,2) = h;
 
 %% Save data
 % Define column headers
-inputs_headers = {'f', 'Ir'};
-outputs_headers = {'we', 'h'};
+inputs_headers = {'f', 'Ir', 'Column3'};
 
 % Convert data array to a table
 inputs_table = array2table(inputs, 'VariableNames', inputs_headers);
-outputs_table = array2table(inputs, 'VariableNames', outputs_headers);
 
 % Save data table to a CSV file
 writetable(inputs_table, 'C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/database/inputs.csv');
-writetable(outputs_table, 'C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/database/outputs.csv');
