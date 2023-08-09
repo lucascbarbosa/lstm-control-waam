@@ -27,10 +27,12 @@ upper_value = fo; % Upper value for the binary signal
 lower_value = fo/2; % Lower value for the binary signal
 
 %% Generate a pseudo-random binary signal using the parameters
-f_signal = lower_value + (upper_value - lower_value) * (rand(size(time)) > 0.5);
-Ir_signal = ones(1, N)*Ir;
-inputs(:, 1) = f_signal';
-inputs(:,2) = Ir_signal';
+f_binary_signal = (rand(size(time)) > 0.5);
+f_signal = lower_value + (upper_value - lower_value) * f_binary_signal;
+Ir_binary_signal = ones(1, N);
+Ir_signal = Ir_binary_signal * Ir;
+inputs(:, 1) = f_binary_signal';
+inputs(:,2) = Ir_binary_signal';
 
 %% Setup Signal Builder block in the model
 signal_f_path = [model_name, '/Signal f']; % Update with your Signal Builder block's path
@@ -93,8 +95,8 @@ outputs_headers = {'we', 'h'};
 
 % Convert data array to a table
 inputs_table = array2table(inputs, 'VariableNames', inputs_headers);
-outputs_table = array2table(inputs, 'VariableNames', outputs_headers);
+outputs_table = array2table(outputs, 'VariableNames', outputs_headers);
 
 % Save data table to a CSV file
-writetable(inputs_table, 'C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/database/inputs.csv');
-writetable(outputs_table, 'C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/database/outputs.csv');
+writetable(inputs_table, 'C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/database/train_inputs.csv');
+writetable(outputs_table, 'C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/database/train_outputs.csv');
