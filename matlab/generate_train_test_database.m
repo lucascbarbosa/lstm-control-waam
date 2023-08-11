@@ -23,14 +23,18 @@ model_name = 'gmaw_process';
 open_system(model_name);
 
 %% Setup Signal Builder block
-upper_value = fo; % Upper value for the binary signal
-lower_value = fo/2; % Lower value for the binary signal
+f_lv = 0*fo; % Lower value for the binary signal
+f_uv = fo; % Upper value for the binary signal
+Ir_lv = 0.6*Ir; % Lower value for the binary signal
+Ir_uv = Ir; % Upper value for the binary signal
 
 %% Generate a pseudo-random binary signal using the parameters
 f_binary_signal = (rand(size(time)) > 0.5);
-f_signal = lower_value + (upper_value - lower_value) * f_binary_signal;
-Ir_binary_signal = ones(1, N);
-Ir_signal = Ir_binary_signal * Ir;
+Ir_binary_signal = (rand(size(time)) > 0.5);
+
+f_signal = f_lv + (f_uv - f_lv) * f_binary_signal;
+Ir_signal = Ir_lv + (Ir_uv - Ir_lv) * Ir_binary_signal;
+
 inputs(:, 1) = f_binary_signal';
 inputs(:,2) = Ir_binary_signal';
 
@@ -39,6 +43,11 @@ signal_f_path = [model_name, '/Signal f']; % Update with your Signal Builder blo
 signal_f_block = get_param(signal_f_path, 'Handle');
 % Set the generated binary signal using the 'set' function
 signalbuilder(signal_f_block, 'set', 1, 1, time, f_signal);
+
+signal_Ir_path = [model_name, '/Signal Ir']; % Update with your Signal Builder block's path
+signal_Ir_block = get_param(signal_Ir_path, 'Handle');
+% Set the generated binary signal using the 'set' function
+signalbuilder(signal_Ir_block, 'set', 1, 1, time, Ir_signal);
 
 %% Simulate
 % Define simulation options structure
@@ -66,7 +75,7 @@ outputs(:,2) = h;
 % subplot(2,1,1);
 % plot(time, f_signal);
 % xlabel('t');
-% ylabel('f');
+% ylabel('Ir');
 % title('Input f');
 % subplot(2,1,2);
 % plot(time, Ir_signal);
