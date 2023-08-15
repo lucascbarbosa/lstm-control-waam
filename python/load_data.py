@@ -2,11 +2,8 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
-# Load data
-data_dir = 'C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/database/'
 
-
-def load_data():
+def load_data(data_dir):
     X_train = pd.read_csv(data_dir + 'train_inputs.csv').to_numpy()
     Y_train = pd.read_csv(data_dir + 'train_outputs.csv').to_numpy()
     X_test = pd.read_csv(data_dir + 'test_inputs.csv').to_numpy()
@@ -29,7 +26,8 @@ def sequence_data(X, Y, inputs_seq_len, outputs_seq_len, sequence_stride):
     for i in range(0, len(X) - sequence_length, sequence_stride):
         input_seq = np.vstack((X[i: i + inputs_seq_len, :],
                               Y[i: i + outputs_seq_len, :]))
-        output_seq = Y[i + outputs_seq_len]
+        output_seq = Y[i + outputs_seq_len:i +
+                       outputs_seq_len + sequence_stride]
         input_sequences.append(input_seq)
         output_sequences.append(output_seq)
     return np.array(input_sequences), np.array(output_sequences)

@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-
 from load_data import load_data, normalize_data, sequence_data
 
 import tensorflow as tf
@@ -13,7 +12,10 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 # Load data
-X_train, Y_train, X_test, Y_test = load_data()
+data_dir = 'C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/database/'
+data_dir = 'C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/results/'
+
+X_train, Y_train, X_test, Y_test = load_data(data_dir)
 Y_train, Y_test = normalize_data(Y_train, Y_test)
 
 X_train = X_train[:1000, :]
@@ -24,7 +26,7 @@ Y_test = Y_test[:1000, :]
 inputs_seq_len = 50  # hp
 outputs_seq_len = 50  # hp
 sequence_length = inputs_seq_len + outputs_seq_len
-sequence_stride = 1
+sequence_stride = 1  # hp
 dim_inputs = X_train.shape[1]
 dim_outputs = Y_train.shape[1]
 X_train_seq, Y_train_seq = sequence_data(
@@ -58,7 +60,14 @@ validation_split = 0.1   # hp
 history = model.fit(X_train_seq, Y_train_seq, batch_size=batch_size,
                     epochs=epochs, validation_split=validation_split)  # fit data
 
+# Save model
+model.save(results_dir + "LSTM.h5")
+
 train_loss = history.history['loss']
 val_loss = history.history['val_loss']
 
 # Predict with model
+Y_pred_seq = model.predict(X_test_seq)
+# Export prediction
+np.savetxt(results_dir+'y_pred_seq.csv', y_pred_seq)
+np.savetxt(results_dir+'y_test_seq.csv', Y_test_seq)
