@@ -19,15 +19,14 @@ def normalize_data(Y_train, Y_test):
     return Y_train, Y_test
 
 
-def sequence_data(X, Y, inputs_seq_len, outputs_seq_len, sequence_stride):
+def sequence_data(X, Y, inputs_seq_len, outputs_seq_len, forecast_h):
     sequence_length = inputs_seq_len + outputs_seq_len
     input_sequences = []
     output_sequences = []
-    for i in range(0, len(X) - sequence_length, sequence_stride):
+    for i in range(0, len(X) - sequence_length):
         input_seq = np.vstack((X[i: i + inputs_seq_len, :],
                               Y[i: i + outputs_seq_len, :]))
-        output_seq = Y[i + outputs_seq_len:i +
-                       outputs_seq_len + sequence_stride]
+        output_seq = Y[i + outputs_seq_len + forecast_h - 1]
         input_sequences.append(input_seq)
         output_sequences.append(output_seq)
     return np.array(input_sequences), np.array(output_sequences)
