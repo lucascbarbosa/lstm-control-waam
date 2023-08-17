@@ -7,6 +7,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, TimeDistributed
 from tensorflow.keras.losses import mean_squared_error
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.utils import plot_model
 
 import matplotlib.pyplot as plt
 import os
@@ -34,6 +35,8 @@ def create_model(num_features_input, num_features_output, summary=True):
     # Display model summary
     if summary:
         model.summary()
+        plot_model(model, to_file=results_dir+'model.png',
+                   show_shapes=True, show_layer_names=True)
     return model
 
 
@@ -88,18 +91,18 @@ X_test, Y_test = sequence_data(
 y_means = Y_test.mean(axis=0)
 y_stds = Y_test.std(axis=0)
 
-# # Define model
-# model = create_model(num_features_input, num_features_output)
+# Define model
+model = create_model(num_features_input, num_features_output)
 
-# # Training
-# batch_size = 32  # hp
-# epochs = 25  # hp
-# validation_split = 0.1   # hp
-# model, history = train_model(
-#     model, X_train, Y_train, batch_size, epochs, validation_split)
+# Training
+batch_size = 32  # hp
+epochs = 25  # hp
+validation_split = 0.1   # hp
+model, history = train_model(
+    model, X_train, Y_train, batch_size, epochs, validation_split)
 
-# # Train loss
-# plot_loss(history)
+# Train loss
+plot_loss(history)
 
 # Prediction
 Y_pred = predict_data(model, X_test)
@@ -110,6 +113,6 @@ for i in range(num_features_output):
     Y_test[:, i] = denormalize_data(
         Y_test[:, i], y_means[i], y_stds[i])  # Denormalize
 
-# Export prediction
+# Export prediction data
 np.savetxt(results_dir+'y_real.csv', Y_test)
 np.savetxt(results_dir+'y_pred.csv', Y_pred)
