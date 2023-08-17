@@ -7,20 +7,20 @@ import matplotlib.pyplot as plt
 data_dir = "C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/database/"
 results_dir = "C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/results/"
 
-Y_test_seq = np.loadtxt(results_dir + "y_test_seq.csv", dtype=np.float64)
-Y_pred_seq = np.loadtxt(results_dir + "y_pred_seq.csv", dtype=np.float64)
+Y_real = np.loadtxt(results_dir + "y_real.csv", dtype=np.float64)
+Y_pred = np.loadtxt(results_dir + "y_pred.csv", dtype=np.float64)
 
 
-def compute_metrics(Y_pred_seq, Y_test_seq):
+def compute_metrics(Y_pred, Y_real):
     mses = []
-    error = Y_pred_seq - Y_test_seq
+    error = Y_pred - Y_real
     sq_error = error**2
     mses = np.mean(sq_error, axis=0)
     return mses
 
 
-def histogram_error(Y_pred_seq, Y_test_seq, bins):
-    error = Y_pred_seq - Y_test_seq
+def histogram_error(Y_pred, Y_real, bins):
+    error = Y_pred - Y_real
     fig, axs = plt.subplots(2, 1, figsize=(10, 6))
     for i, ax in enumerate(axs):
         sns.histplot(error[:, i], bins=32, ax=ax)
@@ -35,7 +35,7 @@ def histogram_error(Y_pred_seq, Y_test_seq, bins):
     plt.show()
 
 
-mses = compute_metrics(Y_pred_seq, Y_test_seq)
+mses = compute_metrics(Y_pred, Y_real)
 
 bins = 32
-histogram_error(Y_pred_seq, Y_test_seq, 32)
+histogram_error(Y_pred, Y_real, 32)
