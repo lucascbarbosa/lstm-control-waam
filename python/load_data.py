@@ -23,13 +23,12 @@ def denormalize_data(x, mean, std):
 
 
 def sequence_data(X, Y, inputs_seq_len, outputs_seq_len, forecast_h):
-    sequence_length = inputs_seq_len + outputs_seq_len
-    X_seq = np.zeros((len(X) - sequence_length, sequence_length, X.shape[1]))
-    Y_seq = np.zeros((len(X) - sequence_length - forecast_h + 1, X.shape[1]))
-    for i in range(0, len(X) - sequence_length):
-        input_seq = np.vstack((X[i: i + inputs_seq_len, :],
-                              Y[i: i + outputs_seq_len, :]))
-        output_seq = Y[i + outputs_seq_len + forecast_h - 1, :]
-        X_seq[i, :, :] = input_seq
-        Y_seq[i, :] = output_seq
+    seq_len = inputs_seq_len + outputs_seq_len
+    X_seq = np.zeros((len(X) - seq_len - forecast_h + 1, seq_len, X.shape[1]))
+    Y_seq = np.zeros((len(X) - seq_len - forecast_h + 1, X.shape[1]))
+    for i in range(0, len(X) - seq_len - forecast_h + 1):
+        X_seq[i, :, :] = np.vstack((X[i: i + inputs_seq_len, :],
+                                    Y[i: i + outputs_seq_len, :]))
+        Y_seq[i, :] = Y[i + outputs_seq_len + forecast_h - 1, :]
+
     return X_seq, Y_seq

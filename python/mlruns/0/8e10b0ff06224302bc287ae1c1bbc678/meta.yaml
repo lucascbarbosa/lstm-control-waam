@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/python/mlruns/0/8e10b0ff06224302bc287ae1c1bbc678/artifacts
+end_time: 1692654020665
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 8e10b0ff06224302bc287ae1c1bbc678
+run_name: angry-shrimp-653
+run_uuid: 8e10b0ff06224302bc287ae1c1bbc678
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1692654020645
+status: 4
+tags: []
+user_id: lucas

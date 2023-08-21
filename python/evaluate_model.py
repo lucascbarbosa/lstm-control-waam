@@ -4,11 +4,11 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # Load data
-data_dir = "C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/database/"
-results_dir = "C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/results/"
+# data_dir = "C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/database/"
+# results_dir = "C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/results/"
 
-Y_real = np.loadtxt(results_dir + "y_real.csv", dtype=np.float64)
-Y_pred = np.loadtxt(results_dir + "y_pred.csv", dtype=np.float64)
+# Y_real = np.loadtxt(results_dir + "y_real.csv", dtype=np.float64)
+# Y_pred = np.loadtxt(results_dir + "y_pred.csv", dtype=np.float64)
 
 
 def compute_metrics(Y_pred, Y_real):
@@ -35,7 +35,7 @@ def histogram_error(Y_pred, Y_real, bins):
     plt.show()
 
 
-mses = compute_metrics(Y_pred, Y_real)
+# mses = compute_metrics(Y_pred, Y_real)
 
-bins = 32
-histogram_error(Y_pred, Y_real, 32)
+# bins = 32
+# histogram_error(Y_pred, Y_real, 32)
