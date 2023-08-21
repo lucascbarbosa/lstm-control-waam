@@ -23,6 +23,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
 def create_model(sequence_length, num_features_input, num_features_output, summary=True):
+    tf.random.set_seed(42)
     model = Sequential()
     model.add(LSTM(units=64, activation='relu', input_shape=(
         sequence_length, num_features_input)))

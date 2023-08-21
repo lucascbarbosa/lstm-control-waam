@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/lucas/OneDrive/Documentos/GitHub/lstm-control-waam/python/mlruns/0/70c9f56893db4a2ebb57e9b702652689/artifacts
+end_time: 1692660879674
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 70c9f56893db4a2ebb57e9b702652689
+run_name: trial-5
+run_uuid: 70c9f56893db4a2ebb57e9b702652689
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1692660872823
+status: 3
+tags: []
+user_id: lucas
