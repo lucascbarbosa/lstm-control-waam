@@ -1,6 +1,4 @@
-from python.evaluate_model import compute_metrics
-from python.lstm import create_model, train_model, predict_data, plot_loss
-from python.load_data import load_data, normalize_data, sequence_data, denormalize_data
+from python.load_data import load_data, normalize_data
 import itertools
 import shutil
 import datetime
@@ -10,7 +8,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from multiprocessing import Pool, cpu_count
+from multiprocess import Pool, cpu_count
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 #############
@@ -28,8 +26,12 @@ def delete_models(models_path):
         shutil.rmtree(item_path)
 
 
-def run_training(run_params):
-    with mlflow.start_run(run_name=f'run-{run_params[run_id]}', experiment_id=experiment.experiment_id):
+def run_training(X_train, Y_train, X_test, Y_test, run_params):
+    import mlflow
+    from python.load_data import sequence_data, denormalize_data
+    from python.lstm import create_model, train_model, predict_data, plot_loss
+    from python.evaluate_model import compute_metrics
+    with mlflow.start_run(run_name=f"run-{run_params['run_id']}", experiment_id=run_params['experiment_id']):
         # Sequencing
         sequence_length = run_params['P'] + run_params['Q']
         X_train, Y_train = sequence_data(
@@ -41,7 +43,7 @@ def run_training(run_params):
 
         # Define model
         model = create_model(
-            sequence_length, num_features_input, num_features_output, random_seed=42, summary=False)
+            sequence_length, run_params['num_features_input'], run_params['num_features_output'], random_seed=42, summary=False)
 
         # Training
         model, history = train_model(
@@ -112,12 +114,15 @@ i = 1
 for hp_comb in hp_combinations:
     run_params = {param_name: param_value for param_name,
                   param_value in zip(hp_search_space.keys(), hp_comb)}
+    run_params['num_features_input'] = num_features_input
+    run_params['num_features_output'] = num_features_output
+    run_params['experiment_id'] = experiment
     run_params['run_id'] = i
     # print(f'Run: #{i}:, Params={run_params}')
     list_run_params.append(run_params)
     i += 1
 
-num_processes = 1
+num_processes = 2
 with Pool(processes=num_processes) as pool:
-    pool.starmap(run_training, [(run_params)
-                 for run_params in list_run_params])
+    results = pool.starmap(run_training, [(X_train, Y_train, X_test, Y_test, run_params,)
+                                          for run_params in list_run_params])
