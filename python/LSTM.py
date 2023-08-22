@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-from load_data import load_data, normalize_data, sequence_data, denormalize_data
 
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
@@ -22,8 +21,9 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 # Functions #
 
 
-def create_model(sequence_length, num_features_input, num_features_output, summary=True):
-    tf.random.set_seed(42)
+def create_model(sequence_length, num_features_input, num_features_output, random_seed=None, summary=True):
+    if random_seed:
+        tf.random.set_seed(random_seed)
     model = Sequential()
     model.add(LSTM(units=64, activation='relu', input_shape=(
         sequence_length, num_features_input)))
