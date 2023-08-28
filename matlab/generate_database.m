@@ -119,8 +119,8 @@ Ir_binary_signal = randi([0, n_amplitudes-1], 1, N)/(n_amplitudes-1);
 f_signal = f_lv + (f_uv - f_lv) * f_binary_signal;
 Ir_signal = Ir_lv + (Ir_uv - Ir_lv) * Ir_binary_signal;
 
-inputs(:, 1) = f_binary_signal';
-inputs(:,2) = Ir_binary_signal';
+inputs(:, 1) = f_signal';
+inputs(:,2) = Ir_signal';
 
 %% Setup Signal Builder block in the model
 signal_f_path = [model_name, '/Signal f']; % Update with your Signal Builder block's path
