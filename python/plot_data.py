@@ -1,68 +1,70 @@
 import pandas as pd
 import numpy as np
-from python.process_data import load_data, normalize_data, sequence_data
+from python.process_data import (
+    load_data,
+    standardize_data,
+    normalize_data,
+    sequence_data,
+)
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 # Load data
 data_dir = "database/"
 results_dir = "results/"
-X_train, Y_train, X_test, Y_test = load_data(data_dir)
-
-# Inputs
-# Train
-N = 100
-fig, axs = plt.subplots(2, 1)
-fig.set_size_inches(8, 6)
-axs[0].step(range(N), X_train[:N, 0])
-axs[0].set_title(r"$f$")
-
-axs[1].step(range(N), X_train[:N, 1])
-axs[1].set_xlabel(r"k")
-axs[1].set_title(r"$Ir$")
-
-fig.suptitle("Entradas de dados de treino")
-fig.savefig(results_dir + "train_inputs.png")
-
-# Test
-fig, axs = plt.subplots(2, 1)
-fig.set_size_inches(8, 6)
-axs[0].step(range(N), X_test[:N, 0])
-axs[0].set_title(r"$f$")
-
-axs[1].step(range(N), X_test[:N, 1])
-axs[1].set_xlabel(r"k")
-axs[1].set_title(r"$Ir$")
-
-fig.suptitle("Entradas de dados de teste")
-fig.savefig(results_dir + "test_inputs.png")
-
-# Inputs
-# Train
-fig, axs = plt.subplots(2, 1)
-fig.set_size_inches(8, 6)
-axs[0].plot(Y_train[:N, 0])
-axs[0].set_title(r"$w_e$")
-
-axs[1].plot(Y_train[:N, 1])
-axs[1].set_xlabel(r"k")
-axs[1].set_title(r"$h$")
-
-fig.suptitle("Saídas de dados de treino")
-fig.savefig(results_dir + "train_outputs.png")
-
-# Test
-fig, axs = plt.subplots(2, 1)
-fig.set_size_inches(8, 6)
-axs[0].plot(Y_test[:N, 0])
-axs[0].set_title(r"$w_e$")
-
-axs[1].plot(Y_test[:N, 1])
-axs[1].set_xlabel(r"k")
-axs[1].set_title(r"$k$")
-
-fig.suptitle("Saídas de dados de teste")
-fig.savefig(results_dir + "test_outputs.png")
+inputs_train, outputs_train, inputs_test, outputs_test = load_data(data_dir)
 
 
-plt.show()
+def plot_data(
+    N,
+    database,
+    data_labels,
+    fig_titles,
+    fig_filenames,
+    scale=False,
+    save=False,
+):
+    for data, data_label, fig_title, fig_filename in zip(
+        database, data_labels, fig_titles, fig_filenames
+    ):
+        if scale:
+            if fig_title.split(" ")[0] == "Entradas":
+                data = normalize_data(data)
+            else:
+                data = standardize_data(data)
+
+        fig, axs = plt.subplots(2, 1)
+        fig.set_size_inches(8, 6)
+        axs[0].step(range(N), data[:N, 0])
+        axs[0].set_title(r"$%s$" % data_label[0])
+
+        axs[1].step(range(N), data[:N, 1])
+        axs[1].set_xlabel(r"k")
+        axs[0].set_title(r"$%s$" % data_label[1])
+
+        fig.suptitle(fig_title)
+        if save:
+            fig.savefig(results_dir + f"{fig_filename}.png")
+
+    plt.show()
+
+
+N = 200  # Horizon plotted
+database = [inputs_train, outputs_train, inputs_test, outputs_test]
+data_labels = [["f", "Ir"], ["we", "h"], ["f", "Ir"], ["we", "h"]]
+fig_titles = [
+    "Entradas de treinamento",
+    "Saídas de treinamento",
+    "Entradas de teste",
+    "Saídas de teste",
+]
+fig_filenames = [
+    "inputs_train",
+    "outputs_train",
+    "inputs_test",
+    "outputs_test",
+]
+
+plot_data(
+    N, database, data_labels, fig_titles, fig_filenames, scale=True, save=True
+)

@@ -1,4 +1,8 @@
-from python.process_data import load_data, normalize_data
+from python.process_data import (
+    load_data,
+    normalize_data,
+    standardize_data,
+)
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras.optimizers import Adam
@@ -16,28 +20,37 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 data_dir = "database/"
 results_dir = "results/"
 
+
 ############
 # Function #
-
-
 def delete_models(models_path):
     for item in os.listdir(models_path):
         item_path = os.path.join(models_path, item)
         shutil.rmtree(item_path)
 
 
-def run_training(X_train, Y_train, X_test, Y_test, run_params):
-    from python.process_data import sequence_data, denormalize_data
+def run_training(
+    inputs_train, outputs_train, inputs_test, outputs_test, run_params
+):
+    from python.process_data import sequence_data, destandardize_data
     from python.lstm import create_model, train_model, predict_data, plot_loss
     from python.evaluate_model import compute_metrics
 
     # Sequencing
     sequence_length = run_params["P"] + run_params["Q"]
     X_train, Y_train = sequence_data(
-        X_train, Y_train, run_params["P"], run_params["Q"], run_params["H"]
+        inputs_train,
+        outputs_train,
+        run_params["P"],
+        run_params["Q"],
+        run_params["H"],
     )
     X_test, Y_test = sequence_data(
-        X_test, Y_test, run_params["P"], run_params["Q"], run_params["H"]
+        inputs_test,
+        outputs_test,
+        run_params["P"],
+        run_params["Q"],
+        run_params["H"],
     )
     y_means = Y_test.mean(axis=0)
     y_stds = Y_test.std(axis=0)
@@ -65,13 +78,13 @@ def run_training(X_train, Y_train, X_test, Y_test, run_params):
     # Prediction
     Y_pred = predict_data(model, X_test)
     for i in range(num_features_output):
-        Y_pred[:, i] = denormalize_data(
+        Y_pred[:, i] = destandardize_data(
             Y_pred[:, i], y_means[i], y_stds[i]
-        )  # Denormalize
+        )  # Destandardize
 
-        Y_test[:, i] = denormalize_data(
+        Y_test[:, i] = destandardize_data(
             Y_test[:, i], y_means[i], y_stds[i]
-        )  # Denormalize
+        )  # Destandardize
 
     model.save(
         results_dir + f"models/hyperparams/run_{run_params['run_id']}.keras"
@@ -84,19 +97,22 @@ def run_training(X_train, Y_train, X_test, Y_test, run_params):
     return metrics
 
 
-# Load data
-X_train, Y_train, X_test, Y_test = load_data(data_dir)
-num_features_input = X_train.shape[1]
-num_features_output = Y_train.shape[1]
+# Load database
+inputs_train, outputs_train, inputs_test, outputs_test = load_data(data_dir)
+num_features_input = inputs_train.shape[1]
+num_features_output = outputs_train.shape[1]
 
-# Slice to fit sequencing
-X_train = X_train[:1000, :]
-Y_train = Y_train[:1000, :]
-X_test = X_test[:1000, :]
-Y_test = Y_test[:1000, :]
+# Slice database to fit sequencing
+inputs_train = inputs_train[:1000, :]
+outputs_train = outputs_train[:1000, :]
+inputs_test = inputs_test[:1000, :]
+outputs_test = outputs_test[:1000, :]
 
-Y_train = normalize_data(Y_train)
-Y_test = normalize_data(Y_test)
+# Scale database
+inputs_train = normalize_data(inputs_train)
+inputs_test = normalize_data(inputs_test)
+outputs_train = standardize_data(outputs_train)
+outputs_test = standardize_data(outputs_test)
 
 # Remove previous models
 delete_models(results_dir + "models/hyperparams")
@@ -134,10 +150,10 @@ with Pool(processes=num_processes) as pool:
         run_training,
         [
             (
-                X_train,
-                Y_train,
-                X_test,
-                Y_test,
+                inputs_train,
+                outputs_train,
+                inputs_test,
+                outputs_test,
                 run_params,
             )
             for run_params in list_run_params
