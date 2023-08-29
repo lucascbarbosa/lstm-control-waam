@@ -5,16 +5,19 @@ clear all;
 init_params;
 
 %% Simulation parameters
-step_time = 0.1; % Simulation step time
-sim_time = 1000;   % Simulation time in seconds
+step_time = 1e-05; % Simulation step time
+sim_time = 10;   % Simulation time in seconds
+resample_step = 1e-02; % Resampled step time of 0.01 s
+resample_frequency = 1/resample_step;
 
 %% Generate time vector
 time = 0:step_time:sim_time;
+resample_time = 0:resample_step:sim_time;
 
 %% Tamanho do dataset de treino
 n_inputs = 2;
 n_outputs = 2;
-N = length(time);
+N = length(resample_time);
 outputs = zeros(N, n_outputs);
 inputs = zeros(N, n_inputs);
 
@@ -42,27 +45,27 @@ inputs(:,2) = Ir_signal';
 signal_f_path = [model_name, '/Signal f']; % Update with your Signal Builder block's path
 signal_f_block = get_param(signal_f_path, 'Handle');
 % Set the generated binary signal using the 'set' function
-signalbuilder(signal_f_block, 'set', 1, 1, time, f_signal);
+signalbuilder(signal_f_block, 'set', 1, 1, resample_time, f_signal);
 
 signal_Ir_path = [model_name, '/Signal Ir']; % Update with your Signal Builder block's path
 signal_Ir_block = get_param(signal_Ir_path, 'Handle');
 % Set the generated binary signal using the 'set' function
-signalbuilder(signal_Ir_block, 'set', 1, 1, time, Ir_signal);
+signalbuilder(signal_Ir_block, 'set', 1, 1, resample_time, Ir_signal);
 
 %% Simulate
 % Define simulation options structure
 simOut = sim(model_name, 'FixedStep', num2str(step_time), 'StopTime', num2str(sim_time));
 
-tout = simOut.tout;
 we = simOut.we.Data;
-we = resample(we', tout, 1/step_time);
 h = simOut.h.Data;
-h = resample(h', tout, 1/step_time);
+
+we = resample(we', time, resample_frequency);
+h = resample(h', time, resample_frequency);
 
 % Generate Gaussian noise
 noise_mean = 0;      % Mean of the Gaussian noise
 noise_stddev = 1e-6;  % Standard deviation of the Gaussian noise
-gaussian_noise = noise_mean + noise_stddev * randn(size(time));
+gaussian_noise = noise_mean + noise_stddev * randn(size(resample_time));
 
 we = we + gaussian_noise;
 h = h + gaussian_noise;
@@ -126,27 +129,28 @@ inputs(:,2) = Ir_signal';
 signal_f_path = [model_name, '/Signal f']; % Update with your Signal Builder block's path
 signal_f_block = get_param(signal_f_path, 'Handle');
 % Set the generated binary signal using the 'set' function
-signalbuilder(signal_f_block, 'set', 1, 1, time, f_signal);
+signalbuilder(signal_f_block, 'set', 1, 1, resample_time, f_signal);
 
 signal_Ir_path = [model_name, '/Signal Ir']; % Update with your Signal Builder block's path
 signal_Ir_block = get_param(signal_Ir_path, 'Handle');
 % Set the generated binary signal using the 'set' function
-signalbuilder(signal_Ir_block, 'set', 1, 1, time, Ir_signal);
+signalbuilder(signal_Ir_block, 'set', 1, 1, resample_time, Ir_signal);
 
 %% Simulate
 % Define simulation options structure
 simOut = sim(model_name, 'FixedStep', num2str(step_time), 'StopTime', num2str(sim_time));
 
-tout = simOut.tout;
+% tout = simOut.tout;
 we = simOut.we.Data;
-we = resample(we', tout, 1/step_time);
 h = simOut.h.Data;
-h = resample(h', tout, 1/step_time);
+
+we = resample(we', time, resample_frequency);
+h = resample(h', time, resample_frequency);
 
 % Generate Gaussian noise
 noise_mean = 0;      % Mean of the Gaussian noise
 noise_stddev = 1e-6;  % Standard deviation of the Gaussian noise
-gaussian_noise = noise_mean + noise_stddev * randn(size(time));
+gaussian_noise = noise_mean + noise_stddev * randn(size(resample_time));
 
 we = we + gaussian_noise;
 h = h + gaussian_noise;
