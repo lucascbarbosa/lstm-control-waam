@@ -98,8 +98,8 @@ best_model = load_model(
 
 outputs_gmaw = np.zeros(outputs_train.shape)
 outputs_gmaw[0, :] = outputs_train[0, :]
-x = [0, 0]  # initial state
-step = 1e-3
+x = [0.0, 0.0]  # initial state
+step = 1e-5
 
 for i in range(inputs_train.shape[0] - 1):
     u = inputs_train[i, :]
