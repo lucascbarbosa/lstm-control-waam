@@ -6,6 +6,7 @@ from python.process_data import (
     normalize_data,
     standardize_data,
 )
+from scipy.integrate import odeint
 
 #############
 # Filepaths #
@@ -98,10 +99,11 @@ best_model = load_model(
 outputs_gmaw = np.zeros(outputs_train.shape)
 outputs_gmaw[0, :] = outputs_train[0, :]
 x = [0, 0]  # initial state
-step = 1e-5
+step = 1e-3
 
 for i in range(inputs_train.shape[0] - 1):
     u = inputs_train[i, :]
+    t_span = [0, step]
     x_dot, Q, Ac, we, h = gmaw(u, x)
     x = x_dot * step + x
     outputs_gmaw[i + 1, :] = [we, h]
