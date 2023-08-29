@@ -5,8 +5,8 @@ clear all;
 init_params;
 
 %% Simulation parameters
-step_time = 0.1; % Simulation step time
-sim_time = 1000;   % Simulation time in seconds
+step_time = 0.00001; % Simulation step time
+sim_time = 10;   % Simulation time in seconds
 
 %% Generate time vector
 time = 0:step_time:sim_time;
