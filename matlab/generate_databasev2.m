@@ -6,8 +6,8 @@ init_params;
 
 %% Simulation parameters
 step_time = 1e-05; % Simulation step time
-sim_time = 10;   % Simulation time in seconds
-resample_step = 1e-02; % Resampled step time of 0.01 s
+sim_time = 1e-02;   % Simulation time in seconds
+resample_step = 1e-05; % Resampled step time of 0.01 s
 resample_frequency = 1/resample_step;
 
 %% Generate time vector
