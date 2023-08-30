@@ -5,9 +5,9 @@ clear all;
 init_params;
 
 %% Simulation parameters
-step_time = 1e-05; % Simulation step time
-sim_time = 1e-02;   % Simulation time in seconds
-resample_step = 1e-05; % Resampled step time of 0.01 s
+step_time = 1e-09; % Simulation step time
+sim_time = 1e-03;   % Simulation time in seconds
+resample_step = 1e-06; % Resampled step time of 0.01 s
 resample_frequency = 1/resample_step;
 
 %% Generate time vector
@@ -54,7 +54,7 @@ signalbuilder(signal_Ir_block, 'set', 1, 1, resample_time, Ir_signal);
 
 %% Simulate
 % Define simulation options structure
-simOut = sim(model_name, 'FixedStep', num2str(step_time), 'StopTime', num2str(sim_time));
+simOut = sim(model_name, 'FixedStep', num2str(step_time), 'StopTime', num2str(sim_time), 'Solver', 'ode1');
 
 we = simOut.we.Data;
 h = simOut.h.Data;
@@ -138,7 +138,7 @@ signalbuilder(signal_Ir_block, 'set', 1, 1, resample_time, Ir_signal);
 
 %% Simulate
 % Define simulation options structure
-simOut = sim(model_name, 'FixedStep', num2str(step_time), 'StopTime', num2str(sim_time));
+simOut = sim(model_name, 'FixedStep', num2str(step_time), 'StopTime', num2str(sim_time), 'Solver', 'ode1');
 
 % tout = simOut.tout;
 we = simOut.we.Data;
