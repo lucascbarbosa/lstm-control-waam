@@ -34,12 +34,28 @@ def denormalize_data(x, min_val, max_val):
 
 def sequence_data(X, Y, inputs_seq_len, outputs_seq_len, forecast_h):
     seq_len = inputs_seq_len + outputs_seq_len
-    X_seq = np.zeros((len(X) - seq_len - forecast_h + 1, seq_len, X.shape[1]))
+    X_seq = np.zeros((len(X) - seq_len - forecast_h + 1, seq_len * 2, 1))
     Y_seq = np.zeros((len(X) - seq_len - forecast_h + 1, X.shape[1]))
     for i in range(0, len(X) - seq_len - forecast_h + 1):
-        X_seq[i, :, :] = np.vstack(
-            (X[i : i + inputs_seq_len, :], Y[i : i + outputs_seq_len, :])
+        X_seq[i, :, 0] = np.hstack(
+            (
+                X[i : i + inputs_seq_len, :].ravel(),
+                Y[i : i + outputs_seq_len, :].ravel(),
+            )
         )
         Y_seq[i, :] = Y[i + outputs_seq_len + forecast_h - 1, :]
 
     return X_seq, Y_seq
+
+
+# def sequence_data(X, Y, inputs_seq_len, outputs_seq_len, forecast_h):
+#     seq_len = inputs_seq_len + outputs_seq_len
+#     X_seq = np.zeros((len(X) - seq_len - forecast_h + 1, seq_len, X.shape[1]))
+#     Y_seq = np.zeros((len(X) - seq_len - forecast_h + 1, X.shape[1]))
+#     for i in range(0, len(X) - seq_len - forecast_h + 1):
+#         X_seq[i, :, :] = np.vstack(
+#             (X[i : i + inputs_seq_len, :], Y[i : i + outputs_seq_len, :])
+#         )
+#         Y_seq[i, :] = Y[i + outputs_seq_len + forecast_h - 1, :]
+
+#     return X_seq, Y_seq

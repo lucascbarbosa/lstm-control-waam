@@ -2,9 +2,6 @@ import pandas as pd
 import numpy as np
 from python.process_data import (
     load_data,
-    standardize_data,
-    normalize_data,
-    sequence_data,
 )
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -86,7 +83,7 @@ def plot_data(
 
 # plt.show()
 
-
+N = 200
 fig, axs = plt.subplots(2, 1)
 fig.set_size_inches(12, 6)
 plot_data(N, outputs_train, ["we", "h"], None, "y", fig, axs)

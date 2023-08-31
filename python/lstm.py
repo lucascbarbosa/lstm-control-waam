@@ -28,7 +28,7 @@ def create_model(
         LSTM(
             units=64,
             activation="relu",
-            input_shape=(sequence_length, num_features_input),
+            input_shape=(2 * sequence_length, 1),
         )
     )
     # model.add(TimeDistributed(Dense(units=Y_train_seq.shape[-1])))
@@ -40,6 +40,35 @@ def create_model(
     if summary:
         model.summary()
     return model
+
+
+# def create_model(
+#     sequence_length,
+#     num_features_input,
+#     num_features_output,
+#     lr,
+#     random_seed=None,
+#     summary=True,
+# ):
+#     if random_seed:
+#         tf.random.set_seed(random_seed)
+#     model = Sequential()
+#     model.add(
+#         LSTM(
+#             units=64,
+#             activation="relu",
+#             input_shape=(sequence_length, num_features_input),
+#         )
+#     )
+#     # model.add(TimeDistributed(Dense(units=Y_train_seq.shape[-1])))
+#     model.add(Dense(units=num_features_output))
+#     # Compile the model
+#     model.compile(optimizer=Adam(learning_rate=lr), loss=mean_squared_error)
+
+#     # Display model summary
+#     if summary:
+#         model.summary()
+#     return model
 
 
 def train_model(
@@ -57,7 +86,7 @@ def train_model(
         batch_size=batch_size,
         epochs=epochs,
         validation_split=validation_split,
-        verbose=0,
+        verbose=verbose,
     )  # fit data
     return model, history
 

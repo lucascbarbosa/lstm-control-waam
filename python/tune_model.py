@@ -5,7 +5,6 @@ from python.process_data import (
 )
 import tensorflow as tf
 from tensorflow.keras.models import load_model
-from tensorflow.keras.optimizers import Adam
 import itertools
 import shutil
 import datetime
@@ -26,15 +25,25 @@ results_dir = "results/"
 def delete_models(models_path):
     for item in os.listdir(models_path):
         item_path = os.path.join(models_path, item)
-        shutil.rmtree(item_path)
+        os.remove(item_path)
 
 
 def run_training(
-    inputs_train, outputs_train, inputs_test, outputs_test, run_params
+    inputs_train,
+    outputs_train,
+    inputs_test,
+    outputs_test,
+    run_params,
 ):
     from python.process_data import sequence_data, destandardize_data
-    from python.lstm import create_model, train_model, predict_data, plot_loss
-    from python.evaluate_model import compute_metrics
+    from python.lstm import create_model, train_model, predict_data
+
+    def compute_metrics(Y_pred, Y_real):
+        mses = []
+        error = Y_pred - Y_real
+        sq_error = error**2
+        mses = np.mean(sq_error, axis=0)
+        return mses
 
     # Sequencing
     sequence_length = run_params["P"] + run_params["Q"]
@@ -73,6 +82,7 @@ def run_training(
         run_params["batch_size"],
         run_params["num_epochs"],
         run_params["validation_split"],
+        verbose=run_params["verbose"],
     )
 
     # Prediction
@@ -93,7 +103,7 @@ def run_training(
 
     metrics = run_params
     metrics["loss"] = loss
-
+    print(f"Run: {run_params['run_id']}. Loss: {loss:.2f}")
     return metrics
 
 
@@ -141,6 +151,7 @@ for hp_comb in hp_combinations:
     run_params["num_features_input"] = num_features_input
     run_params["num_features_output"] = num_features_output
     run_params["run_id"] = "%03d" % i
+    run_params["verbose"] = 0
     list_run_params.append(run_params)
     i += 1
 

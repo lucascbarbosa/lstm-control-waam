@@ -1,8 +1,9 @@
 from python.process_data import (
     load_data,
     sequence_data,
+    standardize_data,
     normalize_data,
-    denormalize_data,
+    destandardize_data,
 )
 from python.lstm import predict_data
 
@@ -43,38 +44,42 @@ model.compile(
 )
 
 # Load and sequence data accordingly
-_, _, X_test, Y_test = load_data(data_dir)
-num_features_input = X_test.shape[1]
-num_features_output = Y_test.shape[1]
+_, _, inputs_test, outputs_test = load_data(data_dir)
+
+# Scale database
+inputs_test = normalize_data(inputs_test)
+outputs_test = standardize_data(outputs_test)
+num_features_input = inputs_test.shape[1]
+num_features_output = outputs_test.shape[1]
 
 # Slice to fit sequencing
-X_test = X_test[:1000, :]
-Y_test = Y_test[:1000, :]
+inputs_test = inputs_test[:1000, :]
+outputs_test = outputs_test[:1000, :]
 
-Y_test = normalize_data(Y_test)
+outputs_test = standardize_data(outputs_test)
 
 X_real, Y_real = sequence_data(
-    X_test,
-    Y_test,
+    inputs_test,
+    outputs_test,
     int(best_params["P"]),
     int(best_params["Q"]),
     int(best_params["H"]),
 )
-y_means = Y_test.mean(axis=0)
-y_stds = Y_test.std(axis=0)
+y_means = outputs_test.mean(axis=0)
+y_stds = outputs_test.std(axis=0)
 
 # Prediction
 Y_pred = predict_data(model, X_real)
 for i in range(num_features_output):
-    Y_pred[:, i] = denormalize_data(
+    Y_pred[:, i] = destandardize_data(
         Y_pred[:, i], y_means[i], y_stds[i]
     )  # Denormalize
 
-    Y_test[:, i] = denormalize_data(
-        Y_test[:, i], y_means[i], y_stds[i]
+    Y_real[:, i] = destandardize_data(
+        Y_real[:, i], y_means[i], y_stds[i]
     )  # Denormalize
 
-# # Cutout the first P+Q elements
+# Cutout the first P+Q elements
 # Y_real = Y_real[int(best_params["P"]) + int(best_params["Q"]) :]
 
 # Save real and predicted data
@@ -83,6 +88,3 @@ np.savetxt(results_dir + "predictions/y_pred.csv", Y_pred)
 
 mses = compute_metrics(Y_pred, Y_real)
 print(f"MSE: we={mses[0]:.3f} h={mses[1]:.3f}")
-
-bins = 32
-# histogram_error(Y_pred, Y_real, 32)

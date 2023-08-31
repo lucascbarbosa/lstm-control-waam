@@ -69,5 +69,8 @@ def histogram_error(bins, save=False):
     plt.show()
 
 
-batch_size = 64
+batch_size = 16
 plot_heatmap(batch_size, save=True)
+
+bins = 32
+histogram_error(bins)
