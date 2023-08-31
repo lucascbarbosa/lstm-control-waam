@@ -32,30 +32,38 @@ def denormalize_data(x, min_val, max_val):
     return x * (max_val - min_val) + min_val
 
 
-def sequence_data(X, Y, inputs_seq_len, outputs_seq_len, forecast_h):
-    seq_len = inputs_seq_len + outputs_seq_len
-    X_seq = np.zeros((len(X) - seq_len - forecast_h + 1, seq_len * 2, 1))
-    Y_seq = np.zeros((len(X) - seq_len - forecast_h + 1, X.shape[1]))
-    for i in range(0, len(X) - seq_len - forecast_h + 1):
+def sequence_data(X, Y, P, Q, H):
+    """
+    P: Inputs sequence length
+    Q: Outputs sequence length
+    H: Forecast horizon
+    """
+    X_seq = np.zeros((len(X) - max(P - 1, Q) - H + 1, (P + Q) * 2, 1))
+    Y_seq = np.zeros((len(X) - max(P - 1, Q) - H + 1, X.shape[1]))
+    for i in range(0, len(X) - max(P - 1, Q) - H + 1):
         X_seq[i, :, 0] = np.hstack(
             (
-                X[i : i + inputs_seq_len, :].ravel(),
-                Y[i : i + outputs_seq_len, :].ravel(),
+                X[i : i + P, :].ravel(),
+                Y[i : i + Q, :].ravel(),
             )
         )
-        Y_seq[i, :] = Y[i + outputs_seq_len + forecast_h - 1, :]
+        Y_seq[i, :] = Y[i + Q + H - 1, :]
 
     return X_seq, Y_seq
 
 
-# def sequence_data(X, Y, inputs_seq_len, outputs_seq_len, forecast_h):
-#     seq_len = inputs_seq_len + outputs_seq_len
-#     X_seq = np.zeros((len(X) - seq_len - forecast_h + 1, seq_len, X.shape[1]))
-#     Y_seq = np.zeros((len(X) - seq_len - forecast_h + 1, X.shape[1]))
-#     for i in range(0, len(X) - seq_len - forecast_h + 1):
+# def sequence_data(X, Y, P, Q, H):
+#     """
+#     P: Inputs sequence length
+#     Q: Outputs sequence length
+#     H: Forecast horizon
+#     """
+#     X_seq = np.zeros((len(X) - max(P - 1, Q) - H + 1, P + Q, X.shape))
+#     Y_seq = np.zeros((len(X) - max(P - 1, Q) - H + 1, X.shape[1]))
+#     for i in range(0, len(X) - max(P - 1, Q) - H + 1):
 #         X_seq[i, :, :] = np.vstack(
-#             (X[i : i + inputs_seq_len, :], Y[i : i + outputs_seq_len, :])
+#             (X[i : i + P, :], Y[i : i + Q, :])
 #         )
-#         Y_seq[i, :] = Y[i + outputs_seq_len + forecast_h - 1, :]
+#         Y_seq[i, :] = Y[i + Q + H - 1, :]
 
 #     return X_seq, Y_seq
