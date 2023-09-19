@@ -1,13 +1,14 @@
 from python.gmaw_process import *
 
-import numpy as np
-import pandas as pd
-import os
 import tensorflow as tf
 from keras.models import load_model
 from tensorflow.keras.losses import mean_squared_error
 from tensorflow.keras.optimizers import Adam
 
+import numpy as np
+import pandas as pd
+import os
+import time
 
 #############
 # Filepaths #
@@ -29,14 +30,15 @@ best_model_id = 13
 keras_model = load_model(
     results_dir + f"models/best/run_{best_model_id:03d}.keras"
 )
+
 opt = Adam(learning_rate=best_params["lr"])
 keras_model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Define MPC parameters
 N = 10  # prediction horizon
 M = 10  # control horizon
-weight_control = np.array([[1, 1]]).reshape((2, 1))
-weight_output = np.array([[1, 1]]).reshape((2, 1))
+weights_control = np.array([[1, 1]]).reshape((2, 1))
+weights_output = np.array([[1, 1]]).reshape((2, 1))
 
 # Simulation parameters
 step = 1e-6
@@ -65,45 +67,42 @@ bounds = control_bounds + output_bounds
 y_ref = np.array([[weo, ho]])
 
 # Historic data
-u_hist = np.zeros((P - 1, 2))
-y_hist = np.zeros((Q - 1, 2))
+u_hist = np.zeros((P, 2))
+y_hist = np.zeros((Q, 2))
 
 
 #############
 # Functions #
-def build_sequence(u_hist, u_last, y_hist, y_last):
-    u = np.vstack((u_hist, u_last)).ravel()
-    y = np.vstack((y_hist, y_last)).ravel()
+def build_sequence(u_hist, y_hist):
+    u = u_hist.ravel()
+    y = y_hist.ravel()
     return np.hstack((u, y)).reshape((1, 2 * (P + Q), 1))
 
 
-def lstm_predict(u_hist, u_last, y_hist, y_last):
-    seq_input = build_sequence(u_hist, u_last, y_hist, y_last)
+def lstm_predict(u_hist, y_hist):
+    seq_input = build_sequence(u_hist, y_hist)
     y_hat = keras_model.predict(seq_input, verbose=0)
     return y_hat
 
 
-def update_hist(current_hist, last_state):
+def update_hist(current_hist, new_states):
     new_hist = current_hist.copy()
-    new_hist[:-1, :] = current_hist[1:, :]
-    new_hist[-1, :] = last_state
+    len_new = new_states.shape[0]
+    new_hist[:-len_new, :] = current_hist[len_new:, :]
+    new_hist[-len_new:, :] = new_states
     return new_hist
 
 
-def cost_function(u_forecast, u_hist, y_hist, y_row, y_ref):
+def forecast_output(u_forecast, u_hist, y_hist, y_row):
     y_forecast = np.zeros((N, 2))
-    y_hat = y_row
+    y_hist = update_hist(y_hist, y_row)
     for i in range(N):
         u_row = u_forecast[i]
-        y_hat = lstm_predict(u_hist, u_row, y_hist, y_hat)
+        u_hist = update_hist(u_hist, u_row)
+        y_hat = lstm_predict(u_hist, y_hist)
         y_forecast[i] = y_hat
         y_hist = update_hist(y_hist, y_hat)
-        u_hist = update_hist(u_hist, u_row)
-
-    u_diff_forecast = create_control_diff(u_forecast)
-    return np.sum(np.dot((y_forecast - y_ref) ** 2, weight_output)) + np.sum(
-        np.dot(u_diff_forecast, weight_control)
-    )
+    return y_forecast
 
 
 def create_control_diff(u_forecast):
@@ -112,27 +111,78 @@ def create_control_diff(u_forecast):
     return u_diff
 
 
-def compute_gradient(seq_input):
-    input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
-    with tf.GradientTape() as t:
-        t.watch(input_tensor)
-        output = keras_model(input_tensor)
-    gradients = t.gradient(output, input_tensor).numpy()[0][: 2 * P]
-    return gradients
+def cost_function(u_forecast, y_forecast, y_ref):
+    u_diff_forecast = create_control_diff(u_forecast)
+    return np.sum((y_forecast - y_ref) ** 2 @ weights_output) + np.sum(
+        u_diff_forecast @ weights_control
+    )
 
 
-def optimization_function(u_forecast, y_last):
-    cost = cost_function(u_forecast, u_hist, y_hist, y_last, y_ref)
-    return cost
+def compute_step(u_hist, u_forecast, y_forecast, lr):
+    def compute_gradient(seq_input):
+        input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
+        with tf.GradientTape() as t:
+            t.watch(input_tensor)
+            output_tensor = keras_model(input_tensor)
+        num_outputs = output_tensor.shape[1]
+        num_inputs = input_tensor.shape[1]
+        gradients = (
+            t.jacobian(output_tensor, input_tensor)
+            .numpy()
+            .reshape((num_outputs, num_inputs))
+        )
+        gradient = gradients[:, 2 * (P - 1) : 2 * P]
+        return gradient
+
+    jacobian = np.zeros((u_forecast.shape[0], 2, 2))
+    for i in range(u_forecast.shape[0]):
+        u_row = u_forecast[i].reshape((1, 2))
+        u_hist = update_hist(u_hist, u_row)
+        seq_input = build_sequence(u_hist, y_hist)
+        start_time = time.time()
+        gradient = compute_gradient(seq_input)
+        end_time = time.time()
+        print("time: ", end_time - start_time)
+        jacobian[i, :, :] = gradient
+
+    u_diff_forecast = create_control_diff(u_forecast)
+    steps = np.zeros(u_forecast.shape)
+    for i in range(u_forecast.shape[1]):
+        jacobian_input = jacobian[:, :, i]
+        weight_control = weights_control[i]
+        u_diff = u_diff_forecast[:, i].reshape((u_diff_forecast.shape[0], 1))
+        output_gradient = np.diag(jacobian_input.T @ (y_forecast - y_ref))
+        output_gradient = (-weights_output.T @ output_gradient)[0]
+        control_gradient = weight_control * u_diff
+        step = -lr * (output_gradient + control_gradient)
+        steps[:, i] = step.ravel()
+    return steps
+
+
+def optimization_function(u_hist, y_hist, num_time_steps, num_opt_steps, lr):
+    u_forecast = np.random.normal(size=(M, 2))
+    y_forecast = forecast_output(u_forecast, u_hist, y_hist, y_row)
+    u_opts = np.zeros((num_opt_steps, 2))
+    for t in range(num_time_steps):
+        for s in range(num_opt_steps):
+            cost = cost_function(u_forecast, y_forecast, y_ref)
+            steps = compute_step(u_hist, u_forecast, y_forecast, lr)
+            u_forecast += steps
+            print("Cost: ", cost)
+            print("Steps: \n", steps)
+            print("U: \n", u_forecast)
+
+        u_opt = u_forecast[0, :]
 
 
 y_row = y0
 u_row = np.zeros((1, 2))
-seq_input = build_sequence(u_hist, u_row, y_hist, y0)
-gradients = compute_gradient(seq_input)
-u0_forecast = np.zeros((M, 2))
+lr = 1e-2
+num_time_steps = 5
+num_opt_steps = 10
+optimization_function(u_hist, y_hist, num_time_steps, num_opt_steps, lr)
+
 # MPC loop
 # for t in range(total_sim_steps):
 
-# u_forecast = np.random.normal(size=(M, 2))
-# cost_function(u_forecast, u_hist, y_hist, y_row, y_ref)
+# cost_function(u_hist, y_hist, y_row, y_ref)
