@@ -4,11 +4,13 @@ import tensorflow as tf
 from keras.models import load_model
 from tensorflow.keras.losses import mean_squared_error
 from tensorflow.keras.optimizers import Adam
+from tensorflow.python.ops import array_ops
 
 import numpy as np
 import pandas as pd
 import os
 import time
+from multiprocessing import Pool, cpu_count
 
 #############
 # Filepaths #
@@ -114,35 +116,35 @@ def create_control_diff(u_forecast):
 def cost_function(u_forecast, y_forecast, y_ref):
     u_diff_forecast = create_control_diff(u_forecast)
     return np.sum((y_forecast - y_ref) ** 2 @ weights_output) + np.sum(
-        u_diff_forecast @ weights_control
+        np.abs(u_diff_forecast) @ weights_control
     )
 
 
-def compute_step(u_hist, u_forecast, y_forecast, lr):
-    def compute_gradient(seq_input):
-        input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
+def compute_gradient(seq_input):
+    input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
+    gradient = np.zeros((2, 2))
+    for i in range(2):
         with tf.GradientTape() as t:
             t.watch(input_tensor)
             output_tensor = keras_model(input_tensor)
-        num_outputs = output_tensor.shape[1]
-        num_inputs = input_tensor.shape[1]
-        gradients = (
-            t.jacobian(output_tensor, input_tensor)
-            .numpy()
-            .reshape((num_outputs, num_inputs))
-        )
-        gradient = gradients[:, 2 * (P - 1) : 2 * P]
-        return gradient
+            gradient[i, :] = (
+                t.gradient(output_tensor[:, i], input_tensor)
+                .numpy()
+                .ravel()[2 * (P - 1) : 2 * P]
+            )
+    return gradient
 
+
+def compute_step(u_hist, y_hist, u_forecast, y_forecast, lr):
     jacobian = np.zeros((u_forecast.shape[0], 2, 2))
+
     for i in range(u_forecast.shape[0]):
         u_row = u_forecast[i].reshape((1, 2))
+        y_row = y_forecast[i].reshape((1, 2))
         u_hist = update_hist(u_hist, u_row)
+        y_hist = update_hist(y_hist, y_row)
         seq_input = build_sequence(u_hist, y_hist)
-        start_time = time.time()
         gradient = compute_gradient(seq_input)
-        end_time = time.time()
-        print("time: ", end_time - start_time)
         jacobian[i, :, :] = gradient
 
     u_diff_forecast = create_control_diff(u_forecast)
@@ -156,7 +158,8 @@ def compute_step(u_hist, u_forecast, y_forecast, lr):
         control_gradient = weight_control * u_diff
         step = -lr * (output_gradient + control_gradient)
         steps[:, i] = step.ravel()
-    return steps
+
+    return steps, u_hist, y_hist
 
 
 def optimization_function(u_hist, y_hist, num_time_steps, num_opt_steps, lr):
@@ -165,20 +168,23 @@ def optimization_function(u_hist, y_hist, num_time_steps, num_opt_steps, lr):
     u_opts = np.zeros((num_opt_steps, 2))
     for t in range(num_time_steps):
         for s in range(num_opt_steps):
+            print(f"Time step: {t+1} \nOpt step: {s+1}")
             cost = cost_function(u_forecast, y_forecast, y_ref)
-            steps = compute_step(u_hist, u_forecast, y_forecast, lr)
+            steps, u_hist, y_hist = compute_step(
+                u_hist, y_hist, u_forecast, y_forecast, lr
+            )
             u_forecast += steps
-            print("Cost: ", cost)
-            print("Steps: \n", steps)
-            print("U: \n", u_forecast)
+            print(f"Cost: {cost}\n")
+            # print(f"Steps: \n{steps}")
+            # print(f"U: \n{u_forecast}")
 
         u_opt = u_forecast[0, :]
 
 
 y_row = y0
 u_row = np.zeros((1, 2))
-lr = 1e-2
-num_time_steps = 5
+lr = 1e0
+num_time_steps = 10
 num_opt_steps = 10
 optimization_function(u_hist, y_hist, num_time_steps, num_opt_steps, lr)
 
