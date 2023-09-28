@@ -45,14 +45,19 @@ weights_output = np.array([[1, 1]]).reshape((2, 1))
 # Simulation parameters
 step = 1e-6
 sim_time = 1e-3
-total_sim_steps = int(sim_time / step)
+num_time_steps = int(sim_time / step)
 
 # Initial conditions
 x0 = [1e-10, 1e-10]
 y0 = gmaw_outputs(x0)
-
-x0 = np.array(x0).reshape((1, 2))
 y0 = np.array(y0).reshape((1, 2))
+
+# Simulation data
+# x = np.zeros((num_time_steps, 2))
+# x[0, :] = x0
+y = np.zeros((num_time_steps, 2))
+y[0, :] = y0
+u = np.zeros((num_time_steps, 2))
 
 # Boundaries and constraints
 min_f, max_f = 0.0, 1.0
@@ -95,10 +100,9 @@ def update_hist(current_hist, new_states):
     return new_hist
 
 
-def forecast_output(u_forecast, u_hist, y_hist, y_row):
+def forecast_output(u_forecast, u_hist, y_hist):
     y_forecast = np.zeros((N, 2))
-    y_hist = update_hist(y_hist, y_row)
-    for i in range(N):
+    for i in range(y_forecast.shape[0]):
         u_row = u_forecast[i]
         u_hist = update_hist(u_hist, u_row)
         y_hat = lstm_predict(u_hist, y_hist)
@@ -159,36 +163,41 @@ def compute_step(u_hist, y_hist, u_forecast, y_forecast, lr):
         step = -lr * (output_gradient + control_gradient)
         steps[:, i] = step.ravel()
 
-    return steps, u_hist, y_hist
+    return steps
 
 
-def optimization_function(u_hist, y_hist, num_time_steps, num_opt_steps, lr):
-    u_forecast = np.random.normal(size=(M, 2))
-    y_forecast = forecast_output(u_forecast, u_hist, y_hist, y_row)
-    u_opts = np.zeros((num_opt_steps, 2))
-    for t in range(num_time_steps):
-        for s in range(num_opt_steps):
-            print(f"Time step: {t+1} \nOpt step: {s+1}")
-            cost = cost_function(u_forecast, y_forecast, y_ref)
-            steps, u_hist, y_hist = compute_step(
-                u_hist, y_hist, u_forecast, y_forecast, lr
-            )
-            u_forecast += steps
-            print(f"Cost: {cost}\n")
-            # print(f"Steps: \n{steps}")
-            # print(f"U: \n{u_forecast}")
-
-        u_opt = u_forecast[0, :]
+def optimization_function(u_hist, y_hist, num_opt_steps, lr):
+    u_forecast = np.random.normal(size=(M, 2))  # Initialize control forecast
+    y_forecast = forecast_output(
+        u_forecast, u_hist, y_hist
+    )  # Estimate output forecast based on control forecast
+    for s in range(num_opt_steps):
+        print(f"Time step: {t} \nOpt step: {s+1}")
+        cost = cost_function(u_forecast, y_forecast, y_ref)
+        steps = compute_step(u_hist, y_hist, u_forecast, y_forecast, lr)
+        u_forecast += steps
+        print(f"Cost: {cost}\n")
+        # print(f"Steps: \n{steps}")
+        # print(f"U: \n{u_forecast}")
+    u_opt = u_forecast[0, :]
+    return u_opt
 
 
+x_row = x0
 y_row = y0
-u_row = np.zeros((1, 2))
 lr = 1e0
-num_time_steps = 10
 num_opt_steps = 10
-optimization_function(u_hist, y_hist, num_time_steps, num_opt_steps, lr)
 
 # MPC loop
-# for t in range(total_sim_steps):
-
-# cost_function(u_hist, y_hist, y_row, y_ref)
+for t in range(1, num_time_steps):
+    u_opt = optimization_function(u_hist, y_hist, num_opt_steps, lr)
+    u[t, :] = u_opt
+    x_row = solve_rk4(gmaw_states, x_row, step, u_opt)
+    y_row = gmaw_outputs(x_row)
+    y[t, :] = y_row
+    # x[t, :] = x_row
+    u_hist = update_hist(u_hist, u_opt)
+    y_hist = update_hist(y_hist, u_opt)
+    print(f"u_opt: {u_opt}")
+    print(f"x_row: {x_row}")
+    print(f"y_row: {y_row}")
