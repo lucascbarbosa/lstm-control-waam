@@ -6,12 +6,10 @@ from python.process_data import (
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 import itertools
-import shutil
-import datetime
 import pandas as pd
 import numpy as np
 import os
-from multiprocess import Pool, cpu_count
+from multiprocess import Pool
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 #############
