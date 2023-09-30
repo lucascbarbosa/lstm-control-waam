@@ -1,5 +1,9 @@
 from python.gmaw_process import *
 import numpy as np
+import pandas as pd
+
+# Paths
+data_dir = "database/"
 
 # Simulation parameters
 step_time = 1e-06  # Simulation step time
@@ -26,6 +30,7 @@ input_bounds = (f_lv, f_uv, Ir_lv, Ir_uv)
 def generate_dataset(N, input_bounds, n_classes, x0):
     inputs = np.zeros((N, n_inputs))
     outputs = np.zeros((N, n_outputs))
+
     f_lv, f_uv, Ir_lv, Ir_uv = input_bounds
     # Generate a pseudo-random binary signal using the parameters
     f_binary_signal = np.random.randint(0, n_classes, size=N)
@@ -48,5 +53,14 @@ def generate_dataset(N, input_bounds, n_classes, x0):
 # initial state
 x0 = [1e-10, 1e-10]
 inputs_train, outputs_train = generate_dataset(N, input_bounds, 2, x0)
-
 inputs_test, outputs_test = generate_dataset(N, input_bounds, 10, x0)
+
+inputs_train = pd.DataFrame(inputs_train, columns=["f", "Ir"])
+inputs_test = pd.DataFrame(inputs_test, columns=["f", "Ir"])
+outputs_train = pd.DataFrame(outputs_train, columns=["we", "h"])
+outputs_test = pd.DataFrame(outputs_test, columns=["we", "h"])
+
+inputs_train.to_csv(data_dir + "inputs_train.csv", index=False)
+inputs_test.to_csv(data_dir + "inputs_test.csv", index=False)
+outputs_train.to_csv(data_dir + "outputs_train.csv", index=False)
+outputs_test.to_csv(data_dir + "outputs_test.csv", index=False)

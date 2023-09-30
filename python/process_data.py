@@ -4,10 +4,10 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 
 def load_data(data_dir):
-    inputs_train = pd.read_csv(data_dir + "train_inputs.csv").to_numpy()
-    outputs_train = pd.read_csv(data_dir + "train_outputs.csv").to_numpy()
-    inputs_test = pd.read_csv(data_dir + "test_inputs.csv").to_numpy()
-    outputs_test = pd.read_csv(data_dir + "test_outputs.csv").to_numpy()
+    inputs_train = pd.read_csv(data_dir + "inputs_train.csv").to_numpy()
+    outputs_train = pd.read_csv(data_dir + "outputs_train.csv").to_numpy()
+    inputs_test = pd.read_csv(data_dir + "inputs_test.csv").to_numpy()
+    outputs_test = pd.read_csv(data_dir + "outputs_test.csv").to_numpy()
     return inputs_train, outputs_train, inputs_test, outputs_test
 
 

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 # Load data
 data_dir = "database/"
 results_dir = "results/"
-# inputs_train, outputs_train, inputs_test, outputs_test = load_data(data_dir)
+inputs_train, outputs_train, inputs_test, outputs_test = load_data(data_dir)
 
 
 def plot_data(
