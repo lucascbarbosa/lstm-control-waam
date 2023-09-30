@@ -76,6 +76,7 @@ y_ref = np.array([[weo, ho]])
 # Historic data
 u_hist = np.zeros((P, 2))
 y_hist = np.zeros((Q, 2))
+y_hist[-1, :] = y0
 
 
 #############
@@ -119,9 +120,9 @@ def create_control_diff(u_forecast):
 
 def cost_function(u_forecast, y_forecast, y_ref):
     u_diff_forecast = create_control_diff(u_forecast)
-    return np.sum((y_forecast - y_ref) ** 2 @ weights_output) + np.sum(
-        np.abs(u_diff_forecast) @ weights_control
-    )
+    output_cost = np.sum((y_forecast - y_ref) ** 2 @ weights_output)
+    control_cost = np.sum(np.abs(u_diff_forecast) @ weights_control)
+    return output_cost + control_cost
 
 
 def compute_gradient(seq_input):
@@ -176,10 +177,12 @@ def optimization_function(u_hist, y_hist, num_opt_steps, lr):
         cost = cost_function(u_forecast, y_forecast, y_ref)
         steps = compute_step(u_hist, y_hist, u_forecast, y_forecast, lr)
         u_forecast += steps
+        y_forecast = forecast_output(u_forecast, u_hist, y_hist)
         print(f"Cost: {cost}\n")
         # print(f"Steps: \n{steps}")
-        # print(f"U: \n{u_forecast}")
+
     u_opt = u_forecast[0, :]
+    print(f"y_f: {y_forecast[0, :]}")
     return u_opt
 
 
@@ -188,16 +191,20 @@ y_row = y0
 lr = 1e0
 num_opt_steps = 10
 
+
 # MPC loop
 for t in range(1, num_time_steps):
     u_opt = optimization_function(u_hist, y_hist, num_opt_steps, lr)
     u[t, :] = u_opt
     x_row = solve_rk4(gmaw_states, x_row, step, u_opt)
-    y_row = gmaw_outputs(x_row)
+    y_row = np.array(gmaw_outputs(x_row)).reshape((1, 2))
     y[t, :] = y_row
     # x[t, :] = x_row
     u_hist = update_hist(u_hist, u_opt)
-    y_hist = update_hist(y_hist, u_opt)
+    seq_input = build_sequence(u_hist, y_hist)
+    y_hat = keras_model(seq_input)
+    y_hist = update_hist(y_hist, y_row)
     print(f"u_opt: {u_opt}")
     print(f"x_row: {x_row}")
     print(f"y_row: {y_row}")
+    print(f"y_hat: {y_hat}")

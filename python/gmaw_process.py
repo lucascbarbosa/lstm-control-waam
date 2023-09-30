@@ -1,12 +1,4 @@
 import numpy as np
-from keras.models import load_model
-import casadi as ca
-from python.process_data import (
-    load_data,
-    normalize_data,
-    standardize_data,
-)
-from scipy.integrate import odeint
 
 #############
 # Filepaths #
@@ -15,7 +7,6 @@ results_dir = "results/"
 
 ##############
 # Parameters #
-
 n = 0.655
 nd = 0.958
 Ea = 723.2561
@@ -44,24 +35,6 @@ ho = 0.0012
 
 kw = np.sqrt((2 - nd) / nd)
 Aw = np.pi * rw**2
-
-#################
-# Load database #
-# inputs_train, outputs_train, inputs_test, outputs_test = load_data(data_dir)
-# num_features_input = inputs_train.shape[1]
-# num_features_output = outputs_train.shape[1]
-
-# # Slice database to fit sequencing
-# inputs_train = inputs_train[:1000, :]
-# outputs_train = outputs_train[:1000, :]
-# inputs_test = inputs_test[:1000, :]
-# outputs_test = outputs_test[:1000, :]
-
-# # Scale database
-# inputs_train = normalize_data(inputs_train)
-# inputs_test = normalize_data(inputs_test)
-# outputs_train = standardize_data(outputs_train)
-# outputs_test = standardize_data(outputs_test)
 
 
 def gmaw_states(x, u):
@@ -100,21 +73,3 @@ def solve_rk4(func, x, dt, u):
 
     x_ = x + (dt / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
     return x_
-
-
-# # Load keras model
-# best_model_id = 33
-# best_model = load_model(
-#     results_dir + f"models/best/run_{best_model_id:03d}.keras"
-# )
-
-# outputs_gmaw = np.zeros(outputs_train.shape)
-# outputs_gmaw[0, :] = outputs_train[0, :]
-# x = [1e-10, 1e-10]  # initial state
-# step = 1e-6
-
-# for i in range(inputs_train.shape[0] - 1):
-#     u = inputs_train[i, :]
-#     x = solve_rk4(gmaw_states, x, step, u)
-#     we, h = gmaw_outputs(x)
-#     outputs_gmaw[i + 1, :] = [we, h]
