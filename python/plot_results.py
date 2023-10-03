@@ -13,7 +13,7 @@ metrics_df = pd.read_csv(results_dir + "models/hp_metrics.csv")
 
 
 # Plot prediction
-def plot_pred(save=False):
+def plot_prediction(save=False):
     fig, axs = plt.subplots(2, 1)
     fig.set_size_inches(12, 6)
 
@@ -69,8 +69,10 @@ def histogram_error(bins, save=False):
     plt.show()
 
 
-batch_size = 16
-plot_heatmap(batch_size, save=True)
+plot_prediction()
 
-bins = 32
-histogram_error(bins)
+# batch_size = 16
+# plot_heatmap(batch_size, save=True)
+
+# bins = 32
+# histogram_error(bins)

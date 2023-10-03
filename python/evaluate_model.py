@@ -35,8 +35,10 @@ def compute_metrics(Y_pred, Y_real):
 # Load metrics
 metrics_df = pd.read_csv(results_dir + "models/hp_metrics.csv")
 best_model_id = metrics_df.iloc[0, 0]
-best_model_filename = os.listdir(results_dir + "models/best/")[0]
-best_params = metrics_df.iloc[0, 1:]
+best_model_id = "010"
+best_model_filename = f"run_{best_model_id}.keras"
+best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
+
 # Load best model
 model = load_model(results_dir + "models/best/" + best_model_filename)
 model.compile(
@@ -44,7 +46,9 @@ model.compile(
 )
 
 # Load and sequence data accordingly
-_, _, inputs_test, outputs_test = load_data(data_dir)
+_, outputs_train, inputs_test, outputs_test = load_data(data_dir)
+y_means = outputs_train.mean(axis=0)
+y_stds = outputs_train.std(axis=0)
 
 # Scale database
 inputs_test = normalize_data(inputs_test)
@@ -56,8 +60,6 @@ num_features_output = outputs_test.shape[1]
 inputs_test = inputs_test[:1000, :]
 outputs_test = outputs_test[:1000, :]
 
-outputs_test = standardize_data(outputs_test)
-
 X_real, Y_real = sequence_data(
     inputs_test,
     outputs_test,
@@ -65,19 +67,17 @@ X_real, Y_real = sequence_data(
     int(best_params["Q"]),
     int(best_params["H"]),
 )
-y_means = outputs_test.mean(axis=0)
-y_stds = outputs_test.std(axis=0)
 
 # Prediction
 Y_pred = predict_data(model, X_real)
 for i in range(num_features_output):
     Y_pred[:, i] = destandardize_data(
         Y_pred[:, i], y_means[i], y_stds[i]
-    )  # Denormalize
+    )  # Destandardize
 
     Y_real[:, i] = destandardize_data(
         Y_real[:, i], y_means[i], y_stds[i]
-    )  # Denormalize
+    )  # Destandardize
 
 # Cutout the first P+Q elements
 # Y_real = Y_real[int(best_params["P"]) + int(best_params["Q"]) :]

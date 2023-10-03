@@ -1,4 +1,5 @@
 from python.gmaw_process import *
+from python.process_data import load_data
 
 import tensorflow as tf
 from keras.models import load_model
@@ -19,18 +20,24 @@ results_dir = "results/"
 
 #########
 # Loads #
+# Load data
+inputs_train, outputs_train, _, _ = load_data(data_dir)
+u_mins = inputs_train.min(axis=0)
+u_maxs = inputs_train.max(axis=0)
+y_means = outputs_train.mean(axis=0)
+y_stds = outputs_train.std(axis=0)
+
 # Load metrics
 metrics_df = pd.read_csv(results_dir + "models/hp_metrics.csv")
-best_model_id = metrics_df.iloc[0, 0]
-best_model_filename = os.listdir(results_dir + "models/best/")[0]
-best_params = metrics_df.iloc[0, 1:]
-P = int(best_params["P"])
-Q = int(best_params["Q"])
+best_model_id = "010"
+best_model_filename = f"run_{best_model_id}.keras"
+best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
+P = best_params.iloc[0, 1]
+Q = best_params.iloc[0, 2]
 
 # Load Keras model
-best_model_id = 13
 keras_model = load_model(
-    results_dir + f"models/best/run_{best_model_id:03d}.keras"
+    results_dir + f"models/best/run_{best_model_id}.keras"
 )
 
 opt = Adam(learning_rate=best_params["lr"])
@@ -43,8 +50,8 @@ weights_control = np.array([[1, 1]]).reshape((2, 1))
 weights_output = np.array([[1, 1]]).reshape((2, 1))
 
 # Simulation parameters
-step = 1e-6
-sim_time = 1e-3
+step = 1e-5
+sim_time = 1e-2
 num_time_steps = int(sim_time / step)
 
 # Initial conditions
@@ -53,8 +60,8 @@ y0 = gmaw_outputs(x0)
 y0 = np.array(y0).reshape((1, 2))
 
 # Simulation data
-# x = np.zeros((num_time_steps, 2))
-# x[0, :] = x0
+x = np.zeros((num_time_steps, 2))
+x[0, :] = x0
 y = np.zeros((num_time_steps, 2))
 y[0, :] = y0
 u = np.zeros((num_time_steps, 2))
@@ -71,12 +78,12 @@ output_bounds = np.repeat(output_bounds, N, axis=0)
 bounds = control_bounds + output_bounds
 
 # Desired outputs
-y_ref = np.array([[weo, ho]])
+y_ref = np.zeros(2)
 
 # Historic data
 u_hist = np.zeros((P, 2))
 y_hist = np.zeros((Q, 2))
-y_hist[-1, :] = y0
+y_hist[-1, :] = (y0.ravel() - y_means) / y_stds  # Standardize
 
 
 #############
@@ -103,8 +110,8 @@ def update_hist(current_hist, new_states):
 
 def forecast_output(u_forecast, u_hist, y_hist):
     y_forecast = np.zeros((N, 2))
-    for i in range(y_forecast.shape[0]):
-        u_row = u_forecast[i]
+    for i in range(u_forecast.shape[0]):
+        u_row = u_forecast[i, :].reshape((1, 2))
         u_hist = update_hist(u_hist, u_row)
         y_hat = lstm_predict(u_hist, y_hist)
         y_forecast[i] = y_hat
@@ -119,8 +126,11 @@ def create_control_diff(u_forecast):
 
 
 def cost_function(u_forecast, y_forecast, y_ref):
-    u_diff_forecast = create_control_diff(u_forecast)
-    output_cost = np.sum((y_forecast - y_ref) ** 2 @ weights_output)
+    u_diff_forecast = (
+        create_control_diff(u_forecast) * (u_maxs - u_mins) + u_mins
+    )
+    output_error = (y_ref - y_forecast) * y_stds + y_means
+    output_cost = np.sum(output_error**2 @ weights_output)
     control_cost = np.sum(np.abs(u_diff_forecast) @ weights_control)
     return output_cost + control_cost
 
@@ -142,23 +152,26 @@ def compute_gradient(seq_input):
 
 def compute_step(u_hist, y_hist, u_forecast, y_forecast, lr):
     jacobian = np.zeros((u_forecast.shape[0], 2, 2))
-
     for i in range(u_forecast.shape[0]):
         u_row = u_forecast[i].reshape((1, 2))
-        y_row = y_forecast[i].reshape((1, 2))
         u_hist = update_hist(u_hist, u_row)
-        y_hist = update_hist(y_hist, y_row)
         seq_input = build_sequence(u_hist, y_hist)
         gradient = compute_gradient(seq_input)
         jacobian[i, :, :] = gradient
+        y_row = y_forecast[i].reshape((1, 2))
+        y_hist = update_hist(y_hist, y_row)
 
-    u_diff_forecast = create_control_diff(u_forecast)
+    u_diff_forecast = (
+        create_control_diff(u_forecast) * (u_maxs - u_mins) + u_mins
+    )
+
     steps = np.zeros(u_forecast.shape)
     for i in range(u_forecast.shape[1]):
         jacobian_input = jacobian[:, :, i]
         weight_control = weights_control[i]
         u_diff = u_diff_forecast[:, i].reshape((u_diff_forecast.shape[0], 1))
-        output_gradient = np.diag(jacobian_input.T @ (y_forecast - y_ref))
+        output_error = (y_ref - y_forecast) * y_stds + y_means
+        output_gradient = np.diag(jacobian_input.T @ output_error)
         output_gradient = (-weights_output.T @ output_gradient)[0]
         control_gradient = weight_control * u_diff
         step = -lr * (output_gradient + control_gradient)
@@ -172,39 +185,40 @@ def optimization_function(u_hist, y_hist, num_opt_steps, lr):
     y_forecast = forecast_output(
         u_forecast, u_hist, y_hist
     )  # Estimate output forecast based on control forecast
+
     for s in range(num_opt_steps):
         print(f"Time step: {t} \nOpt step: {s+1}")
         cost = cost_function(u_forecast, y_forecast, y_ref)
         steps = compute_step(u_hist, y_hist, u_forecast, y_forecast, lr)
         u_forecast += steps
         y_forecast = forecast_output(u_forecast, u_hist, y_hist)
-        print(f"Cost: {cost}\n")
-        # print(f"Steps: \n{steps}")
+        print(f"Cost: {cost}\n ")
+        print(f"Steps: \n{steps}")
+        # print(f"U_f: \n{u_foreca25 252410st}")
 
     u_opt = u_forecast[0, :]
-    print(f"y_f: {y_forecast[0, :]}")
     return u_opt
 
 
 x_row = x0
 y_row = y0
 lr = 1e0
-num_opt_steps = 10
-
+num_opt_steps = 50
 
 # MPC loop
-for t in range(1, num_time_steps):
+for t in range(1, 100):
     u_opt = optimization_function(u_hist, y_hist, num_opt_steps, lr)
-    u[t, :] = u_opt
-    x_row = solve_rk4(gmaw_states, x_row, step, u_opt)
+    u[t - 1, :] = u_opt
+    u_hist = update_hist(u_hist, u_opt.reshape((1, 2)))
+    u_row = u_opt * (u_maxs - u_mins) + u_mins  # Denormalize
+    x_row = solve_rk4(gmaw_states, x_row, step, u_row.tolist())
+    x[t, :] = x_row
+
+    # Estimate using Dynamics
     y_row = np.array(gmaw_outputs(x_row)).reshape((1, 2))
+    print(f"y: {y_row}")
     y[t, :] = y_row
-    # x[t, :] = x_row
-    u_hist = update_hist(u_hist, u_opt)
-    seq_input = build_sequence(u_hist, y_hist)
-    y_hat = keras_model(seq_input)
-    y_hist = update_hist(y_hist, y_row)
-    print(f"u_opt: {u_opt}")
-    print(f"x_row: {x_row}")
-    print(f"y_row: {y_row}")
-    print(f"y_hat: {y_hat}")
+    y_row_scaled = (y_row - y_means) / y_stds  # Standardize
+    y_hist = update_hist(y_hist, y_row_scaled)
+    # print(f"u_opt: {u_opt}")
+    # print(f"x_row: {x_row}")

@@ -6,8 +6,8 @@ import pandas as pd
 data_dir = "database/"
 
 # Simulation parameters
-step_time = 1e-06  # Simulation step time
-sim_time = 1e-03  # Simulation time in seconds
+step_time = 1e-05  # Simulation step time
+sim_time = 1e-02  # Simulation time in seconds
 
 # Generate time vectors
 time = np.arange(0, sim_time + step_time, step_time).round(
