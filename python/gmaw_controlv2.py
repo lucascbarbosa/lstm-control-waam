@@ -123,7 +123,6 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
     y_forecast = np.zeros((N, 2))
     # print(f"u_forecast:\n{u_forecast}")
     for i in range(M):
-        # print(f"u_hist: {u_hist}")
         for k in range(2):
             u_hist_temp = u_hist.copy()
             y_hist_temp = y_hist.copy()
@@ -132,25 +131,23 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
                 input_tensor = tf.convert_to_tensor(
                     seq_input, dtype=tf.float32
                 )
-                # t.watch(input_tensor)
+                t.watch(input_tensor)
                 input_tensor_temp = tf.identity(input_tensor)
                 for j in range(i, N):
-                    print(i, k, j)
                     u_row_temp = u_forecast[j, :].reshape((1, 2))
-                    print(f"input_tensor_temp: {input_tensor_temp}")
                     output_tensor = keras_model(input_tensor_temp)
-                    print(f"output_tensor: {output_tensor}")
-                    # jacobian[j, i, k, :] = (
-                    #     t.gradient(output_tensor[:, k], input_tensor)
-                    #     .numpy()
-                    #     .ravel()[2 * (P - 1) : 2 * P]
-                    # )
+
+                    jacobian[j, i, k, :] = (
+                        t.gradient(output_tensor[:, k], input_tensor)
+                        .numpy()
+                        .ravel()[2 * (P - 1) : 2 * P]
+                    )
 
                     if i == 0:
                         y_row = output_tensor.numpy().reshape((1, 2))
                         y_forecast[j, :] = y_row
                     else:
-                        y_row = y_forecast[j, :]
+                        y_row = y_forecast[j, :].reshape((1, 2))
 
                     u_hist_temp = update_hist(u_hist_temp, u_row_temp)
                     y_hist_temp = update_hist(y_hist_temp, y_row)
@@ -158,9 +155,9 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
                     input_tensor_temp = tf.convert_to_tensor(
                         seq_input_temp, dtype=tf.float32
                     )
-                    print(f"y_forecast: {y_forecast}")
         u_row = u_forecast[i, :].reshape((1, 2))
         u_hist = update_hist(u_hist, u_row)
+        y_hist = update_hist(y_hist, y_forecast[i].reshape((1, 2)))
 
     steps = np.zeros(u_forecast.shape)
     # u_diff_forecast = create_control_diff(u_forecast)
@@ -181,7 +178,7 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
 def optimization_function(u_hist, y_hist, num_opt_steps, lr):
     u_forecast = np.random.uniform(size=(M, 2))  # Initialize control forecast
     for s in range(num_opt_steps):
-        print(f"Time step: {t} \nOpt step: {s+1}")
+        print(f"Opt step: {s+1}")
         steps, y_forecast = compute_step(u_hist, y_hist, u_forecast, lr)
         cost = cost_function(u_forecast, y_forecast, y_ref)
         # print(f"U_f: \n{u_forecast}")
@@ -204,6 +201,7 @@ step = compute_step(u_hist, y_hist, u_forecast, lr)
 
 # # MPC loop
 # for t in range(1, 100):
+#     print(f'Time step: {t}')
 #     u_opt = optimization_function(u_hist, y_hist, num_opt_steps, lr)
 #     u[t - 1, :] = u_opt
 #     u_hist = update_hist(u_hist, u_opt.reshape((1, 2)))
