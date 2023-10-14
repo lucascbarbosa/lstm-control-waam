@@ -172,6 +172,14 @@ def cost_function(u_forecast, y_forecast, y_ref):
 #     return steps, y_forecast
 
 
+def build_input_jacobian():
+    input_jacobian = np.eye(M)
+    for i in range(M):
+        if i < M - 1:
+            input_jacobian[i + 1, i] = -1
+    return input_jacobian
+
+
 def compute_step(u_hist, y_hist, u_forecast, lr):
     output_jacobian = np.zeros((N, M, 2, 2))
     # gradients = np.zeros((N, P + Q, 2, 2))
@@ -205,7 +213,7 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
         y_forecast[i, :] = y_row
         y_hist = update_hist(y_hist, y_row)
 
-    input_jacobian = np.zeros((M, M, 2, 2))
+    input_jacobian = build_input_jacobian()
     steps = np.zeros(u_forecast.shape)
     u_diff_forecast = create_control_diff(u_forecast)
     output_error = (y_ref - y_forecast) * y_stds + y_means
@@ -216,7 +224,11 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
                 * np.diag(output_error.T @ output_jacobian[:, j, :, i])
                 @ weights_output
             )
-            # steps[j, i] =
+            input_gradient = (
+                2 * input_jacobian[:, j].T @ u_diff_forecast @ weights_control
+            )
+
+            steps[j, i] = output_gradient + input_gradient
 
     # for i in range(2):
     #     jacobian_input = jacobian[:, :, :, i]
