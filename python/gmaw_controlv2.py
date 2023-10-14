@@ -44,8 +44,8 @@ opt = Adam(learning_rate=best_params["lr"])
 keras_model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Define MPC parameters
-N = 10  # prediction horizon
-M = 10  # control horizon
+M = P  # control horizon
+N = Q  # prediction horizon
 weights_control = np.array([[1, 1]]).reshape((2, 1))
 weights_output = np.array([[1, 1]]).reshape((2, 1))
 
@@ -66,16 +66,16 @@ y = np.zeros((num_time_steps, 2))
 y[0, :] = y0
 u = np.zeros((num_time_steps, 2))
 
-# Boundaries and constraints
-min_f, max_f = 0.0, 1.0
-min_Ir, max_Ir = 0.0, 1.0
-min_we, max_we = 0.0, 1.0
-min_h, max_h = 0.0, 1.0
-control_bounds = np.array([[(min_f, max_f), (min_Ir, max_Ir)]])  # Input bounds
-control_bounds = np.repeat(control_bounds, M, axis=0)
-output_bounds = np.array([[(min_we, max_we), (min_h, max_h)]])  # Output bounds
-output_bounds = np.repeat(output_bounds, N, axis=0)
-bounds = control_bounds + output_bounds
+# # Boundaries and constraints
+# min_f, max_f = 0.0, 1.0
+# min_Ir, max_Ir = 0.0, 1.0
+# min_we, max_we = 0.0, 1.0
+# min_h, max_h = 0.0, 1.0
+# control_bounds = np.array([[(min_f, max_f), (min_Ir, max_Ir)]])  # Input bounds
+# control_bounds = np.repeat(control_bounds, M, axis=0)
+# output_bounds = np.array([[(min_we, max_we), (min_h, max_h)]])  # Output bounds
+# output_bounds = np.repeat(output_bounds, N, axis=0)
+# bounds = control_bounds + output_bounds
 
 # Desired outputs
 y_ref = np.zeros(2)
@@ -167,16 +167,18 @@ def cost_function(u_forecast, y_forecast, y_ref):
 #     #     output_gradient = np.diag(jacobian_input.T @ output_error)
 #     #     output_gradient = (-weights_output.T @ output_gradient)[0]
 #     #     control_gradient = weight_control * u_diff
-#     #     step = -lr * (output_gradient + control_grady_forecastient)
+#     #     step = -lr * (output_gradient + control_gradient)
 #     #     steps[:, i] = step.ravel()
 #     return steps, y_forecast
 
 
 def compute_step(u_hist, y_hist, u_forecast, lr):
-    jacobian = np.zeros((N, M, 2, 2))
+    output_jacobian = np.zeros((N, M, 2, 2))
+    # gradients = np.zeros((N, P + Q, 2, 2))
     y_forecast = np.zeros((N, 2))
     for i in range(N):
-        u_row = u_forecast[i].reshape((1, 2))
+        if i < M:
+            u_row = u_forecast[i].reshape((1, 2))
         if i >= M:
             u_row = u_forecast[-1].reshape((1, 2))
         u_hist = update_hist(u_hist, u_row)
@@ -189,31 +191,43 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
                 gradient = t.gradient(
                     output_tensor[:, j], input_tensor
                 ).numpy()[0, :, 0]
-                input_gradient, output_gradient = split_sequence(gradient)
-            if i < P:
-                jacobian[i, max(0, i - P + 1) : i + 1, :, j] = input_gradient[
-                    : min(i + 1, P), :
+
+            # gradients[i, :, j, :] = gradient.reshape((P + Q, 2))
+            input_gradient, output_gradient = split_sequence(gradient)
+            if i < P - 1:
+                output_jacobian[i, : i + 1, :, j] = input_gradient[
+                    -(i + 1) :, :
                 ]
             else:
+                output_jacobian[i, :, :, j] = input_gradient[:, :]
 
         y_row = output_tensor.numpy().reshape((1, 2))
         y_forecast[i, :] = y_row
         y_hist = update_hist(y_hist, y_row)
 
-    return jacobian
+    input_jacobian = np.zeros((M, M, 2, 2))
+    steps = np.zeros(u_forecast.shape)
+    u_diff_forecast = create_control_diff(u_forecast)
+    output_error = (y_ref - y_forecast) * y_stds + y_means
+    for i in range(2):
+        for j in range(M):
+            output_gradient = (
+                -2
+                * np.diag(output_error.T @ output_jacobian[:, j, :, i])
+                @ weights_output
+            )
+            # steps[j, i] =
 
-    # steps = np.zeros(u_forecast.shape)
-    # u_diff_forecast = create_control_diff(u_forecast)
-    # print(f"dU: \n{u_diff_forecast}")
     # for i in range(2):
-    #     jacobian_input = jacobian[:, :, i]
+    #     jacobian_input = jacobian[:, :, :, i]
     #     weight_control = weights_control[i]
     #     u_diff = u_diff_forecast[:, i].reshape((u_diff_forecast.shape[0], 1))
     #     output_error = (y_ref - y_forecast) * y_stds + y_means
+    #     print((jacobian_input.T @ output_error).shape)
     #     output_gradient = np.diag(jacobian_input.T @ output_error)
     #     output_gradient = (-weights_output.T @ output_gradient)[0]
     #     control_gradient = weight_control * u_diff
-    #     step = -lr * (output_gradient + control_grady_forecastient)
+    #     step = -lr * (output_gradient + control_gradient)
     #     steps[:, i] = step.ravel()
     # return steps, y_forecast
 
@@ -240,7 +254,7 @@ lr = 1e0
 num_opt_steps = 10
 
 u_forecast = np.random.uniform(size=(M, 2))  # Initialize control forecast
-jacobian = compute_step(u_hist, y_hist, u_forecast, lr)
+compute_step(u_hist, y_hist, u_forecast, lr)
 
 # # MPC loop
 # for t in range(1, 100):
