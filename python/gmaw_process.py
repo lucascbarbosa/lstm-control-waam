@@ -55,7 +55,7 @@ def gmaw_outputs(x):
     ls, I = x
     Q = n * (Ra * I**2 + (Ea * (lc - ls) + Vo) * I)
     Ac = (C2 * rho * ls * I**2 + C1 * I) / v
-    print(ls, I)
+
     we = np.sqrt(
         (0.4 * alpha / (kw * v)) ** 2
         - (2 * Ac / (kw**2 + 1) - Q * alpha / (k * DeltaT * v)) / kw

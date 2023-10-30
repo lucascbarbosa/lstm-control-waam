@@ -46,13 +46,13 @@ keras_model.compile(optimizer=opt, loss=mean_squared_error)
 # Define MPC parameters
 M = P  # control horizon
 N = Q  # prediction horizon
-weights_control = np.array([[1, 1]]).reshape((2, 1))
-weights_output = 100 * np.array([[1, 1]]).reshape((2, 1))
+weights_control = 0.1 * np.array([[1, 1]]).reshape((2, 1))  #
+weights_output = 10 * np.array([[1, 1]]).reshape((2, 1))  #
 
 # Simulation parameters
 step = 1e-5
 sim_time = 1e-2
-num_time_steps = int(sim_time / step)
+num_time_steps = 40
 
 # Initial conditions
 x0 = [1e-10, 1e-10]
@@ -66,16 +66,11 @@ y = np.zeros((num_time_steps, 2))
 y[0, :] = y0
 u = np.zeros((num_time_steps, 2))
 
-# # Boundaries and constraints
-# min_f, max_f = 0.0, 1.0
-# min_Ir, max_Ir = 0.0, 1.0
-# min_we, max_we = 0.0, 1.0
-# min_h, max_h = 0.0, 1.0
-# control_bounds = np.array([[(min_f, max_f), (min_Ir, max_Ir)]])  # Input bounds
-# control_bounds = np.repeat(control_bounds, M, axis=0)
-# output_bounds = np.array([[(min_we, max_we), (min_h, max_h)]])  # Output bounds
-# output_bounds = np.repeat(output_bounds, N, axis=0)
-# bounds = control_bounds + output_bounds
+# Boundaries
+min_f, max_f = 0.0, 1.0
+min_Ir, max_Ir = 0.0, 1.0
+min_we, max_we = 0.0, 1.0
+min_h, max_h = 0.0, 1.0
 
 # Desired outputs
 y_ref = np.zeros(2)
@@ -115,23 +110,21 @@ def create_control_diff(u_forecast):
     return u_diff
 
 
-def cost_function(u_forecast, y_forecast, y_ref):
-    u_diff_forecast = create_control_diff(u_forecast)
-    # u_diff_forecast = (
-    #     create_control_diff(u_forecast) * (u_maxs - u_mins) + u_mins
-    # )
-    output_error = (y_ref - y_forecast) * y_stds
-    output_cost = np.sum(output_error**2 @ weights_output)
-    control_cost = np.sum(u_diff_forecast**2 @ weights_control)
-    return output_cost + control_cost
-
-
 def build_input_jacobian():
     input_jacobian = np.eye(M)
     for i in range(M):
         if i < M - 1:
             input_jacobian[i + 1, i] = -1
     return input_jacobian
+
+
+def cost_function(u_forecast, y_forecast, y_ref):
+    # u_forecast = u_forecast * (u_maxs - u_mins) + u_mins
+    u_diff_forecast = create_control_diff(u_forecast)
+    output_error = (y_ref - y_forecast) * y_stds
+    output_cost = np.sum(output_error**2 @ weights_output)
+    control_cost = np.sum(u_diff_forecast**2 @ weights_control)
+    return output_cost + control_cost
 
 
 def compute_step(u_hist, y_hist, u_forecast, lr):
@@ -145,7 +138,7 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
             u_row = u_forecast[-1].reshape((1, 2))
         u_hist = update_hist(u_hist, u_row)
         seq_input = build_sequence(u_hist, y_hist)
-        input_tensor = tf.constant(seq_input, dtype=tf.float32)
+        input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
         for j in range(2):
             with tf.GradientTape() as t:
                 t.watch(input_tensor)
@@ -169,6 +162,7 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
 
     input_jacobian = build_input_jacobian()
     steps = np.zeros(u_forecast.shape)
+    # u_forecast = u_forecast * (u_maxs - u_mins) + u_mins
     u_diff_forecast = create_control_diff(u_forecast)
     output_error = (y_ref - y_forecast) * y_stds
     for i in range(2):
@@ -187,38 +181,53 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
 
             steps[j, i] = -lr * (output_gradient + input_gradient)
 
+    # steps = (steps - u_mins) / (u_maxs - u_mins)
     return steps, y_forecast
 
 
-def optimization_function(u_hist, y_hist, num_opt_steps, lr):
-    u_forecast = np.random.uniform(size=(M, 2))  # Initialize control forecast
-    for s in range(num_opt_steps):
+def optimization_function(u_hist, y_hist, lr):
+    # u_forecast = np.random.uniform(size=(M, 2))  #
+    u_forecast = np.ones((M, 2)) * 0.5  #
+    s = 0
+    cost = 1.0
+    last_cost = cost
+    delta_cost = -cost
+    while delta_cost < -cost_tol:
         print(f"Opt step: {s+1}")
         steps, y_forecast = compute_step(u_hist, y_hist, u_forecast, lr)
         cost = cost_function(u_forecast, y_forecast, y_ref)
-        # print(f"U_f: \n{u_forecast}")
-        # print(f"Y_f: \n{y_forecast}")
-        # print(f"Steps: \n{steps}")
+        delta_cost = cost - last_cost
         print(f"Cost: {cost}\n ")
-        u_forecast += steps
-
+        # print(f"Steps: \n{steps}")
+        # print(f"Error: {(y_forecast-y_ref)*y_stds}")
+        if delta_cost < 0:
+            u_forecast += steps
+            lr = lr * (1.0 - alpha)
+            last_cost = cost
+            s += 1
+        else:
+            print("Passed optimal solution")
+            break
     u_opt = u_forecast[0, :]
-    return u_opt, y_forecast
+    return u_opt, u_forecast, y_forecast
 
 
 x_row = x0
 y_row = y0
-lr = 1e-2
-num_opt_steps = 10
+
+# Optimization parameters
+lr = 0.1  #
+alpha = 1e-3  #
+cost_tol = 1e-4  #
 
 # MPC loop
-for t in range(1, 100):
-    print(f"Time step: {t+1}")
-    u_opt, y_forecast = optimization_function(
-        u_hist, y_hist, num_opt_steps, lr
-    )
+for t in range(1, num_time_steps):
+    print(f"Time step: {t}")
+    u_opt, u_forecast, y_forecast = optimization_function(u_hist, y_hist, lr)
+    # print(f"U_f: \n{u_forecast}")
     u_hist = update_hist(u_hist, u_opt.reshape((1, 2)))
     u_row = u_opt * (u_maxs - u_mins) + u_mins  # Denormalize
+    print(f"u_opt: {u_row}")
     u[t - 1, :] = u_row
     x_row = solve_rk4(gmaw_states, x_row, step, u_row.tolist())
     x[t, :] = x_row
@@ -229,5 +238,12 @@ for t in range(1, 100):
     y_row_scaled = (y_row - y_means) / y_stds  # Standardize
     y_hist = update_hist(y_hist, y_row_scaled)
     print(f"y: {y_row}")
-    # print(f"u_opt: {u_opt}")
     # print(f"x_row: {x_row}")
+
+u = u[:-1, :]
+
+u = pd.DataFrame(u, columns=["f", "Ir"])
+y = pd.DataFrame(y, columns=["we", "h"])
+
+# u.to_csv(results_dir + "mpc/u.csv", index=False)
+# y.to_csv(results_dir + "mpc/y.csv", index=False)

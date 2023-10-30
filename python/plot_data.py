@@ -33,7 +33,10 @@ def plot_data(
         axs[1].plot(range(N), data[:N, 1])
 
     if save:
-        fig.savefig(results_dir + f"plots/{fig_filename}.png")
+        if scale:
+            fig.savefig(results_dir + f"plots/{fig_filename}.png")
+        else:
+            fig.savefig(results_dir + f"plots/{fig_filename}_raw.png")
     plt.tight_layout()
 
 

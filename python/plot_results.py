@@ -2,14 +2,28 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from python.process_data import load_data
+from scipy.stats import shapiro
 
 # Load data
+data_dir = "database/"
 results_dir = "results/"
 
 Y_real = np.loadtxt(results_dir + "predictions/y_real.csv", dtype=np.float64)
 Y_pred = np.loadtxt(results_dir + "predictions/y_pred.csv", dtype=np.float64)
 
 metrics_df = pd.read_csv(results_dir + "models/hp_metrics.csv")
+metrics_df["loss"] = metrics_df["loss"].apply(lambda x: np.nan if x > 1 else x)
+
+mpc_u = pd.read_csv(results_dir + "mpc/u.csv")
+mpc_u = mpc_u.iloc[:-1, :]
+mpc_y = pd.read_csv(results_dir + "mpc/y.csv")
+
+inputs_train, outputs_train, _, _ = load_data(data_dir)
+u_mins = inputs_train.min(axis=0)
+u_maxs = inputs_train.max(axis=0)
+y_means = outputs_train.mean(axis=0)
+y_stds = outputs_train.std(axis=0)
 
 
 # Plot prediction
@@ -28,7 +42,8 @@ def plot_prediction(save=False):
     axs[0].legend()
     axs[1].legend()
     fig.tight_layout()
-
+    if save:
+        plt.savefig(results_dir + "plots/lstm_prediction.png")
     plt.show()
 
 
@@ -52,6 +67,7 @@ def histogram_error(bins, save=False):
     error = Y_pred - Y_real
     fig, axs = plt.subplots(2, 1, figsize=(10, 6))
     for i, ax in enumerate(axs):
+        _, p_val = shapiro(error[:, i])
         sns.histplot(error[:, i], bins=32, ax=ax)
         avg = np.mean(error[:, i])
         std = np.std(error[:, i])
@@ -60,19 +76,67 @@ def histogram_error(bins, save=False):
             color="red",
             linestyle="dashed",
             linewidth=2,
-            label=f"Mean: {avg:.2f}. Std: {std:.2f}",
+            label=f"Mean: {avg*1e6:.1f}e-6. Std: {std*1e5:.1f}e-5 P-valor: {p_val*1e10: .1f}e-10",
         )
         ax.set_title(r"Histograma do erro de previsão de $w_e$")
         ax.set_xlabel(r"k")
         ax.legend()
     plt.subplots_adjust(hspace=0.5)
+    if save:
+        plt.savefig(results_dir + "plots/error_histogram.png")
     plt.show()
 
 
-plot_prediction()
+def plot_mpc(u, y, y_ref):
+    def create_control_diff(u):
+        u_diff = u.copy()
+        u_diff[1:] = u_diff[1:] - u_diff[:-1]
+        return u_diff
+
+    u_labels = u.columns
+    y_labels = y.columns
+
+    u = u.to_numpy()
+    y = y.to_numpy()
+
+    overshoots = (y.max(axis=0) / y[-1, :]) - 1.0
+    du = create_control_diff(u)
+    du_means = du.mean(axis=0)
+    rmses = ((y[2:, :] - y_ref) ** 2).mean(axis=0)
+
+    print(f"Overshoots: {overshoots}")
+    print(f"dU Médio: {du_means/u.max(axis=0)}")
+    print(f"RMSE: {rmses}")
+    # Plot inputs
+    fig, axs = plt.subplots(2, 1)
+    fig.set_size_inches(12, 6)
+    fig.suptitle("MPC Control Signal")
+
+    for i in range(2):
+        axs[i].plot(u[:, i], color="blue")
+        axs[i].set_xlabel("t")
+        axs[i].set_ylabel(u_labels[i])
+
+    fig, axs = plt.subplots(2, 1)
+    fig.set_size_inches(12, 6)
+    fig.suptitle("MPC Output")
+
+    for i in range(2):
+        axs[i].plot(y[:, i], color="red")
+        axs[i].set_xlabel("t")
+        axs[i].set_ylabel(y_labels[i])
+        axs[i].axhline(y_ref[i], color="black", linestyle="--")
+
+    plt.tight_layout()
+    plt.show()
+
+
+# plot_prediction(save=True)
 
 # batch_size = 16
 # plot_heatmap(batch_size, save=True)
 
 # bins = 32
-# histogram_error(bins)
+# histogram_error(bins, save=True)
+
+plot_mpc(mpc_u, mpc_y, y_means)
