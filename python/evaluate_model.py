@@ -23,7 +23,7 @@ import os
 # Load data
 data_dir = "database/"
 results_dir = "results/"
-source = "experiment"
+source = "simulation"
 
 
 def compute_metrics(Y_pred, Y_real):
@@ -37,7 +37,7 @@ def compute_metrics(Y_pred, Y_real):
 # Load metrics
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_model_id = metrics_df.iloc[0, 0]
-# best_model_id = "010"
+best_model_id = 10
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
 
@@ -49,7 +49,9 @@ model.compile(
 
 # Load and sequence data accordingly
 if source == "simulation":
-    _, outputs_train, inputs_test, outputs_test = load_simulation(data_dir)
+    _, outputs_train, inputs_test, outputs_test = load_simulation(
+        data_dir + f"{source}/"
+    )
     y_means = outputs_train.mean(axis=0)
     y_stds = outputs_train.std(axis=0)
 

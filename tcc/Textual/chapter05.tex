@@ -1,0 +1,13 @@
+\chapter{Conclusões}
+\label{chap6}
+Com o intuito de lidar com um problema de controle multivariável de um processo GMAW, que possui dinâmica não linear, este trabalho propôs um controle preditivo (MPC) baseado em DL (LSTM-NMPC).
+
+Primeiramente, foi realizada a simulação do processo GMAW, utilizando as equações dinâmicas de \cite{bendia2021multivariable}, e os dados foram tratados usando a normalização e padronização das entradas e saídas.
+
+Depois, uma RN baseada na arquitetura LSTM foi treinada com o intuito de modelar o processo GMAW, ajustando-se os seus hiperparâmetros através da busca em grade.
+
+Por fim, o melhor modelo foi utilizado dentro do MPC para otimizar o controle da geometria do cordão através de um algoritmo de GD adaptativo. O controle proposto foi provado estável, através de análise teórica.
+
+O framework do MPC desenvolvido neste trabalho pode ser usado para se comunicar com o robô através do protocolo de comunicação do ROS.
+
+O framework do MPC desenvolvido neste trabalho pode ser aplicado para qualquer controle preditivo de um processo não linear, apenas refazendo o treinamento com uma nova base de dados específica.

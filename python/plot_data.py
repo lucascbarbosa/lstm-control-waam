@@ -30,7 +30,7 @@ def plot_data(
     scale=False,
     save=False,
 ):
-    if source == "sim":
+    if source == "simulation":
         fig, axs = plt.subplots(2, 1)
         fig.set_size_inches(12, 6)
         fig.suptitle(fig_title)
@@ -45,7 +45,7 @@ def plot_data(
             for i in range(data.shape[1]):
                 axs[i].plot(range(N), data[:N, i])
 
-    if source == "exp":
+    if source == "experiment":
         fig = plt.figure(figsize=(12, 6))
         fig.suptitle(fig_title)
         plt.title(r"$%s$" % data_label)
@@ -58,11 +58,9 @@ def plot_data(
     plt.tight_layout()
     if save:
         if scale:
-            fig.savefig(results_dir + f"plots/{source}__{fig_filename}.png")
+            fig.savefig(results_dir + f"plots/{source}_{fig_filename}.png")
         else:
-            fig.savefig(
-                results_dir + f"plots/{source}__{fig_filename}_raw.png"
-            )
+            fig.savefig(results_dir + f"plots/{source}_{fig_filename}_raw.png")
 
 
 N = 200  # Horizon plotted
@@ -93,12 +91,12 @@ scale = True
 save = True
 var_types = ["u", "y", "u", "y"]
 
-source = "exp"
+source = "experiment"
 
-if source == "sim":
+if source == "simulation":
     database = database_sim
     data_labels = data_labels_sim
-elif source == "exp":
+elif source == "experiment":
     database = database_exp
     data_labels = data_labels_exp
 

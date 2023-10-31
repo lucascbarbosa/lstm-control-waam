@@ -8,37 +8,6 @@ from scipy.stats import shapiro
 # Load data
 data_dir = "database/"
 results_dir = "results/"
-source = "experiment"
-
-Y_real = np.loadtxt(
-    results_dir + f"predictions/{source}/y_real.csv", dtype=np.float64
-)
-Y_pred = np.loadtxt(
-    results_dir + f"predictions/{source}/y_pred.csv", dtype=np.float64
-)
-
-metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
-metrics_df["loss"] = metrics_df["loss"].apply(lambda x: np.nan if x > 1 else x)
-
-mpc_u = pd.read_csv(results_dir + "mpc/u.csv")
-mpc_u = mpc_u.iloc[:-1, :]
-mpc_y = pd.read_csv(results_dir + "mpc/y.csv")
-
-if source == "simulation":
-    inputs_train, outputs_train, _, _ = load_simulation(data_dir)
-    u_mins = inputs_train.min(axis=0)
-    u_maxs = inputs_train.max(axis=0)
-    y_means = outputs_train.mean(axis=0)
-    y_stds = outputs_train.std(axis=0)
-
-elif source == "experiment":
-    input_train, output_train, _, _ = load_experiment(
-        data_dir + f"{source}/", 1, 2
-    )
-    u_min = input_train.min()
-    u_max = input_train.max()
-    y_mean = output_train.mean()
-    y_std = output_train.std()
 
 
 # Plot prediction
@@ -67,7 +36,7 @@ def plot_prediction(source="simulation", save=False):
 
     fig.tight_layout()
     if save:
-        plt.savefig(results_dir + f"plots/{source}__lstm_prediction.png")
+        plt.savefig(results_dir + f"plots/{source}_lstm_prediction.png")
     plt.show()
 
 
@@ -78,38 +47,58 @@ def plot_heatmap(batch_size, source="simulation", save=False):
         ["P", "Q", "loss"]
     ].pivot(index="Q", columns="P", values="loss")
 
-    sns.heatmap(heatmap_df, annot=True, cmap="magma", fmt=".3f")
+    sns.heatmap(heatmap_df, annot=True, cmap="magma", fmt=".4f")
     plt.title(f"Erro de predição para batch_size={batch_size}")
     fig.tight_layout()
 
     if save:
         plt.savefig(
-            results_dir + f"plots/{source}__hp_metrics_{batch_size}.png"
+            results_dir + f"plots/{source}_hp_metrics_{batch_size}.png"
         )
     plt.show()
 
 
-def histogram_error(bins, save=False):
+def histogram_error(bins, source="simulation", save=False):
     error = Y_pred - Y_real
-    fig, axs = plt.subplots(2, 1, figsize=(10, 6))
-    for i, ax in enumerate(axs):
-        _, p_val = shapiro(error[:, i])
-        sns.histplot(error[:, i], bins=32, ax=ax)
-        avg = np.mean(error[:, i])
-        std = np.std(error[:, i])
+    if source == "simulation":
+        fig, axs = plt.subplots(2, 1, figsize=(10, 6))
+        for i, ax in enumerate(axs):
+            _, p_val = shapiro(error[:, i])
+            sns.histplot(error[:, i], bins=bins, ax=ax)
+            avg = np.mean(error[:, i])
+            std = np.std(error[:, i])
+            ax.axvline(
+                avg,
+                color="red",
+                linestyle="dashed",
+                linewidth=2,
+                label=f"Mean: {avg*1e6:.1f}e-6. Std: {std*1e5:.1f}e-5 P-valor: {p_val*1e10: .1f}e-10",
+            )
+            ax.set_title(r"Histograma do erro de previsão de $w_e$")
+            ax.set_xlabel(r"k")
+            ax.legend()
+
+    elif source == "experiment":
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.histplot(error, bins=bins, ax=ax)
+        _, p_val = shapiro(error)
+        avg = np.mean(error)
+        std = np.std(error)
         ax.axvline(
             avg,
             color="red",
             linestyle="dashed",
             linewidth=2,
-            label=f"Mean: {avg*1e6:.1f}e-6. Std: {std*1e5:.1f}e-5 P-valor: {p_val*1e10: .1f}e-10",
+            label=f"Mean: {avg*1e2:.1f}e-2. Std: {std*1e2:.1f}e-2 P-valor: {p_val*1e35: .1f}e-35",
         )
+        print(p_val)
         ax.set_title(r"Histograma do erro de previsão de $w_e$")
         ax.set_xlabel(r"k")
         ax.legend()
+
     plt.subplots_adjust(hspace=0.5)
     if save:
-        plt.savefig(results_dir + f"plots/{source}__error_histogram.png")
+        plt.savefig(results_dir + f"plots/{source}_error_histogram.png")
     plt.show()
 
 
@@ -157,12 +146,44 @@ def plot_mpc(u, y, y_ref):
     plt.show()
 
 
-plot_prediction(source=source, save=True)
+source = "experiment"
+data_filename = data_dir + f"{source}/"
 
-# batch_size = 16
-# plot_heatmap(batch_size, save=True)
+if source == "simulation":
+    inputs_train, outputs_train, _, _ = load_simulation(data_filename)
+    u_mins = inputs_train.min(axis=0)
+    u_maxs = inputs_train.max(axis=0)
+    y_means = outputs_train.mean(axis=0)
+    y_stds = outputs_train.std(axis=0)
+
+elif source == "experiment":
+    input_train, output_train, _, _ = load_experiment(data_filename, 1, 2)
+    u_min = input_train.min()
+    u_max = input_train.max()
+    y_mean = output_train.mean()
+    y_std = output_train.std()
+
+Y_real = np.loadtxt(
+    results_dir + f"predictions/{source}/y_real.csv", dtype=np.float64
+)
+Y_pred = np.loadtxt(
+    results_dir + f"predictions/{source}/y_pred.csv", dtype=np.float64
+)
+
+metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
+metrics_df["loss"] = metrics_df["loss"].apply(lambda x: np.nan if x > 1 else x)
+
+mpc_u = pd.read_csv(results_dir + "mpc/u.csv")
+mpc_u = mpc_u.iloc[:-1, :]
+mpc_y = pd.read_csv(results_dir + "mpc/y.csv")
+
+# plot_prediction(source=source, save=True)
 
 # bins = 32
-# histogram_error(bins, save=True)
+# histogram_error(bins, source=source, save=True)
+
+batch_sizes = [16, 32, 64]
+for batch_size in batch_sizes:
+    plot_heatmap(batch_size, source=source, save=True)
 
 # plot_mpc(mpc_u, mpc_y, y_means)
