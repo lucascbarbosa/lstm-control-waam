@@ -1,13 +1,23 @@
 import pandas as pd
 import numpy as np
-from python.process_data import load_data, standardize_data, normalize_data
+from python.process_data import (
+    load_simulation,
+    load_experiment,
+    standardize_data,
+    normalize_data,
+)
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 # Load data
 data_dir = "database/"
 results_dir = "results/"
-inputs_train, outputs_train, inputs_test, outputs_test = load_data(data_dir)
+inputs_train, outputs_train, inputs_test, outputs_test = load_simulation(
+    data_dir + "simulation/"
+)
+input_train, output_train, input_test, output_test = load_experiment(
+    data_dir + "experiment/", 1, 2
+)
 
 
 def plot_data(
@@ -16,33 +26,55 @@ def plot_data(
     data_label,
     fig_filename,
     var_type,
-    fig,
-    axs,
+    source="sim",
     scale=False,
     save=False,
 ):
-    axs[0].set_title(r"$%s$" % data_label[0])
+    if source == "sim":
+        fig, axs = plt.subplots(2, 1)
+        fig.set_size_inches(12, 6)
+        fig.suptitle(fig_title)
+        for i in range(len(data_label)):
+            axs[i].set_title(r"$%s$" % data_label[i])
 
-    axs[1].set_xlabel(r"k")
-    axs[1].set_title(r"$%s$" % data_label[1])
-    if var_type == "u":
-        axs[0].step(range(N), data[:N, 0])
-        axs[1].step(range(N), data[:N, 1])
-    else:
-        axs[0].plot(range(N), data[:N, 0])
-        axs[1].plot(range(N), data[:N, 1])
+        axs[1].set_xlabel(r"k")
+        if var_type == "u":
+            for i in range(data.shape[1]):
+                axs[i].step(range(N), data[:N, i])
+        else:
+            for i in range(data.shape[1]):
+                axs[i].plot(range(N), data[:N, i])
 
+    if source == "exp":
+        fig = plt.figure(figsize=(12, 6))
+        fig.suptitle(fig_title)
+        plt.title(r"$%s$" % data_label)
+        plt.xlabel(r"k")
+        if var_type == "u":
+            plt.step(range(N), data[:N])
+        else:
+            plt.plot(range(N), data[:N])
+
+    plt.tight_layout()
     if save:
         if scale:
-            fig.savefig(results_dir + f"plots/{fig_filename}.png")
+            fig.savefig(results_dir + f"plots/{source}__{fig_filename}.png")
         else:
-            fig.savefig(results_dir + f"plots/{fig_filename}_raw.png")
-    plt.tight_layout()
+            fig.savefig(
+                results_dir + f"plots/{source}__{fig_filename}_raw.png"
+            )
 
 
 N = 200  # Horizon plotted
-database = [inputs_train, outputs_train, inputs_test, outputs_test]
-data_labels = [["f", "Ir"], ["we", "h"], ["f", "Ir"], ["we", "h"]]
+database_sim = [inputs_train, outputs_train, inputs_test, outputs_test]
+database_exp = [input_train, output_train, input_test, output_test]
+data_labels_sim = [
+    ["f", "I_r"],
+    ["w_e", "h"],
+    ["f", "I_r"],
+    ["w_e", "h"],
+]
+data_labels_exp = ["f", "w_e", "f", "w_e"]
 fig_titles = [
     "Entradas de treinamento",
     "Saídas de treinamento",
@@ -55,16 +87,24 @@ fig_filenames = [
     "inputs_test",
     "outputs_test",
 ]
+
+
 scale = True
 save = True
 var_types = ["u", "y", "u", "y"]
 
+source = "exp"
+
+if source == "sim":
+    database = database_sim
+    data_labels = data_labels_sim
+elif source == "exp":
+    database = database_exp
+    data_labels = data_labels_exp
+
 for data, data_label, fig_title, fig_filename, var_type in zip(
     database, data_labels, fig_titles, fig_filenames, var_types
 ):
-    fig, axs = plt.subplots(2, 1)
-    fig.set_size_inches(12, 6)
-    fig.suptitle(fig_title)
     if scale:
         if var_type == "u":
             data = normalize_data(data)
@@ -77,19 +117,9 @@ for data, data_label, fig_title, fig_filename, var_type in zip(
         data_label,
         fig_filename,
         var_type,
-        fig,
-        axs,
+        source=source,
         scale=scale,
         save=save,
     )
 
 plt.show()
-
-# N = 200
-# fig, axs = plt.subplots(2, 1)
-# fig.set_size_inches(12, 6)
-# plot_data(N, outputs_train, ["we", "h"], None, "y", fig, axs)
-# plot_data(N, outputs_gmaw, ["we", "h"], None, "y", fig, axs)
-# axs[0].legend(["matlab", "python"])
-# axs[1].legend(["matlab", "python"])
-# plt.show()

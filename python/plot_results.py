@@ -2,52 +2,76 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from python.process_data import load_data
+from python.process_data import load_simulation, load_experiment
 from scipy.stats import shapiro
 
 # Load data
 data_dir = "database/"
 results_dir = "results/"
+source = "experiment"
 
-Y_real = np.loadtxt(results_dir + "predictions/y_real.csv", dtype=np.float64)
-Y_pred = np.loadtxt(results_dir + "predictions/y_pred.csv", dtype=np.float64)
+Y_real = np.loadtxt(
+    results_dir + f"predictions/{source}/y_real.csv", dtype=np.float64
+)
+Y_pred = np.loadtxt(
+    results_dir + f"predictions/{source}/y_pred.csv", dtype=np.float64
+)
 
-metrics_df = pd.read_csv(results_dir + "models/hp_metrics.csv")
+metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 metrics_df["loss"] = metrics_df["loss"].apply(lambda x: np.nan if x > 1 else x)
 
 mpc_u = pd.read_csv(results_dir + "mpc/u.csv")
 mpc_u = mpc_u.iloc[:-1, :]
 mpc_y = pd.read_csv(results_dir + "mpc/y.csv")
 
-inputs_train, outputs_train, _, _ = load_data(data_dir)
-u_mins = inputs_train.min(axis=0)
-u_maxs = inputs_train.max(axis=0)
-y_means = outputs_train.mean(axis=0)
-y_stds = outputs_train.std(axis=0)
+if source == "simulation":
+    inputs_train, outputs_train, _, _ = load_simulation(data_dir)
+    u_mins = inputs_train.min(axis=0)
+    u_maxs = inputs_train.max(axis=0)
+    y_means = outputs_train.mean(axis=0)
+    y_stds = outputs_train.std(axis=0)
+
+elif source == "experiment":
+    input_train, output_train, _, _ = load_experiment(
+        data_dir + f"{source}/", 1, 2
+    )
+    u_min = input_train.min()
+    u_max = input_train.max()
+    y_mean = output_train.mean()
+    y_std = output_train.std()
 
 
 # Plot prediction
-def plot_prediction(save=False):
-    fig, axs = plt.subplots(2, 1)
-    fig.set_size_inches(12, 6)
+def plot_prediction(source="simulation", save=False):
+    if source == "simulation":
+        fig, axs = plt.subplots(2, 1)
+        fig.set_size_inches(12, 6)
 
-    axs[0].plot(Y_real[:, 0], color="k", label=r"$w_e$")
-    axs[0].plot(Y_pred[:, 0], color="r", label=r"$\hat{w}_e$")
-    axs[0].set_xlabel(r"t")
+        axs[0].plot(Y_real[:, 0], color="k", label=r"$w_e$")
+        axs[0].plot(Y_pred[:, 0], color="r", label=r"$\hat{w}_e$")
+        axs[0].set_xlabel(r"t")
 
-    axs[1].plot(Y_real[:, 1], color="k", label=r"$h$")
-    axs[1].plot(Y_pred[:, 1], color="r", label=r"$\hat{h}$")
+        axs[1].plot(Y_real[:, 1], color="k", label=r"$h$")
+        axs[1].plot(Y_pred[:, 1], color="r", label=r"$\hat{h}$")
 
-    fig.suptitle("Outputs prediction")
-    axs[0].legend()
-    axs[1].legend()
+        fig.suptitle("Outputs prediction")
+        axs[0].legend()
+        axs[1].legend()
+
+    elif source == "experiment":
+        fig = plt.figure(figsize=(12, 6))
+        fig.suptitle("Output prediction")
+        plt.plot(Y_real, color="k", label=r"$w_e$")
+        plt.plot(Y_pred, color="r", label=r"$\hat{w}_e$")
+        plt.legend()
+
     fig.tight_layout()
     if save:
-        plt.savefig(results_dir + "plots/lstm_prediction.png")
+        plt.savefig(results_dir + f"plots/{source}__lstm_prediction.png")
     plt.show()
 
 
-def plot_heatmap(batch_size, save=False):
+def plot_heatmap(batch_size, source="simulation", save=False):
     fig = plt.figure(figsize=(8, 6))
 
     heatmap_df = metrics_df[metrics_df["batch_size"] == batch_size][
@@ -59,7 +83,9 @@ def plot_heatmap(batch_size, save=False):
     fig.tight_layout()
 
     if save:
-        plt.savefig(results_dir + f"plots/hp_metrics_{batch_size}.png")
+        plt.savefig(
+            results_dir + f"plots/{source}__hp_metrics_{batch_size}.png"
+        )
     plt.show()
 
 
@@ -83,7 +109,7 @@ def histogram_error(bins, save=False):
         ax.legend()
     plt.subplots_adjust(hspace=0.5)
     if save:
-        plt.savefig(results_dir + "plots/error_histogram.png")
+        plt.savefig(results_dir + f"plots/{source}__error_histogram.png")
     plt.show()
 
 
@@ -131,7 +157,7 @@ def plot_mpc(u, y, y_ref):
     plt.show()
 
 
-# plot_prediction(save=True)
+plot_prediction(source=source, save=True)
 
 # batch_size = 16
 # plot_heatmap(batch_size, save=True)
@@ -139,4 +165,4 @@ def plot_mpc(u, y, y_ref):
 # bins = 32
 # histogram_error(bins, save=True)
 
-plot_mpc(mpc_u, mpc_y, y_means)
+# plot_mpc(mpc_u, mpc_y, y_means)

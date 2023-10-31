@@ -28,7 +28,7 @@ def create_model(
         LSTM(
             units=64,
             activation="relu",
-            input_shape=(2 * sequence_length, 1),
+            input_shape=(num_features_input * sequence_length, 1),
         )
     )
     # model.add(TimeDistributed(Dense(units=Y_train_seq.shape[-1])))

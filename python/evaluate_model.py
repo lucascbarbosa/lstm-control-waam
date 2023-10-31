@@ -1,5 +1,6 @@
 from python.process_data import (
-    load_data,
+    load_simulation,
+    load_experiment,
     sequence_data,
     standardize_data,
     normalize_data,
@@ -22,6 +23,7 @@ import os
 # Load data
 data_dir = "database/"
 results_dir = "results/"
+source = "experiment"
 
 
 def compute_metrics(Y_pred, Y_real):
@@ -33,40 +35,64 @@ def compute_metrics(Y_pred, Y_real):
 
 
 # Load metrics
-metrics_df = pd.read_csv(results_dir + "models/hp_metrics.csv")
+metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_model_id = metrics_df.iloc[0, 0]
-best_model_id = "010"
-best_model_filename = f"run_{best_model_id}.keras"
+# best_model_id = "010"
+best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
 
 # Load best model
-model = load_model(results_dir + "models/best/" + best_model_filename)
+model = load_model(f"{results_dir}/models/{source}/best/{best_model_filename}")
 model.compile(
     optimizer=Adam(learning_rate=best_params["lr"]), loss=mean_squared_error
 )
 
 # Load and sequence data accordingly
-_, outputs_train, inputs_test, outputs_test = load_data(data_dir)
-y_means = outputs_train.mean(axis=0)
-y_stds = outputs_train.std(axis=0)
+if source == "simulation":
+    _, outputs_train, inputs_test, outputs_test = load_simulation(data_dir)
+    y_means = outputs_train.mean(axis=0)
+    y_stds = outputs_train.std(axis=0)
 
-# Scale database
-inputs_test = normalize_data(inputs_test)
-outputs_test = standardize_data(outputs_test)
-num_features_input = inputs_test.shape[1]
-num_features_output = outputs_test.shape[1]
+    # Scale database
+    inputs_test = normalize_data(inputs_test)
+    outputs_test = standardize_data(outputs_test)
+    num_features_input = inputs_test.shape[1]
+    num_features_output = outputs_test.shape[1]
 
-# Slice to fit sequencing
-inputs_test = inputs_test[:1000, :]
-outputs_test = outputs_test[:1000, :]
+    # Slice to fit sequencing
+    inputs_test = inputs_test[:1000, :]
+    outputs_test = outputs_test[:1000, :]
 
-X_real, Y_real = sequence_data(
-    inputs_test,
-    outputs_test,
-    int(best_params["P"]),
-    int(best_params["Q"]),
-    int(best_params["H"]),
-)
+    # Sequence data
+    X_real, Y_real = sequence_data(
+        inputs_test,
+        outputs_test,
+        int(best_params["P"]),
+        int(best_params["Q"]),
+        int(best_params["H"]),
+    )
+
+elif source == "experiment":
+    _, output_train, input_test, output_test = load_experiment(
+        data_dir + f"{source}/", 1, 2
+    )
+    y_means = output_train.mean().reshape((1,))
+    y_stds = output_train.std().reshape((1,))
+
+    # Scale database
+    input_test = normalize_data(input_test)
+    output_test = standardize_data(output_test)
+    num_features_input = 1
+    num_features_output = 1
+
+    # Sequence data
+    X_real, Y_real = sequence_data(
+        input_test,
+        output_test,
+        int(best_params["P"]),
+        int(best_params["Q"]),
+        int(best_params["H"]),
+    )
 
 # Prediction
 Y_pred = predict_data(model, X_real)
@@ -83,8 +109,12 @@ for i in range(num_features_output):
 # Y_real = Y_real[int(best_params["P"]) + int(best_params["Q"]) :]
 
 # Save real and predicted data
-np.savetxt(results_dir + "predictions/y_real.csv", Y_real)
-np.savetxt(results_dir + "predictions/y_pred.csv", Y_pred)
+np.savetxt(results_dir + f"predictions/{source}/y_real.csv", Y_real)
+np.savetxt(results_dir + f"predictions/{source}/y_pred.csv", Y_pred)
 
 mses = compute_metrics(Y_pred, Y_real)
-print(f"MSE: we={mses[0]:.3f} h={mses[1]:.3f}")
+
+if source == "simulation":
+    print(f"MSE: we={mses[0]:.3f} h={mses[1]:.3f}")
+elif source == "experiment":
+    print(f"MSE: we={mses[0]:.3f}")

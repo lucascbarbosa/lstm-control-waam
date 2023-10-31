@@ -1,5 +1,6 @@
 from python.process_data import (
-    load_data,
+    load_simulation,
+    load_experiment,
     normalize_data,
     standardize_data,
 )
@@ -95,18 +96,21 @@ def run_training(
         )  # Destandardize
 
     model.save(
-        results_dir + f"models/hyperparams/run_{run_params['run_id']}.keras"
+        results_dir
+        + f"models/simulation/hyperparams/run_{run_params['run_id']}.keras"
     )
     loss = compute_metrics(Y_test, Y_pred).mean()
 
     metrics = run_params
     metrics["loss"] = loss
-    print(f"Run: {run_params['run_id']}. Loss: {loss:.2f}")
+    print(f"Run: {run_params['run_id']}. Loss: {loss:.3f}")
     return metrics
 
 
 # Load database
-inputs_train, outputs_train, inputs_test, outputs_test = load_data(data_dir)
+inputs_train, outputs_train, inputs_test, outputs_test = load_simulation(
+    data_dir + "simulation/"
+)
 num_features_input = inputs_train.shape[1]
 num_features_output = outputs_train.shape[1]
 
@@ -123,7 +127,7 @@ outputs_train = standardize_data(outputs_train)
 outputs_test = standardize_data(outputs_test)
 
 # Remove previous models
-delete_models(results_dir + "models/hyperparams")
+delete_models(results_dir + "models/simulation/hyperparams")
 
 # set search space for hp's
 hp_search_space = {
@@ -149,11 +153,11 @@ for hp_comb in hp_combinations:
     run_params["num_features_input"] = num_features_input
     run_params["num_features_output"] = num_features_output
     run_params["run_id"] = "%03d" % i
-    run_params["verbose"] = 0
+    run_params["verbose"] = 2
     list_run_params.append(run_params)
     i += 1
 
-num_processes = 8
+num_processes = 10
 with Pool(processes=num_processes) as pool:
     results = pool.starmap(
         run_training,
@@ -181,10 +185,12 @@ metrics_df = (
     .set_index("run_id")
     .sort_values(by="loss")
 )
-metrics_df.to_csv(results_dir + "models/hp_metrics.csv")
+metrics_df.to_csv(results_dir + "models/simulation/hp_metrics.csv")
 
 best_model_id = metrics_df.index[0]
 best_model = load_model(
-    results_dir + f"models/hyperparams/run_{best_model_id}.keras"
+    results_dir + f"models/simulation/hyperparams/run_{best_model_id}.keras"
 )
-best_model.save(results_dir + f"models/best/run_{best_model_id}.keras")
+best_model.save(
+    results_dir + f"models/simulation/best/run_{best_model_id}.keras"
+)
