@@ -28,15 +28,13 @@
 \usepackage{diagbox}
 \usepackage[T1]{fontenc}
 \usepackage{lipsum}
-\usepackage{cite}
-\usepackage[style=abnt-numeric, backend=biber, sorting=alf]{biblatex} % Estilo ABNT e citações numéricas
+\usepackage[style=abnt-numeric, backend=biber]{biblatex} % Estilo ABNT e citações numéricas
 \usepackage{listings}
 \usepackage{acronym} 
 \usepackage[ruled,vlined,portuguese]{algorithm2e}
 \usepackage{hyperref}
 
 \addbibresource{thesis.bib} % Arquivo .bib contendo as referências
-
 \setcounter{secnumdepth}{4}
 
 \lstset{
@@ -153,37 +151,36 @@
 \DeclareFieldFormat{labelnumberwidth}{\mkbibbrackets{#1}}
 
 \begin{document}
-  \title{Controle preditivo baseado em Deep Learning de geometria de cordão simples fundido por Manufatura Aditiva Arco Elétrico}
-  \foreigntitle{Deep Learning-based Predictive control of Wire+Arc Additive Manufacturing single bead geometry}
-  \author{Lucas}{Costa Barbosa}
-  \advisor{Prof.}{Fernando}{Cesar Lizarralde}{D.Sc.}
-  %\coadvisor{Prof.}{Nome}{Sobrenome}{D.Sc.}
-  \examiner{Prof.}{Nome Completo}{Ph.D.}
-  \examiner{Prof.}{Nome Completo}{D.Sc.}
-  %\examiner{Prof.}{Nome Completo}{D.Sc.}
-  \department{DEE} %UTTILIZE A SIGLA DO SEU DEPARTAMENTO MODIFICAR OS NOMES DE CURSO, DEPARTAMENTO E OBTENÇÃO DE GRAU (Obs: caso tenha algum equívoco nesses argumentos, necessário modificar o arquivo poli.cls no local que faz a leitura deste argumento)
-  \maketitle
+\title{Controle preditivo baseado em Deep Learning de geometria de cordão simples fundido por Manufatura Aditiva Arco Elétrico}
+\foreigntitle{Deep Learning-based Predictive control of Wire+Arc Additive Manufacturing single bead geometry}
+\author{Lucas}{Costa Barbosa}
+\advisor{Prof.}{Fernando}{Cesar Lizarralde}{D.Sc.}
+%\coadvisor{Prof.}{Nome}{Sobrenome}{D.Sc.}
+\examiner{Prof.}{Nome Completo}{Ph.D.}
+\examiner{Prof.}{Nome Completo}{D.Sc.}
+%\examiner{Prof.}{Nome Completo}{D.Sc.}
+\department{DEE} %UTTILIZE A SIGLA DO SEU DEPARTAMENTO MODIFICAR OS NOMES DE CURSO, DEPARTAMENTO E OBTENÇÃO DE GRAU (Obs: caso tenha algum equívoco nesses argumentos, necessário modificar o arquivo poli.cls no local que faz a leitura deste argumento)
+\maketitle
 
-  \frontmatter
-  \include{Pre-textual/dedic}
-  \include{Pre-textual/thanks}
-  \include{Pre-textual/resumo}
-  \include{Pre-textual/abstract}
-  \tableofcontents
-  \listoffigures
-  \listoftables
-  \input{Pre-textual/abbrev}
+\frontmatter
+\input{Pre-textual/thanks}
+\input{Pre-textual/resumo}
+\input{Pre-textual/abstract}
+\tableofcontents
+\listoffigures
+\listoftables
+\input{Pre-textual/abbrev}
 
-  \mainmatter
-    \include{Textual/chapter01}
-    \include{Textual/chapter02}    
-    \include{Textual/chapter03}
-    \include{Textual/chapter04}
-    \include{Textual/chapter05}
+\mainmatter
+% \input{Textual/chapter01}
+% \input{Textual/chapter02}
+% \input{Textual/chapter03}
+\input{Textual/chapter04}
+\input{Textual/chapter05}
 
-  \backmatter
-  %\nocite{*}
-  \printbibliography[heading=thesis]
-  \appendix
-  \include{Pos-textual/appenA}
+\backmatter
+%\nocite{*}
+\printbibliography
+% \appendix
+% \input{Pos-textual/appenA}
 \end{document}
