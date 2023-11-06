@@ -1,5 +1,5 @@
 from python.gmaw_process import *
-from python.process_data import load_data
+from python.process_data import load_experiment, load_simulation
 
 import tensorflow as tf
 from keras.models import load_model
@@ -15,29 +15,36 @@ from multiprocessing import Pool, cpu_count
 
 #############
 # Filepaths #
-data_dir = "database/"
+source = "experiment"
+data_dir = f"database/{source}/"
 results_dir = "results/"
 
 #########
 # Loads #
 # Load data
-inputs_train, outputs_train, _, _ = load_data(data_dir)
+if source == "experiment":
+    inputs_train, outputs_train, _, _ = load_experiment(data_dir, 1, 2)
+    n_dims = 1
+if source == "simulation":
+    inputs_train, outputs_train, _, _ = load_simulation(data_dir)
+    n_dims = 2
+
 u_mins = inputs_train.min(axis=0)
 u_maxs = inputs_train.max(axis=0)
 y_means = outputs_train.mean(axis=0)
 y_stds = outputs_train.std(axis=0)
 
 # Load metrics
-metrics_df = pd.read_csv(results_dir + "models/hp_metrics.csv")
-best_model_id = "010"
-best_model_filename = f"run_{best_model_id}.keras"
+metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
+best_model_id = 85 if source == "experiment" else 10
+best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
 P = best_params.iloc[0, 1]
 Q = best_params.iloc[0, 2]
 
 # Load Keras model
 keras_model = load_model(
-    results_dir + f"models/best/run_{best_model_id}.keras"
+    results_dir + f"models/{source}/best/{best_model_filename}"
 )
 
 opt = Adam(learning_rate=best_params["lr"])
@@ -46,8 +53,8 @@ keras_model.compile(optimizer=opt, loss=mean_squared_error)
 # Define MPC parameters
 M = P  # control horizon
 N = Q  # prediction horizon
-weights_control = 0.1 * np.array([[1, 1]]).reshape((2, 1))  #
-weights_output = 10 * np.array([[1, 1]]).reshape((2, 1))  #
+weights_control = 0.1 * np.ones((n_dims, 1))  #
+weights_output = 10 * np.ones((n_dims, 1))  #
 
 # Simulation parameters
 step = 1e-5
@@ -55,29 +62,32 @@ sim_time = 1e-2
 num_time_steps = 40
 
 # Initial conditions
-x0 = [1e-10, 1e-10]
-y0 = gmaw_outputs(x0)
-y0 = np.array(y0).reshape((1, 2))
+x0 = [1e-10 for i in range(n_dims)]
+if source == "experiment":
+    y0 = 1e-10 * np.ones((1, 1))
+elif source == "simulation":
+    y0 = gmaw_outputs(x0)
+    y0 = np.array(y0).reshape((1, n_dims))
 
 # Simulation data
-x = np.zeros((num_time_steps, 2))
+x = np.zeros((num_time_steps, n_dims))
 x[0, :] = x0
-y = np.zeros((num_time_steps, 2))
+y = np.zeros((num_time_steps, n_dims))
 y[0, :] = y0
-u = np.zeros((num_time_steps, 2))
+u = np.zeros((num_time_steps, n_dims))
 
-# Boundaries
-min_f, max_f = 0.0, 1.0
-min_Ir, max_Ir = 0.0, 1.0
-min_we, max_we = 0.0, 1.0
-min_h, max_h = 0.0, 1.0
+# # Boundaries
+# min_f, max_f = 0.0, 1.0
+# min_Ir, max_Ir = 0.0, 1.0
+# min_we, max_we = 0.0, 1.0
+# min_h, max_h = 0.0, 1.0
 
 # Desired outputs
-y_ref = np.zeros(2)
+y_ref = np.zeros(n_dims)
 
 # Historic data
-u_hist = np.zeros((P, 2))
-y_hist = np.zeros((Q, 2))
+u_hist = np.zeros((P, n_dims))
+y_hist = np.zeros((Q, n_dims))
 y_hist[-1, :] = (y0.ravel() - y_means) / y_stds  # Standardize
 
 
@@ -86,13 +96,13 @@ y_hist[-1, :] = (y0.ravel() - y_means) / y_stds  # Standardize
 def build_sequence(u_hist, y_hist):
     u = u_hist.ravel()
     y = y_hist.ravel()
-    return np.hstack((u, y)).reshape((1, 2 * (P + Q), 1))
+    return np.hstack((u, y)).reshape((1, n_dims * (P + Q), 1))
 
 
 def split_sequence(seq):
-    seq = seq.reshape((2 * (P + Q),))
-    u = seq[: 2 * P].reshape((P, 2))
-    y = seq[2 * P :].reshape((Q, 2))
+    seq = seq.reshape((n_dims * (P + Q),))
+    u = seq[: n_dims * P].reshape((P, n_dims))
+    y = seq[n_dims * P :].reshape((Q, n_dims))
     return u, y
 
 
@@ -119,7 +129,6 @@ def build_input_jacobian():
 
 
 def cost_function(u_forecast, y_forecast, y_ref):
-    # u_forecast = u_forecast * (u_maxs - u_mins) + u_mins
     u_diff_forecast = create_control_diff(u_forecast)
     output_error = (y_ref - y_forecast) * y_stds
     output_cost = np.sum(output_error**2 @ weights_output)
@@ -128,18 +137,21 @@ def cost_function(u_forecast, y_forecast, y_ref):
 
 
 def compute_step(u_hist, y_hist, u_forecast, lr):
-    output_jacobian = np.zeros((N, M, 2, 2))
+    if n_dims == 2:
+        output_jacobian = np.zeros((N, M, 2, 2))
+    elif n_dims == 1:
+        output_jacobian = np.zeros((N, M))
+    y_forecast = np.zeros((N, n_dims))
     # gradients = np.zeros((N, P + Q, 2, 2))
-    y_forecast = np.zeros((N, 2))
     for i in range(N):
         if i < M:
-            u_row = u_forecast[i].reshape((1, 2))
+            u_row = u_forecast[i].reshape((1, n_dims))
         if i >= M:
-            u_row = u_forecast[-1].reshape((1, 2))
+            u_row = u_forecast[-1].reshape((1, n_dims))
         u_hist = update_hist(u_hist, u_row)
         seq_input = build_sequence(u_hist, y_hist)
         input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
-        for j in range(2):
+        for j in range(n_dims):
             with tf.GradientTape() as t:
                 t.watch(input_tensor)
                 output_tensor = keras_model(input_tensor)
@@ -149,14 +161,22 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
 
             # gradients[i, :, j, :] = gradient.reshape((P + Q, 2))
             input_gradient, output_gradient = split_sequence(gradient)
-            if i < P - 1:
-                output_jacobian[i, : i + 1, :, j] = input_gradient[
-                    -(i + 1) :, :
-                ]
-            else:
-                output_jacobian[i, :, :, j] = input_gradient[:, :]
+            if source == "experiment":
+                if i < P - 1:
+                    output_jacobian[i, : i + 1] = input_gradient[
+                        -(i + 1) :, :
+                    ].ravel()
+                else:
+                    output_jacobian[i, :] = input_gradient[:, :].ravel()
+            elif source == "simulation":
+                if i < P - 1:
+                    output_jacobian[i, : i + 1, :, j] = input_gradient[
+                        -(i + 1) :, :
+                    ]
+                else:
+                    output_jacobian[i, :, :, j] = input_gradient[:, :]
 
-        y_row = output_tensor.numpy().reshape((1, 2))
+        y_row = output_tensor.numpy().reshape((1, n_dims))
         y_forecast[i, :] = y_row
         y_hist = update_hist(y_hist, y_row)
 
@@ -165,13 +185,13 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
     # u_forecast = u_forecast * (u_maxs - u_mins) + u_mins
     u_diff_forecast = create_control_diff(u_forecast)
     output_error = (y_ref - y_forecast) * y_stds
-    for i in range(2):
-        weight_control = weights_control[i]
-        input_diff = u_diff_forecast[:, i]
+    if source == "experiment":
+        weight_control = weights_control[0]
+        input_diff = u_diff_forecast
         for j in range(M):
             output_gradient = (
                 -2
-                * np.diag(output_error.T @ output_jacobian[:, j, :, i])
+                * np.diag(output_error.T @ output_jacobian[:, j])
                 @ weights_output
             )
 
@@ -179,17 +199,33 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
                 2 * input_jacobian[:, j].T @ input_diff * weight_control
             )
 
-            steps[j, i] = -lr * (output_gradient + input_gradient)
+            steps[j, 0] = -lr * (output_gradient + input_gradient)
 
-    # steps = (steps - u_mins) / (u_maxs - u_mins)
+    if source == "simulation":
+        for i in range(n_dims):
+            weight_control = weights_control[i]
+            input_diff = u_diff_forecast[:, i]
+            for j in range(M):
+                output_gradient = (
+                    -2
+                    * np.diag(output_error.T @ output_jacobian[:, j, :, i])
+                    @ weights_output
+                )
+
+                input_gradient = (
+                    2 * input_jacobian[:, j].T @ input_diff * weight_control
+                )
+
+                steps[j, i] = -lr * (output_gradient + input_gradient)
+
     return steps, y_forecast
 
 
 def optimization_function(u_hist, y_hist, lr):
     # u_forecast = np.random.uniform(size=(M, 2))  #
-    u_forecast = np.ones((M, 2)) * 0.5  #
+    u_forecast = np.ones((M, n_dims)) * 0.5  #
     s = 0
-    cost = 1.0
+    cost = np.inf
     last_cost = cost
     delta_cost = -cost
     while delta_cost < -cost_tol:
@@ -224,21 +260,24 @@ cost_tol = 1e-4  #
 for t in range(1, num_time_steps):
     print(f"Time step: {t}")
     u_opt, u_forecast, y_forecast = optimization_function(u_hist, y_hist, lr)
-    # print(f"U_f: \n{u_forecast}")
-    u_hist = update_hist(u_hist, u_opt.reshape((1, 2)))
+    u_hist = update_hist(u_hist, u_opt.reshape((1, n_dims)))
     u_row = u_opt * (u_maxs - u_mins) + u_mins  # Denormalize
     print(f"u_opt: {u_row}")
     u[t - 1, :] = u_row
-    x_row = solve_rk4(gmaw_states, x_row, step, u_row.tolist())
-    x[t, :] = x_row
+    if source == "experiment":
+        # Extract dynamics from cell
+        y_row = y_row + np.random.normal(loc=0, scale=1)
 
-    # Estimate using Dynamics
-    y_row = np.array(gmaw_outputs(x_row)).reshape((1, 2))
+    if source == "simulation":
+        # Propagate dynamics using simulation
+        x_row = solve_rk4(gmaw_states, x_row, step, u_row.tolist())
+        x[t, :] = x_row
+        y_row = np.array(gmaw_outputs(x_row)).reshape((1, n_dims))
+
     y[t, :] = y_row
     y_row_scaled = (y_row - y_means) / y_stds  # Standardize
     y_hist = update_hist(y_hist, y_row_scaled)
     print(f"y: {y_row}")
-    # print(f"x_row: {x_row}")
 
 u = u[:-1, :]
 
