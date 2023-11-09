@@ -1,2 +1,2 @@
 # lstm-control-waam
-Final paper project envolving application of a LSTM neural network coupled with MPC in the optimization of a single bead geometry welded through WAAM.
+Final project for my graduation envolving application of a LSTM neural network coupled with MPC in the optimization of a single bead geometry welded through WAAM.
