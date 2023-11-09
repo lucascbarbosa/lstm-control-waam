@@ -6,7 +6,6 @@ import numpy as np
 def callback(data):
     rospy.loginfo("Received: %f", data.data)
     y.append(data.data)
-    print(y)
 
 if __name__ == '__main__':
     try:

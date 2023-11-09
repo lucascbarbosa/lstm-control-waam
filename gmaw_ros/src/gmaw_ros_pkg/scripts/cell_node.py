@@ -5,6 +5,7 @@ import numpy as np
 
 def callback(data):
     rospy.loginfo("Received: %f", data.data)
+    u = data.data
 
 def cell_node():
     rospy.init_node('cell_node', anonymous=True)

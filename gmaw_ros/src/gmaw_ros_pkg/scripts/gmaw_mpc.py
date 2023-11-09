@@ -24,9 +24,9 @@ class MPC:
 
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
-        rospy.Subscriber("y", Float32, self.callback)
+        # rospy.Subscriber("y", Float32, self.callback)
         self.pub = rospy.Publisher("u", Float32, queue_size=10)
-        self.pub_freq = 1  # sampling frequency of published data
+        self.pub_freq = 30  # sampling frequency of published data
         self.step_time = 1 / self.pub_freq
         self.total_steps = 10
         self.rate = rospy.Rate(self.pub_freq)
@@ -38,7 +38,7 @@ class MPC:
         self.u = []
 
         # Optimization parameters
-        self.lr = 0.1
+        self.lr = 1e-1
         self.alpha = 1e-3
         self.cost_tol = 1e-4
 
@@ -69,8 +69,8 @@ class MPC:
         # Define MPC parameters
         self.M = self.P  # control horizon
         self.N = self.Q  # prediction horizon
-        self.weights_control = 0.1 * np.ones((1, 1))
-        self.weights_output = 10 * np.ones((1, 1))
+        self.weight_control = 0.1 
+        self.weight_output = 10
 
         # Desired outputs
         self.y_ref = np.zeros(1)
@@ -90,8 +90,7 @@ class MPC:
         self.y.append(y_row)
         y_row_scaled = (y_row - self.y_mean) / self.y_std
         self.y_hist = self.update_hist(self.y_hist, y_row_scaled.reshape((1, 1)))
-        print(f"y_hist: {self.y_hist}")
-        
+
     # Load experiment method
     def load_experiment(self, idx_train, idx_test):
         filename_train = f"bead{idx_train}"
@@ -167,8 +166,8 @@ class MPC:
     def cost_function(self, u_forecast, y_forecast, y_ref):
         u_diff_forecast = self.create_control_diff(u_forecast)
         output_error = (y_ref - y_forecast) * self.y_std
-        output_cost = np.sum(output_error**2 @ self.weights_output)
-        control_cost = np.sum(u_diff_forecast**2 @ self.weights_control)
+        output_cost = np.sum(output_error**2 * self.weight_output)
+        control_cost = np.sum(u_diff_forecast**2 * self.weight_control)
         return output_cost + control_cost
 
     def compute_step(self, u_hist, y_hist, u_forecast, lr):
@@ -206,17 +205,16 @@ class MPC:
         steps = np.zeros(u_forecast.shape)
         u_diff_forecast = self.create_control_diff(u_forecast)
         output_error = (self.y_ref - y_forecast) * self.y_std
-        weight_control = self.weights_control[0]
         input_diff = u_diff_forecast
         for j in range(self.M):
             output_gradient = (
                 -2
                 * np.diag(output_error.T @ output_jacobian[:, j])
-                @ self.weights_output
+                * self.weight_output
             )
 
             input_gradient = (
-                2 * input_jacobian[:, j].T @ input_diff * weight_control
+                2 * input_jacobian[:, j].T @ input_diff * self.weight_control
             )
 
             steps[j, 0] = -lr * (output_gradient + input_gradient)
@@ -231,10 +229,10 @@ class MPC:
         last_cost = cost
         delta_cost = -cost
         while delta_cost < -self.cost_tol:
-            print(f"Opt step: {s+1}")
             steps, y_forecast = self.compute_step(u_hist, y_hist, u_forecast, lr)
             cost = self.cost_function(u_forecast, y_forecast, self.y_ref)
             delta_cost = cost - last_cost
+            print(f"Opt step: {s+1}")
             print(f"Cost: {cost}\n ")
             if delta_cost < 0:
                 u_forecast += steps
@@ -259,14 +257,13 @@ while not rospy.is_shutdown():
     print(f"Time step: {exp_step}")
     u_opt, u_forecast, y_forecast = mpc.optimization_function(mpc.u_hist, mpc.y_hist, mpc.lr)
     mpc.u_hist = mpc.update_hist(mpc.u_hist, u_opt.reshape((1, 1)))
-    u_opt = u_opt[0, 0]
+    u_opt = u_opt[0]
     u_row = u_opt * (mpc.u_max - mpc.u_min) + mpc.u_min  # Denormalize
-    print(f"u_opt: {u_row}")
     mpc.u.append(u_row)
     
     # Send the "u_row" variable
     mpc.pub.publish(u_row)
-    rospy.loginfo("Sending control u: %f", u_row)
+    rospy.loginfo("Sending control u_opt: %f", u_row)
     mpc.rate.sleep()
     exp_step += 1
     exp_time = mpc.step_time
