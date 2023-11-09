@@ -1,5 +1,4 @@
-from python.gmaw_process import *
-from python.process_data import load_experiment, load_simulation
+from process_data import load_experiment, load_simulation
 
 import tensorflow as tf
 from keras.models import load_model
@@ -13,21 +12,19 @@ import os
 import time
 from multiprocessing import Pool, cpu_count
 
+import rospy
+from std_msgs.msg import Float32
+
 #############
 # Filepaths #
-source = "experiment"
-data_dir = f"database/{source}/"
+data_dir = f"database/experiment/"
 results_dir = "results/"
 
 #########
 # Loads #
 # Load data
-if source == "experiment":
-    inputs_train, outputs_train, _, _ = load_experiment(data_dir, 1, 2)
-    n_dims = 1
-if source == "simulation":
-    inputs_train, outputs_train, _, _ = load_simulation(data_dir)
-    n_dims = 2
+inputs_train, outputs_train, _, _ = load_experiment(data_dir, 1, 2)
+n_dims = 1
 
 u_mins = inputs_train.min(axis=0)
 u_maxs = inputs_train.max(axis=0)
@@ -35,8 +32,8 @@ y_means = outputs_train.mean(axis=0)
 y_stds = outputs_train.std(axis=0)
 
 # Load metrics
-metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
-best_model_id = 85 if source == "experiment" else 10
+metrics_df = pd.read_csv(results_dir + f"models/experiment/hp_metrics.csv")
+best_model_id = 85
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
 P = best_params.iloc[0, 1]
@@ -44,7 +41,7 @@ Q = best_params.iloc[0, 2]
 
 # Load Keras model
 keras_model = load_model(
-    results_dir + f"models/{source}/best/{best_model_filename}"
+    results_dir + f"models/experiment/best/{best_model_filename}"
 )
 
 opt = Adam(learning_rate=best_params["lr"])
@@ -56,22 +53,18 @@ N = Q  # prediction horizon
 weights_control = 0.1 * np.ones((n_dims, 1))  #
 weights_output = 10 * np.ones((n_dims, 1))  #
 
-# Simulation parameters
-step = 1e-5
-sim_time = 1e-2
-num_time_steps = 40
+# Closed loop parameters
+pub = rospy.Publisher("u", Float32, queue_size=10)
+# Create a subscriber to receive the "y_row" variable
+rospy.Subscriber("y", Float32, callback)
+num_time_steps = 100
+time_step = 0.1
+rate = rospy.Rate(1/time_step)  # 10 Hz
 
 # Initial conditions
-x0 = [1e-10 for i in range(n_dims)]
-if source == "experiment":
-    y0 = 1e-10 * np.ones((1, 1))
-elif source == "simulation":
-    y0 = gmaw_outputs(x0)
-    y0 = np.array(y0).reshape((1, n_dims))
+y0 = 1e-10 * np.ones((1, 1))
 
 # Simulation data
-x = np.zeros((num_time_steps, n_dims))
-x[0, :] = x0
 y = np.zeros((num_time_steps, n_dims))
 y[0, :] = y0
 u = np.zeros((num_time_steps, n_dims))
@@ -90,9 +83,11 @@ u_hist = np.zeros((P, n_dims))
 y_hist = np.zeros((Q, n_dims))
 y_hist[-1, :] = (y0.ravel() - y_means) / y_stds  # Standardize
 
-
 #############
 # Functions #
+def callback(data):
+    rospy.loginfo("Received output y: %f", data.data)
+
 def build_sequence(u_hist, y_hist):
     u = u_hist.ravel()
     y = y_hist.ravel()
@@ -161,20 +156,12 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
 
             # gradients[i, :, j, :] = gradient.reshape((P + Q, 2))
             input_gradient, output_gradient = split_sequence(gradient)
-            if source == "experiment":
-                if i < P - 1:
-                    output_jacobian[i, : i + 1] = input_gradient[
-                        -(i + 1) :, :
-                    ].ravel()
-                else:
-                    output_jacobian[i, :] = input_gradient[:, :].ravel()
-            elif source == "simulation":
-                if i < P - 1:
-                    output_jacobian[i, : i + 1, :, j] = input_gradient[
-                        -(i + 1) :, :
-                    ]
-                else:
-                    output_jacobian[i, :, :, j] = input_gradient[:, :]
+            if i < P - 1:
+                output_jacobian[i, : i + 1] = input_gradient[
+                    -(i + 1) :, :
+                ].ravel()
+            else:
+                output_jacobian[i, :] = input_gradient[:, :].ravel()
 
         y_row = output_tensor.numpy().reshape((1, n_dims))
         y_forecast[i, :] = y_row
@@ -185,38 +172,20 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
     # u_forecast = u_forecast * (u_maxs - u_mins) + u_mins
     u_diff_forecast = create_control_diff(u_forecast)
     output_error = (y_ref - y_forecast) * y_stds
-    if source == "experiment":
-        weight_control = weights_control[0]
-        input_diff = u_diff_forecast
-        for j in range(M):
-            output_gradient = (
-                -2
-                * np.diag(output_error.T @ output_jacobian[:, j])
-                @ weights_output
-            )
+    weight_control = weights_control[0]
+    input_diff = u_diff_forecast
+    for j in range(M):
+        output_gradient = (
+            -2
+            * np.diag(output_error.T @ output_jacobian[:, j])
+            @ weights_output
+        )
 
-            input_gradient = (
-                2 * input_jacobian[:, j].T @ input_diff * weight_control
-            )
+        input_gradient = (
+            2 * input_jacobian[:, j].T @ input_diff * weight_control
+        )
 
-            steps[j, 0] = -lr * (output_gradient + input_gradient)
-
-    if source == "simulation":
-        for i in range(n_dims):
-            weight_control = weights_control[i]
-            input_diff = u_diff_forecast[:, i]
-            for j in range(M):
-                output_gradient = (
-                    -2
-                    * np.diag(output_error.T @ output_jacobian[:, j, :, i])
-                    @ weights_output
-                )
-
-                input_gradient = (
-                    2 * input_jacobian[:, j].T @ input_diff * weight_control
-                )
-
-                steps[j, i] = -lr * (output_gradient + input_gradient)
+        steps[j, 0] = -lr * (output_gradient + input_gradient)
 
     return steps, y_forecast
 
@@ -248,7 +217,6 @@ def optimization_function(u_hist, y_hist, lr):
     return u_opt, u_forecast, y_forecast
 
 
-x_row = x0
 y_row = y0
 
 # Optimization parameters
@@ -264,21 +232,20 @@ for t in range(1, num_time_steps):
     u_row = u_opt * (u_maxs - u_mins) + u_mins  # Denormalize
     print(f"u_opt: {u_row}")
     u[t - 1, :] = u_row
-    if source == "experiment":
-        # Extract dynamics from cell
-        y_row = y_row + np.random.normal(loc=0, scale=1)
-
-    if source == "simulation":
-        # Propagate dynamics using simulation
-        x_row = solve_rk4(gmaw_states, x_row, step, u_row.tolist())
-        x[t, :] = x_row
-        y_row = np.array(gmaw_outputs(x_row)).reshape((1, n_dims))
-
+    while not rospy.is_shutdown():
+        # Send the "u_row" variable
+        pub.publish(u_row)
+        rospy.loginfo("Sending control u: %f", u_row)
+        rate.sleep()
+    
+    # Extract y_row from cell
+        
     y[t, :] = y_row
     y_row_scaled = (y_row - y_means) / y_stds  # Standardize
     y_hist = update_hist(y_hist, y_row_scaled)
     print(f"y: {y_row}")
 
+rospy.spin()
 u = u[:-1, :]
 
 u = pd.DataFrame(u, columns=["f", "Ir"])

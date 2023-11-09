@@ -1,2 +1,2 @@
-# rl-control-waam
-Final paper project envolving application of reinforcement learning (and other methods of deep and machine learning) in the optimization of WAAM fabrication method.
+# lstm-control-waam
+Final paper project envolving application of a LSTM neural network coupled with MPC in the optimization of a single bead geometry welded through WAAM.
