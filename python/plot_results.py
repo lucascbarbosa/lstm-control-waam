@@ -9,19 +9,20 @@ from scipy.stats import shapiro
 data_dir = "database/"
 results_dir = "results/"
 
-
 # Plot prediction
 def plot_prediction(source="simulation", save=False):
     if source == "simulation":
         fig, axs = plt.subplots(2, 1)
         fig.set_size_inches(12, 6)
 
-        axs[0].plot(Y_real[:, 0], color="k", label=r"$w_e$")
-        axs[0].plot(Y_pred[:, 0], color="r", label=r"$\hat{w}_e$")
+        axs[0].plot(Y_real[:, 0] * 1000, color="k", label="Real")
+        axs[0].plot(Y_pred[:, 0] * 1000, color="r", label="Predicted")
         axs[0].set_xlabel(r"t")
+        axs[0].set_title(r"$w_e\;(mm)$")
 
-        axs[1].plot(Y_real[:, 1], color="k", label=r"$h$")
-        axs[1].plot(Y_pred[:, 1], color="r", label=r"$\hat{h}$")
+        axs[1].plot(Y_real[:, 1] * 1000, color="k", label="Real")
+        axs[1].plot(Y_pred[:, 1] * 1000, color="r", label="Predicted")
+        axs[1].set_title(r"$h\;(mm)$")
 
         fig.suptitle("Outputs prediction")
         axs[0].legend()
@@ -30,8 +31,9 @@ def plot_prediction(source="simulation", save=False):
     elif source == "experiment":
         fig = plt.figure(figsize=(12, 6))
         fig.suptitle("Output prediction")
-        plt.plot(Y_real, color="k", label=r"$w_e$")
-        plt.plot(Y_pred, color="r", label=r"$\hat{w}_e$")
+        plt.title(r"$w_e\;(mm)$")
+        plt.plot(Y_real, color="k", label="Real")
+        plt.plot(Y_pred, color="r", label="Predicted")
         plt.legend()
 
     fig.tight_layout()
@@ -102,7 +104,7 @@ def histogram_error(bins, source="simulation", save=False):
     plt.show()
 
 
-def plot_mpc(u, y, y_ref):
+def plot_mpc(u, y, y_ref, save=True):
     def create_control_diff(u):
         u_diff = u.copy()
         u_diff[1:] = u_diff[1:] - u_diff[:-1]
@@ -143,10 +145,13 @@ def plot_mpc(u, y, y_ref):
         axs[i].axhline(y_ref[i], color="black", linestyle="--")
 
     plt.tight_layout()
+
+    if save:
+        plt.savefig(results_dir + f"plots/{source}_mpc_outputs.png")
     plt.show()
 
 
-source = "experiment"
+source = "simulation"
 data_filename = data_dir + f"{source}/"
 
 if source == "simulation":
@@ -173,17 +178,17 @@ Y_pred = np.loadtxt(
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 metrics_df["loss"] = metrics_df["loss"].apply(lambda x: np.nan if x > 1 else x)
 
-mpc_u = pd.read_csv(results_dir + "mpc/u.csv")
+mpc_u = pd.read_csv(results_dir + f"mpc/{source}/u.csv")
 mpc_u = mpc_u.iloc[:-1, :]
-mpc_y = pd.read_csv(results_dir + "mpc/y.csv")
+mpc_y = pd.read_csv(results_dir + f"mpc/{source}/y.csv")
 
 # plot_prediction(source=source, save=True)
 
 # bins = 32
 # histogram_error(bins, source=source, save=True)
 
-batch_sizes = [16, 32, 64]
-for batch_size in batch_sizes:
-    plot_heatmap(batch_size, source=source, save=True)
+# batch_sizes = [16, 32, 64]
+# for batch_size in batch_sizes:
+#     plot_heatmap(batch_size, source=source, save=True)
 
-# plot_mpc(mpc_u, mpc_y, y_means)
+plot_mpc(mpc_u, mpc_y, y_means,save=False)

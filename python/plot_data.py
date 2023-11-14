@@ -67,12 +67,12 @@ N = 200  # Horizon plotted
 database_sim = [inputs_train, outputs_train, inputs_test, outputs_test]
 database_exp = [input_train, output_train, input_test, output_test]
 data_labels_sim = [
-    ["f", "I_r"],
-    ["w_e", "h"],
-    ["f", "I_r"],
-    ["w_e", "h"],
+    ["f\;(mm/s)", "I_r\;(A)"],
+    ["w_e\;(mm)", "h\;(mm)"],
+    ["f\;(mm/s)", "I_r\;(A)"],
+    ["w_e", "h\;(mm)"],
 ]
-data_labels_exp = ["f", "w_e", "f", "w_e"]
+data_labels_exp = ["f\;(mm/s)", "w_e\;(mm)", "f\;(mm/s)", "w_e\;(mm)"]
 fig_titles = [
     "Entradas de treinamento",
     "Saídas de treinamento",
@@ -87,7 +87,7 @@ fig_filenames = [
 ]
 
 
-scale = True
+scale = False
 save = True
 var_types = ["u", "y", "u", "y"]
 

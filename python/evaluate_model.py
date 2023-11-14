@@ -23,7 +23,7 @@ import os
 # Load data
 data_dir = "database/"
 results_dir = "results/"
-source = "simulation"
+source = "experiment"
 
 
 def compute_metrics(Y_pred, Y_real):
@@ -35,14 +35,13 @@ def compute_metrics(Y_pred, Y_real):
 
 
 # Load metrics
-metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
-best_model_id = metrics_df.iloc[0, 0]
-best_model_id = 10
+best_model_id = 85
 best_model_filename = f"run_{best_model_id:03d}.keras"
+metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
 
 # Load best model
-model = load_model(f"{results_dir}/models/{source}/best/{best_model_filename}")
+model = load_model(results_dir + f"models/{source}/best/{best_model_filename}")
 model.compile(
     optimizer=Adam(learning_rate=best_params["lr"]), loss=mean_squared_error
 )
@@ -78,8 +77,8 @@ elif source == "experiment":
     _, output_train, input_test, output_test = load_experiment(
         data_dir + f"{source}/", 1, 2
     )
-    y_means = output_train.mean().reshape((1,))
-    y_stds = output_train.std().reshape((1,))
+    y_mean = output_train.mean().reshape((1,))
+    y_std = output_train.std().reshape((1,))
 
     # Scale database
     input_test = normalize_data(input_test)

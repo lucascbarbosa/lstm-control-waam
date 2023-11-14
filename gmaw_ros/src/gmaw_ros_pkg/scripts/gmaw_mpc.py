@@ -24,17 +24,15 @@ class MPC:
 
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
-        # rospy.Subscriber("y", Float32, self.callback)
+        rospy.Subscriber("y", Float32, self.callback)
         self.pub = rospy.Publisher("u", Float32, queue_size=10)
-        self.pub_freq = 30  # sampling frequency of published data
+        self.pub_freq = 1  # sampling frequency of published data
         self.step_time = 1 / self.pub_freq
         self.total_steps = 10
         self.rate = rospy.Rate(self.pub_freq)
 
         # Experiment data
-        self.y0 = 1e-10
         self.y = []
-        self.y.append(self.y0)
         self.u = []
 
         # Optimization parameters
@@ -75,13 +73,9 @@ class MPC:
         # Desired outputs
         self.y_ref = np.zeros(1)
 
-        # Initial conditions
-        self.y0 = 1e-10 * np.ones((1, 1))
-
         # Historic data
         self.u_hist = np.zeros((self.P, 1))
         self.y_hist = np.zeros((self.Q, 1))
-        self.y_hist[-1, :] = (self.y0.ravel() - self.y_mean) / self.y_std  # Standardize
 
     # Callback method
     def callback(self, data):
@@ -200,6 +194,7 @@ class MPC:
             y_row = output_tensor.numpy().reshape((1, 1))
             y_forecast[i, :] = y_row
             y_hist = self.update_hist(y_hist, y_row)
+        # ---------
 
         input_jacobian = self.build_input_jacobian()
         steps = np.zeros(u_forecast.shape)
@@ -250,12 +245,14 @@ class MPC:
 mpc = MPC()
 
 # MPC loop
-y_row = mpc.y0
 exp_time = 0
-exp_step = 0
+exp_step = 1
+rospy.wait_for_message('y', Float32)
+print(f"y: {mpc.y}")
 while not rospy.is_shutdown():
     print(f"Time step: {exp_step}")
     u_opt, u_forecast, y_forecast = mpc.optimization_function(mpc.u_hist, mpc.y_hist, mpc.lr)
+    print(f"y: {mpc.y}")
     mpc.u_hist = mpc.update_hist(mpc.u_hist, u_opt.reshape((1, 1)))
     u_opt = u_opt[0]
     u_row = u_opt * (mpc.u_max - mpc.u_min) + mpc.u_min  # Denormalize

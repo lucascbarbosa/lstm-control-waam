@@ -268,9 +268,9 @@ y.append(y0)
 u = []
 
 # Optimization parameters
-lr = 0.1  #
+lr = 1e-1  #
 alpha = 1e-3  #
-cost_tol = 1e-4  #
+cost_tol = 1e-3  #
 
 # MPC loop
 y_row = y0
