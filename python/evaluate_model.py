@@ -46,6 +46,7 @@ model.compile(
     optimizer=Adam(learning_rate=best_params["lr"]), loss=mean_squared_error
 )
 
+idx_test = 7
 # Load and sequence data accordingly
 if source == "simulation":
     _, outputs_train, inputs_test, outputs_test = load_simulation(
@@ -75,7 +76,7 @@ if source == "simulation":
 
 elif source == "experiment":
     _, output_train, input_test, output_test = load_experiment(
-        data_dir + f"{source}/", 1, 2
+        data_dir + f"{source}/", 1, idx_test
     )
     y_mean = output_train.mean().reshape((1,))
     y_std = output_train.std().reshape((1,))
@@ -110,8 +111,8 @@ for i in range(num_features_output):
 # Y_real = Y_real[int(best_params["P"]) + int(best_params["Q"]) :]
 
 # Save real and predicted data
-np.savetxt(results_dir + f"predictions/{source}/y_real.csv", Y_real)
-np.savetxt(results_dir + f"predictions/{source}/y_pred.csv", Y_pred)
+np.savetxt(results_dir + f"predictions/{source}/bead{idx_test}_y_real.csv", Y_real)
+np.savetxt(results_dir + f"predictions/{source}/bead{idx_test}_y_pred.csv", Y_pred)
 
 mses = compute_metrics(Y_pred, Y_real)
 

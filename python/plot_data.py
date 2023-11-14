@@ -43,7 +43,7 @@ def plot_data(
                 axs[i].step(range(N), data[:N, i])
         else:
             for i in range(data.shape[1]):
-                axs[i].plot(range(N), data[:N, i])
+                axs[i].plot(range(N), data[:N, i] * 1000)
 
     if source == "experiment":
         fig = plt.figure(figsize=(12, 6))
@@ -70,9 +70,18 @@ data_labels_sim = [
     ["f\;(mm/s)", "I_r\;(A)"],
     ["w_e\;(mm)", "h\;(mm)"],
     ["f\;(mm/s)", "I_r\;(A)"],
-    ["w_e", "h\;(mm)"],
+    ["w_e\;(mm)", "h\;(mm)"],
 ]
+data_labels_sim_scaled = [
+    ["f", "I_r"],
+    ["w_e", "h"],
+    ["f", "I_r"],
+    ["w_e", "h"],
+]
+
 data_labels_exp = ["f\;(mm/s)", "w_e\;(mm)", "f\;(mm/s)", "w_e\;(mm)"]
+data_labels_exp_scaled = ["f", "w_e", "f", "w_e"]
+
 fig_titles = [
     "Entradas de treinamento",
     "Saídas de treinamento",
@@ -86,12 +95,15 @@ fig_filenames = [
     "outputs_test",
 ]
 
-
 scale = False
+if scale:
+    data_labels_exp = data_labels_exp_scaled
+    data_labels_sim = data_labels_sim_scaled
+
 save = True
 var_types = ["u", "y", "u", "y"]
 
-source = "experiment"
+source = "simulation"
 
 if source == "simulation":
     database = database_sim
