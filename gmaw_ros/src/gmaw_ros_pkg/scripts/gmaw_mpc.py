@@ -2,8 +2,6 @@ import tensorflow as tf
 from keras.models import load_model
 from tensorflow.keras.losses import mean_squared_error
 from tensorflow.keras.optimizers import Adam
-from tensorflow.python.ops import array_ops
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 import numpy as np
 import pandas as pd
@@ -12,9 +10,7 @@ from scipy.interpolate import interp1d
 import rospy
 from std_msgs.msg import Float32
 
-import os
 import time
-from multiprocessing import Pool, cpu_count
 
 class MPC:
     def __init__(self):
@@ -26,7 +22,7 @@ class MPC:
         rospy.init_node("mpc_node", anonymous=True)
         rospy.Subscriber("y", Float32, self.callback)
         self.pub = rospy.Publisher("u", Float32, queue_size=10)
-        self.pub_freq = 1  # sampling frequency of published data
+        self.pub_freq = 30  # sampling frequency of published data
         self.step_time = 1 / self.pub_freq
         self.total_steps = 10
         self.rate = rospy.Rate(self.pub_freq)
@@ -81,7 +77,8 @@ class MPC:
     def callback(self, data):
         rospy.loginfo("Received output y: %f", data.data)
         y_row = data.data
-        self.y.append(y_row)
+        t = time.time()
+        self.y.append([t-start_time, y_row])
         y_row_scaled = (y_row - self.y_mean) / self.y_std
         self.y_hist = self.update_hist(self.y_hist, y_row_scaled.reshape((1, 1)))
 
@@ -241,6 +238,7 @@ class MPC:
         return u_opt, u_forecast, y_forecast
 
 
+start_time = time.time()
 # Create an instance of the MPC class
 mpc = MPC()
 
@@ -249,10 +247,10 @@ exp_time = 0
 exp_step = 1
 rospy.wait_for_message('y', Float32)
 print(f"y: {mpc.y}")
+
 while not rospy.is_shutdown():
     print(f"Time step: {exp_step}")
     u_opt, u_forecast, y_forecast = mpc.optimization_function(mpc.u_hist, mpc.y_hist, mpc.lr)
-    print(f"y: {mpc.y}")
     mpc.u_hist = mpc.update_hist(mpc.u_hist, u_opt.reshape((1, 1)))
     u_opt = u_opt[0]
     u_row = u_opt * (mpc.u_max - mpc.u_min) + mpc.u_min  # Denormalize

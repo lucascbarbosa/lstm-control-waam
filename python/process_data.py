@@ -29,9 +29,9 @@ def resample_data(original_data, original_time, new_time):
 
 def load_experiment(data_dir, idx_train, idx_test):
     filename_train = f"bead{idx_train}"
-    input_train = pd.read_csv(data_dir + filename_train + "_w.csv").to_numpy()
+    input_train = pd.read_csv(data_dir + filename_train + "_wfs.csv").to_numpy()
     output_train = pd.read_csv(
-        data_dir + filename_train + "_wfs.csv"
+        data_dir + filename_train + "_w.csv"
     ).to_numpy()
 
     output_train = resample_data(
