@@ -32,9 +32,9 @@ class MPC:
         self.u = []
 
         # Optimization parameters
-        self.lr = 1e-1
+        self.lr = 5e-2
         self.alpha = 1e-3
-        self.cost_tol = 1e-4
+        self.cost_tol = 0.1
 
         # Load data
         self.inputs_train, self.outputs_train, _, _ = self.load_experiment(1, 2)
@@ -73,6 +73,8 @@ class MPC:
         self.u_hist = np.zeros((self.P, 1))
         self.y_hist = np.zeros((self.Q, 1))
 
+        self.u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(self.M, 1)) #
+
     # Callback method
     def callback(self, data):
         rospy.loginfo("Received output y: %f", data.data)
@@ -85,9 +87,9 @@ class MPC:
     # Load experiment method
     def load_experiment(self, idx_train, idx_test):
         filename_train = f"bead{idx_train}"
-        input_train = pd.read_csv(self.data_dir + filename_train + "_w.csv").to_numpy()
+        input_train = pd.read_csv(self.data_dir + filename_train + "_wfs.csv").to_numpy()
         output_train = pd.read_csv(
-            self.data_dir + filename_train + "_wfs.csv"
+            self.data_dir + filename_train + "_w.csv"
         ).to_numpy()
 
         output_train = self.resample_data(
@@ -95,8 +97,8 @@ class MPC:
         )
 
         filename_test = f"bead{idx_test}"
-        input_test = pd.read_csv(self.data_dir + filename_test + "_w.csv").to_numpy()
-        output_test = pd.read_csv(self.data_dir + filename_test + "_wfs.csv").to_numpy()
+        input_test = pd.read_csv(self.data_dir + filename_test + "_wfs.csv").to_numpy()
+        output_test = pd.read_csv(self.data_dir + filename_test + "_w.csv").to_numpy()
 
         output_test = self.resample_data(
             output_test[:, 1], output_test[:, 0], input_test[:, 0]
@@ -214,8 +216,9 @@ class MPC:
         return steps, y_forecast
 
     # Optimization function method
-    def optimization_function(self, u_hist, y_hist, lr):
-        u_forecast = np.ones((self.M, 1)) * 0.5
+    def optimization_function(self, u_hist, y_hist, lr, u_forecast=None):
+        if u_forecast is None:
+            u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(M, 1)) #
         s = 0
         cost = np.inf
         last_cost = cost
@@ -247,10 +250,9 @@ exp_time = 0
 exp_step = 1
 rospy.wait_for_message('y', Float32)
 print(f"y: {mpc.y}")
-
 while not rospy.is_shutdown():
     print(f"Time step: {exp_step}")
-    u_opt, u_forecast, y_forecast = mpc.optimization_function(mpc.u_hist, mpc.y_hist, mpc.lr)
+    u_opt, u_forecast, y_forecast = mpc.optimization_function(mpc.u_hist, mpc.y_hist, mpc.lr, mpc.u_forecast)
     mpc.u_hist = mpc.update_hist(mpc.u_hist, u_opt.reshape((1, 1)))
     u_opt = u_opt[0]
     u_row = u_opt * (mpc.u_max - mpc.u_min) + mpc.u_min  # Denormalize
