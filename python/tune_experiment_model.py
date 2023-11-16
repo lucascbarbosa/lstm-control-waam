@@ -113,8 +113,8 @@ def run_training(
 input_train, output_train, input_test, output_test = load_experiment(
     data_dir + "experiment/", 1, 2
 )
-num_features_input = input_train.shape[1]
-num_features_output = output_train.shape[1]
+
+num_features_input = num_features_output = 1
 
 # Scale database
 input_train = normalize_data(input_train)
@@ -154,6 +154,7 @@ for hp_comb in hp_combinations:
     i += 1
 
 num_processes = 8
+# Run all experiments
 with Pool(processes=num_processes) as pool:
     results = pool.starmap(
         run_training,

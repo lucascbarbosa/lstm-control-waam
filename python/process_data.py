@@ -34,16 +34,16 @@ def load_experiment(data_dir, idx_train, idx_test):
         data_dir + filename_train + "_w.csv"
     ).to_numpy()
 
-    output_train = resample_data(
-        output_train[:, 1], output_train[:, 0], input_train[:, 0]
+    input_train = resample_data(
+        input_train[:, 1], input_train[:, 0], output_train[:, 0]
     )
 
     filename_test = f"bead{idx_test}"
-    input_test = pd.read_csv(data_dir + filename_test + "_w.csv").to_numpy()
-    output_test = pd.read_csv(data_dir + filename_test + "_wfs.csv").to_numpy()
+    input_test = pd.read_csv(data_dir + filename_test + "_wfs.csv").to_numpy()
+    output_test = pd.read_csv(data_dir + filename_test + "_w.csv").to_numpy()
 
-    output_test = resample_data(
-        output_test[:, 1], output_test[:, 0], input_test[:, 0]
+    input_test = resample_data(
+        input_test[:, 1], input_test[:, 0], output_test[:, 0]
     )
 
     return (

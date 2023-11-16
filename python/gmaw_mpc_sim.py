@@ -67,12 +67,6 @@ y = np.zeros((num_time_steps, 2))
 y[0, :] = y0
 u = np.zeros((num_time_steps, 2))
 
-# # Boundaries
-# min_f, max_f = 0.0, 1.0
-# min_Ir, max_Ir = 0.0, 1.0
-# min_we, max_we = 0.0, 1.0
-# min_h, max_h = 0.0, 1.0
-
 # Desired outputs
 y_ref = np.zeros(2)
 
@@ -153,7 +147,7 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
                 ).numpy()[0, :, 0]
 
             # gradients[i, :, j, :] = gradient.reshape((P + Q, 2))
-            input_gradient, output_gradient = split_sequence(gradient)
+            input_gradient, _ = split_sequence(gradient)
             if i < P - 1:
                 output_jacobian[i, : i + 1, :, j] = input_gradient[
                     -(i + 1) :, :
@@ -189,13 +183,14 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
     return steps, y_forecast
 
 
-def optimization_function(u_hist, y_hist, lr):
-    # u_forecast = np.random.uniform(size=(M, 2))  #
-    u_forecast = np.ones((M, 2)) * 0.5  #
+def optimization_function(u_hist, y_hist, lr, u_forecast=None):
+    if u_forecast is None:
+        u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(M, 2)) #
     s = 0
     cost = np.inf
     last_cost = cost
     delta_cost = -cost
+    # print(f"U_F: \n{u_forecast}")
     while delta_cost < -cost_tol:
         print(f"Opt step: {s+1}")
         steps, y_forecast = compute_step(u_hist, y_hist, u_forecast, lr)
@@ -203,7 +198,6 @@ def optimization_function(u_hist, y_hist, lr):
         delta_cost = cost - last_cost
         print(f"Cost: {cost}\n ")
         # print(f"Steps: \n{steps}")
-        # print(f"Error: {(y_forecast-y_ref)*y_stds}")
         if delta_cost < 0:
             u_forecast += steps
             lr = lr * (1.0 - alpha)
@@ -212,7 +206,11 @@ def optimization_function(u_hist, y_hist, lr):
         else:
             print("Passed optimal solution")
             break
+
+    # print(f"U_F: \n{u_forecast}")
+    # print(f"Y_F: \n{y_forecast}")
     u_opt = u_forecast[0, :]
+    # print(f"u_opt: {u_opt}")
     return u_opt, u_forecast, y_forecast
 
 
@@ -223,14 +221,14 @@ y_row = y0
 lr = 1e-1  #
 alpha = 1e-3  #
 cost_tol = 1e-3  #
-
+# u_forecast = np.ones((M, 2)) * 0.5  #
+u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(M, 2)) #
 # MPC loop
 for t in range(1, num_time_steps):
     print(f"Time step: {t}")
-    u_opt, u_forecast, y_forecast = optimization_function(u_hist, y_hist, lr)
+    u_opt, u_forecast, y_forecast = optimization_function(u_hist, y_hist, lr, u_forecast)
     u_hist = update_hist(u_hist, u_opt.reshape((1, 2)))
     u_row = u_opt * (u_maxs - u_mins) + u_mins  # Denormalize
-    print(f"u_opt: {u_row}")
     u[t - 1, :] = u_row
     # Propagate dynamics using simulation
     x_row = solve_rk4(gmaw_states, x_row, step, u_row.tolist())

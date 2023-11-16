@@ -13,9 +13,7 @@ import time
 def load_experiment(idx_train, idx_test):
     filename_train = f"bead{idx_train}"
     input_train = pd.read_csv(data_dir + filename_train + "_w.csv").to_numpy()
-    output_train = pd.read_csv(
-        data_dir + filename_train + "_wfs.csv"
-    ).to_numpy()
+    output_train = pd.read_csv(data_dir + filename_train + "_wfs.csv").to_numpy()
 
     output_train = resample_data(
         output_train[:, 1], output_train[:, 0], input_train[:, 0]
@@ -125,34 +123,40 @@ def compute_step(u_hist, y_hist, u_forecast, lr):
     u_diff_forecast = create_control_diff(u_forecast)
     output_error = (y_ref - y_forecast) * y_std
     input_diff = u_diff_forecast
-    for j in range(M):
-        output_gradient = (
-            -2
-            * np.diag(output_error.T @ output_jacobian[:, j])
-            * weight_output
-        )
+    # print(f"output_error: \n{output_error}")
+    # print(f"output_jacobian: \n{output_jacobian}")
 
-        input_gradient = (
+    for j in range(M):
+        input_step = (
             2 * input_jacobian[:, j].T @ input_diff * weight_control
         )
 
-        steps[j, 0] = -lr * (output_gradient + input_gradient)
+        output_step = (
+            -2
+            * output_error.T @ output_jacobian[:, j]
+            * weight_output
+        )
+        # print(f"output_step: \n{output_step}")
+        steps[j, 0] = -lr * (output_step + input_step)
 
     return steps, y_forecast
 
 # Optimization function method
-def optimization_function(u_hist, y_hist, lr):
-    u_forecast = np.ones((M, 1)) * 0.5
+def optimization_function(u_hist, y_hist, lr, u_forecast=None):
+    if u_forecast is None:
+        u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(M, 1)) #
     s = 0
     cost = np.inf
     last_cost = cost
     delta_cost = -cost
+    # print(f"U_F: \n{u_forecast}")   
     while delta_cost < -cost_tol:
         steps, y_forecast = compute_step(u_hist, y_hist, u_forecast, lr)
         cost = cost_function(u_forecast, y_forecast, y_ref)
         delta_cost = cost - last_cost
         print(f"Opt step: {s+1}")
-        print(f"Cost: {cost}\n ")
+        print(f"Cost: {cost}\n")
+        # print(f"Steps: \n{steps}")
         if delta_cost < 0:
             u_forecast += steps
             lr = lr * (1.0 - alpha)
@@ -161,7 +165,11 @@ def optimization_function(u_hist, y_hist, lr):
         else:
             print("Passed optimal solution")
             break
+
     u_opt = u_forecast[0, :]
+    # print(f"U_F: \n{u_forecast}")   
+    print(f"Y_F: \n{y_forecast}")
+    # print(f"u_opt: {u_opt}")
     return u_opt, u_forecast, y_forecast
 
 # Filepaths
@@ -174,9 +182,9 @@ step_time = 1 / pub_freq
 total_steps = 10
 
 # Optimization parameters
-lr = 5e-1 #5e-1
+lr = 5e-2 #1e-1
 alpha = 1e-3 #1e-3
-cost_tol = 1e-1 #1e-4
+cost_tol = 0.1  #1e-1
 
 # Load data
 input_train, output_train, input_test, output_test = load_experiment(1, 2)
@@ -188,6 +196,7 @@ y_std = output_train.std(axis=0)
 
 # Control data
 u = []
+y = []
 
 # Load metrics
 metrics_df = pd.read_csv(results_dir + f"models/experiment/hp_metrics.csv")
@@ -208,8 +217,8 @@ keras_model.compile(optimizer=opt, loss=mean_squared_error)
 # Define MPC parameters
 M = P  # control horizon
 N = Q  # prediction horizon
-weight_control = 0.1
-weight_output = 10
+weight_control = 1.0
+weight_output = 1.0
 
 # Desired outputs
 y_ref = np.zeros(1)
@@ -223,18 +232,19 @@ y0 = output_test[0,0]
 y0_scaled = (y0 - y_mean) / y_std
 y_hist = update_hist(y_hist, np.array(y0_scaled).reshape((1, 1)))
 start_time = time.time()
-# Create an instance of the MPC class
 
+u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(M, 1)) #
 # MPC loop
 for exp_step in range(1,input_test.shape[0]):
     print(f"Time step: {exp_step}")
-    u_opt, u_forecast, y_forecast = optimization_function(u_hist, y_hist, lr)
+    u_opt, u_forecast, y_forecast = optimization_function(u_hist, y_hist, lr, u_forecast)
     u_hist = update_hist(u_hist, u_opt.reshape((1, 1)))
     u_opt = u_opt[0]
     u_opt_descaled = u_opt * (u_max - u_min) + u_min  # Denormalize
-    u.append(u_opt_descaled)
+    u.append(u_opt_descaled[0])
     
     # Extract y_row from test data
     y_row = output_test[exp_step,0]
+    y.append(y_row)
     y_row_scaled = (y_row - y_mean) / y_std
     y_hist = update_hist(y_hist, np.array(y_row_scaled).reshape((1, 1)))
