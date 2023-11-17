@@ -138,7 +138,7 @@ def optimization_function(u_hist, y_hist, lr, u_forecast=None):
     # print(f"U_F: \n{u_forecast}")   
     # print(f"Y_F: \n{y_forecast}")
     # print(f"u_opt: {u_opt}")
-    return u_opt, u_forecast, y_forecast
+    return u_opt, u_forecast, y_forecast, last_cost
 
 # Filepaths
 data_dir = "database/experiment/"
@@ -149,11 +149,6 @@ pub_freq = 30  # sampling frequency of published data
 step_time = 1 / pub_freq
 total_steps = 10
 
-# Optimization parameters
-lr = 1e-2 #1e-1
-alpha = 1e-3 #1e-3
-cost_tol = 1e-2  #1e-1
-
 # Load data
 input_train, output_train, input_test, output_test = load_experiment(data_dir, 1, 2)
 
@@ -162,9 +157,11 @@ u_max = input_train.max(axis=0)
 y_mean = output_train.mean(axis=0)
 y_std = output_train.std(axis=0)
 
-# Control data
+# Experiment data
 u = []
 y = []
+costs = []
+errors = []
 
 # Load metrics
 metrics_df = pd.read_csv(results_dir + f"hp_metrics.csv")
@@ -199,7 +196,11 @@ y_hist = np.zeros((Q, 1))
 y0 = output_test[0,0]
 y0_scaled = (y0 - y_mean) / y_std
 y_hist = update_hist(y_hist, np.array(y0_scaled).reshape((1, 1)))
-start_time = time.time()
+
+# Optimization parameters
+lr = 1e-2 #1e-1
+alpha = 1e-3 #1e-3
+cost_tol = 1e-2  #1e-1
 
 # MPC loop
 u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(M, 1)) #
@@ -207,7 +208,7 @@ exp_step = 1
 while exp_step < input_test.shape[0]:
     print(f"Time step: {exp_step}")
     mpc_period = np.where(input_test == input_test[exp_step])[0].shape[0]
-    u_opt, u_forecast, y_forecast = optimization_function(u_hist, y_hist, lr, u_forecast)
+    u_opt, u_forecast, y_forecast, cost = optimization_function(u_hist, y_hist, lr, u_forecast)
     u_hist = update_hist(u_hist, u_opt.reshape((1, 1)))
     u_opt = u_opt[0]
     u_opt_descaled = u_opt * (u_max - u_min) + u_min  # Denormalize
@@ -216,9 +217,12 @@ while exp_step < input_test.shape[0]:
     
     for d in range(1, mpc_period):
         # Extract y_row from test data
+        costs.append(cost)
         y_row = output_test[exp_step + d,0]
         y.append(y_row)
         y_row_scaled = (y_row - y_mean) / y_std
+        error = (y_ref[0] - y_row_scaled) * y_std
+        errors.append(error[0])
         y_hist = update_hist(y_hist, np.array(y_row_scaled).reshape((1, 1)))
 
         u_hist = update_hist(u_hist, u_opt.reshape((1, 1)))
@@ -226,11 +230,22 @@ while exp_step < input_test.shape[0]:
 
     exp_step += mpc_period
 
+# Plot results
 u = np.array(u)
 u_real = input_test[:len(u)].ravel()
+costs = np.array(costs)
+errors = np.array(errors)
 
-plt.step(range(u.shape[0]), u_real, label='experiment')
-plt.step(range(u.shape[0]), u, label='mpc')
-plt.legend()
+fig, axs = plt.subplots(2, 1)
+fig.set_size_inches((12,10))
+
+# axs[0].step(range(u.shape[0]), u_real, color='k', label='experiment')
+# axs[0].step(range(u.shape[0]), u, color='r', label='mpc')
+# axs[0].legend()
+
+axs[1].plot(errors, color='k', label='experiment error')
+axs[1].plot(costs, color='r', label='mpc cost')
+axs[1].legend()
+
 plt.tight_layout()
 plt.show()
