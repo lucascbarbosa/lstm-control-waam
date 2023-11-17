@@ -63,7 +63,7 @@ def plot_data(
             fig.savefig(results_dir + f"plots/{source}_{fig_filename}_raw.png")
 
 
-N = 200  # Horizon plotted
+N = 500  # Horizon plotted
 database_sim = [inputs_train, outputs_train, inputs_test, outputs_test]
 database_exp = [input_train, output_train, input_test, output_test]
 data_labels_sim = [
@@ -94,17 +94,15 @@ fig_filenames = [
     "inputs_test",
     "outputs_test",
 ]
+var_types = ["u", "y", "u", "y"]
+scale = True
+save = True
 
-scale = False
 if scale:
     data_labels_exp = data_labels_exp_scaled
     data_labels_sim = data_labels_sim_scaled
 
-save = True
-var_types = ["u", "y", "u", "y"]
-
-source = "simulation"
-
+source = "experiment"
 if source == "simulation":
     database = database_sim
     data_labels = data_labels_sim

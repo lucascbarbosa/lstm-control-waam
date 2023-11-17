@@ -46,7 +46,7 @@ class MPC:
 
         # Load metrics
         self.metrics_df = pd.read_csv(self.results_dir + f"models/experiment/hp_metrics.csv")
-        self.best_model_id = 85
+        self.best_model_id = 281
         self.best_model_filename = f"run_{self.best_model_id:03d}.keras"
         self.best_params = self.metrics_df[self.metrics_df["run_id"] == int(self.best_model_id)]
         self.P = self.best_params.iloc[0, 1]

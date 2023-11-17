@@ -35,7 +35,7 @@ def compute_metrics(Y_pred, Y_real):
 
 
 # Load metrics
-best_model_id = 85
+best_model_id = 281
 best_model_filename = f"run_{best_model_id:03d}.keras"
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
@@ -46,7 +46,6 @@ model.compile(
     optimizer=Adam(learning_rate=best_params["lr"]), loss=mean_squared_error
 )
 
-idx_test = 7
 # Load and sequence data accordingly
 if source == "simulation":
     _, outputs_train, inputs_test, outputs_test = load_simulation(
@@ -74,49 +73,65 @@ if source == "simulation":
         int(best_params["H"]),
     )
 
-elif source == "experiment":
-    _, output_train, input_test, output_test = load_experiment(
-        data_dir + f"{source}/", 1, idx_test
-    )
-    y_mean = output_train.mean().reshape((1,))
-    y_std = output_train.std().reshape((1,))
+    # Prediction
+    Y_pred = predict_data(model, X_real)
+    for i in range(num_features_output):
+        Y_pred[:, i] = destandardize_data(
+            Y_pred[:, i], y_means[i], y_stds[i]
+        )  # Destandardize
 
-    # Scale database
-    input_test = normalize_data(input_test)
-    output_test = standardize_data(output_test)
-    num_features_input = 1
-    num_features_output = 1
+        Y_real[:, i] = destandardize_data(
+            Y_real[:, i], y_means[i], y_stds[i]
+        )  # Destandardize
 
-    # Sequence data
-    X_real, Y_real = sequence_data(
-        input_test,
-        output_test,
-        int(best_params["P"]),
-        int(best_params["Q"]),
-        int(best_params["H"]),
-    )
+    np.savetxt(results_dir + "predictions/simulation/y_real.csv", Y_real)
+    np.savetxt(results_dir + "predictions/simulation/y_pred.csv", Y_pred)
 
-# Prediction
-Y_pred = predict_data(model, X_real)
-for i in range(num_features_output):
-    Y_pred[:, i] = destandardize_data(
-        Y_pred[:, i], y_means[i], y_stds[i]
-    )  # Destandardize
-
-    Y_real[:, i] = destandardize_data(
-        Y_real[:, i], y_means[i], y_stds[i]
-    )  # Destandardize
-
-# Cutout the first P+Q elements
-# Y_real = Y_real[int(best_params["P"]) + int(best_params["Q"]) :]
-
-# Save real and predicted data
-np.savetxt(results_dir + f"predictions/{source}/bead{idx_test}_y_real.csv", Y_real)
-np.savetxt(results_dir + f"predictions/{source}/bead{idx_test}_y_pred.csv", Y_pred)
-
-mses = compute_metrics(Y_pred, Y_real)
-
-if source == "simulation":
+    mses = compute_metrics(Y_pred, Y_real)
     print(f"MSE: we={mses[0]:.3f} h={mses[1]:.3f}")
+
+
 elif source == "experiment":
-    print(f"MSE: we={mses[0]:.3f}")
+    for idx_test in range(2,8):
+
+        _, output_train, input_test, output_test = load_experiment(
+            data_dir + f"{source}/", 1, idx_test
+        )
+        y_mean = output_train.mean().reshape((1,))
+        y_std = output_train.std().reshape((1,))
+
+        # Scale database
+        input_test = normalize_data(input_test)
+        output_test = standardize_data(output_test)
+        num_features_input = 1
+        num_features_output = 1
+
+        # Sequence data
+        X_real, Y_real = sequence_data(
+            input_test,
+            output_test,
+            int(best_params["P"]),
+            int(best_params["Q"]),
+            int(best_params["H"]),
+        )
+
+        # Prediction
+        Y_pred = predict_data(model, X_real)
+        Y_pred[:, 0] = destandardize_data(
+            Y_pred[:, 0], y_mean, y_std
+        )  # Destandardize
+
+        Y_real[:, 0] = destandardize_data(
+            Y_real[:, 0], y_mean, y_std
+        )  # Destandardize
+
+        # Cutout the first P+Q elements
+        # Y_real = Y_real[int(best_params["P"]) + int(best_params["Q"]) :]
+
+        # Save real and predicted data
+        
+        np.savetxt(results_dir + f"predictions/experiment/bead{idx_test}_y_real.csv", Y_real)
+        np.savetxt(results_dir + f"predictions/experiment/bead{idx_test}_y_pred.csv", Y_pred)
+
+        mses = compute_metrics(Y_pred, Y_real)
+        print(f"MSE for bead {idx_test}: we={mses[0]:.3f}")

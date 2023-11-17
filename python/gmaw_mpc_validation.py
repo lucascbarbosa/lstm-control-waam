@@ -1,3 +1,5 @@
+from python.process_data import load_experiment
+
 import tensorflow as tf
 from keras.models import load_model
 from tensorflow.keras.losses import mean_squared_error
@@ -9,43 +11,9 @@ from scipy.interpolate import interp1d
 
 import time
 
+import matplotlib.pyplot as plt
+
 # Load experiment method
-def load_experiment(idx_train, idx_test):
-    filename_train = f"bead{idx_train}"
-    input_train = pd.read_csv(data_dir + filename_train + "_w.csv").to_numpy()
-    output_train = pd.read_csv(data_dir + filename_train + "_wfs.csv").to_numpy()
-
-    output_train = resample_data(
-        output_train[:, 1], output_train[:, 0], input_train[:, 0]
-    )
-
-    filename_test = f"bead{idx_test}"
-    input_test = pd.read_csv(data_dir + filename_test + "_w.csv").to_numpy()
-    output_test = pd.read_csv(data_dir + filename_test + "_wfs.csv").to_numpy()
-
-    output_test = resample_data(
-        output_test[:, 1], output_test[:, 0], input_test[:, 0]
-    )
-
-    return (
-        input_train[:, 1:],
-        output_train[:, 1:],
-        input_test[:, 1:],
-        output_test[:, 1:],
-    )
-
-def resample_data(original_data, original_time, new_time):
-    interp_func = interp1d(
-        original_time,
-        original_data,
-        kind="linear",
-        fill_value="extrapolate",
-    )
-    resampled_data = np.zeros((new_time.shape[0], 2))
-    resampled_data[:, 0] = new_time
-    resampled_data[:, 1] = interp_func(new_time)
-    return resampled_data
-
 def update_hist(current_hist, new_states):
     new_hist = current_hist.copy()
     len_new = new_states.shape[0]
@@ -168,13 +136,13 @@ def optimization_function(u_hist, y_hist, lr, u_forecast=None):
 
     u_opt = u_forecast[0, :]
     # print(f"U_F: \n{u_forecast}")   
-    print(f"Y_F: \n{y_forecast}")
+    # print(f"Y_F: \n{y_forecast}")
     # print(f"u_opt: {u_opt}")
     return u_opt, u_forecast, y_forecast
 
 # Filepaths
-data_dir = f"/home/lbarbosa/Documents/Github/lstm-control-waam/database/experiment/"
-results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
+data_dir = "database/experiment/"
+results_dir = "results/models/experiment/"
 
 # ROSPY Parameters
 pub_freq = 30  # sampling frequency of published data
@@ -182,12 +150,12 @@ step_time = 1 / pub_freq
 total_steps = 10
 
 # Optimization parameters
-lr = 5e-2 #1e-1
+lr = 1e-2 #1e-1
 alpha = 1e-3 #1e-3
-cost_tol = 0.1  #1e-1
+cost_tol = 1e-2  #1e-1
 
 # Load data
-input_train, output_train, input_test, output_test = load_experiment(1, 2)
+input_train, output_train, input_test, output_test = load_experiment(data_dir, 1, 2)
 
 u_min = input_train.min(axis=0)
 u_max = input_train.max(axis=0)
@@ -199,8 +167,8 @@ u = []
 y = []
 
 # Load metrics
-metrics_df = pd.read_csv(results_dir + f"models/experiment/hp_metrics.csv")
-best_model_id = 85
+metrics_df = pd.read_csv(results_dir + f"hp_metrics.csv")
+best_model_id = 281 #
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
 P = best_params.iloc[0, 1]
@@ -208,7 +176,7 @@ Q = best_params.iloc[0, 2]
 
 # Load Keras model
 keras_model = load_model(
-    results_dir + f"models/experiment/best/{best_model_filename}"
+    results_dir + f"best/{best_model_filename}"
 )
 
 opt = Adam(learning_rate=best_params["lr"])
@@ -221,7 +189,7 @@ weight_control = 1.0
 weight_output = 1.0
 
 # Desired outputs
-y_ref = np.zeros(1)
+y_ref = np.array([1.2])
 
 # Historic data
 u_hist = np.zeros((P, 1))
@@ -233,18 +201,36 @@ y0_scaled = (y0 - y_mean) / y_std
 y_hist = update_hist(y_hist, np.array(y0_scaled).reshape((1, 1)))
 start_time = time.time()
 
-u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(M, 1)) #
 # MPC loop
-for exp_step in range(1,input_test.shape[0]):
+u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(M, 1)) #
+exp_step = 1
+while exp_step < input_test.shape[0]:
     print(f"Time step: {exp_step}")
+    mpc_period = np.where(input_test == input_test[exp_step])[0].shape[0]
     u_opt, u_forecast, y_forecast = optimization_function(u_hist, y_hist, lr, u_forecast)
     u_hist = update_hist(u_hist, u_opt.reshape((1, 1)))
     u_opt = u_opt[0]
     u_opt_descaled = u_opt * (u_max - u_min) + u_min  # Denormalize
-    u.append(u_opt_descaled[0])
+    u_opt_descaled = u_opt_descaled[0]
+    u.append(u_opt_descaled)
     
-    # Extract y_row from test data
-    y_row = output_test[exp_step,0]
-    y.append(y_row)
-    y_row_scaled = (y_row - y_mean) / y_std
-    y_hist = update_hist(y_hist, np.array(y_row_scaled).reshape((1, 1)))
+    for d in range(1, mpc_period):
+        # Extract y_row from test data
+        y_row = output_test[exp_step + d,0]
+        y.append(y_row)
+        y_row_scaled = (y_row - y_mean) / y_std
+        y_hist = update_hist(y_hist, np.array(y_row_scaled).reshape((1, 1)))
+
+        u_hist = update_hist(u_hist, u_opt.reshape((1, 1)))
+        u.append(u_opt_descaled)
+
+    exp_step += mpc_period
+
+u = np.array(u)
+u_real = input_test[:len(u)].ravel()
+
+plt.step(range(u.shape[0]), u_real, label='experiment')
+plt.step(range(u.shape[0]), u, label='mpc')
+plt.legend()
+plt.tight_layout()
+plt.show()
