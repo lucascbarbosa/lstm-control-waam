@@ -204,7 +204,7 @@ cost_tol = 1e-2  #1e-1
 
 # MPC loop
 u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(M, 1)) #
-exp_step = 1
+exp_step = 0 
 while exp_step < input_test.shape[0]:
     print(f"Time step: {exp_step}")
     mpc_period = np.where(input_test == input_test[exp_step])[0].shape[0]
@@ -217,11 +217,11 @@ while exp_step < input_test.shape[0]:
     
     for d in range(1, mpc_period):
         # Extract y_row from test data
-        costs.append(cost)
         y_row = output_test[exp_step + d,0]
         y.append(y_row)
         y_row_scaled = (y_row - y_mean) / y_std
         error = (y_ref[0] - y_row_scaled) * y_std
+        costs.append(cost)
         errors.append(error[0])
         y_hist = update_hist(y_hist, np.array(y_row_scaled).reshape((1, 1)))
 
@@ -239,12 +239,14 @@ errors = np.array(errors)
 fig, axs = plt.subplots(2, 1)
 fig.set_size_inches((12,10))
 
-# axs[0].step(range(u.shape[0]), u_real, color='k', label='experiment')
-# axs[0].step(range(u.shape[0]), u, color='r', label='mpc')
-# axs[0].legend()
+axs[0].step(range(u.shape[0]), u_real, color='k', label='experiment')
+axs[0].step(range(u.shape[0]), u, color='r', label='mpc')
+axs[0].set_ylim((0,10))
+axs[0].legend()
 
 axs[1].plot(errors, color='k', label='experiment error')
 axs[1].plot(costs, color='r', label='mpc cost')
+axs[1].set_ylim((0,1000))
 axs[1].legend()
 
 plt.tight_layout()
