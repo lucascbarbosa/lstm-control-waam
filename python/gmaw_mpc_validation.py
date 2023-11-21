@@ -198,7 +198,7 @@ y_hist = update_hist(y_hist, np.array(y0_scaled).reshape((1, 1)))
 # Optimization parameters
 lr = 1e-2 #1e-1
 alpha = 1e-3 #1e-3
-cost_tol = 1e-2  #1e-1
+cost_tol = 1e-2 #1e-1
 
 # MPC loop
 M = P # control horizon
