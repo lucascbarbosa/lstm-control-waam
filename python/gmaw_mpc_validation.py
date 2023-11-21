@@ -179,9 +179,7 @@ keras_model = load_model(
 opt = Adam(learning_rate=best_params["lr"])
 keras_model.compile(optimizer=opt, loss=mean_squared_error)
 
-# Define MPC parameters
-M = P  # control horizon
-N = Q  # prediction horizon
+# Weights
 weight_control = 1.0
 weight_output = 1.0
 
@@ -203,7 +201,10 @@ alpha = 1e-3 #1e-3
 cost_tol = 1e-2  #1e-1
 
 # MPC loop
+M = P # control horizon
+N = Q # prediction horizon
 u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(M, 1)) #
+
 exp_step = 0 
 while exp_step < input_test.shape[0]:
     print(f"Time step: {exp_step}")
@@ -218,7 +219,7 @@ while exp_step < input_test.shape[0]:
     for d in range(1, mpc_period):
         # Extract y_row from test data
         y_row = output_test[exp_step + d,0]
-        y.append(y_row)
+        y.append(y_row) 
         y_row_scaled = (y_row - y_mean) / y_std
         error = (y_ref[0] - y_row_scaled) * y_std
         costs.append(cost)
@@ -231,23 +232,21 @@ while exp_step < input_test.shape[0]:
     exp_step += mpc_period
 
 # Plot results
-u = np.array(u)
-u_real = input_test[:len(u)].ravel()
-costs = np.array(costs)
-errors = np.array(errors)
+# u = np.array(u)
+# u_real = input_test[:len(u)].ravel()
+# costs = np.array(costs)
+# errors = np.array(errors)
 
-fig, axs = plt.subplots(2, 1)
-fig.set_size_inches((12,10))
+# fig, axs = plt.subplots(2, 1)
+# fig.set_size_inches((12,10))
 
-axs[0].step(range(u.shape[0]), u_real, color='k', label='experiment')
-axs[0].step(range(u.shape[0]), u, color='r', label='mpc')
-axs[0].set_ylim((0,10))
-axs[0].legend()
+# axs[0].step(range(u.shape[0]), u_real, color='k', label='experiment')
+# axs[0].step(range(u.shape[0]), u, color='r', label='mpc')
+# axs[0].legend()
 
-axs[1].plot(errors, color='k', label='experiment error')
-axs[1].plot(costs, color='r', label='mpc cost')
-axs[1].set_ylim((0,1000))
-axs[1].legend()
+# axs[1].plot(errors, color='k', label='experiment error')
+# axs[1].plot(costs, color='r', label='mpc cost')
+# axs[1].legend()
 
-plt.tight_layout()
-plt.show()
+# plt.tight_layout()
+# plt.show()
