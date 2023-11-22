@@ -150,12 +150,13 @@ step_time = 1 / pub_freq
 total_steps = 10
 
 # Load data
-input_train, output_train, input_test, output_test = load_experiment(data_dir, 1, 2)
+# _, _, input_test, output_test = load_experiment(data_dir, [1, 2, 3, 4, 5, 6], [7])
+_, _, input_test, output_test = load_experiment(data_dir, [1], [2])
 
-u_min = input_train.min(axis=0)
-u_max = input_train.max(axis=0)
-y_mean = output_train.mean(axis=0)
-y_std = output_train.std(axis=0)
+u_min = input_test.min(axis=0)
+u_max = input_test.max(axis=0)
+y_mean = output_test.mean(axis=0)
+y_std = output_test.std(axis=0)
 
 # Experiment data
 u = []
@@ -231,22 +232,22 @@ while exp_step < input_test.shape[0]:
 
     exp_step += mpc_period
 
+u = np.array(u)
+u_real = input_test[:len(u)].ravel()
+costs = np.array(costs)
+errors = np.array(errors)
+
 # Plot results
-# u = np.array(u)
-# u_real = input_test[:len(u)].ravel()
-# costs = np.array(costs)
-# errors = np.array(errors)
+fig, axs = plt.subplots(2, 1)
+fig.set_size_inches((12,10))
 
-# fig, axs = plt.subplots(2, 1)
-# fig.set_size_inches((12,10))
+axs[0].step(range(u.shape[0]), u_real, color='k', label='experiment')
+axs[0].step(range(u.shape[0]), u, color='r', label='mpc')
+axs[0].legend()
 
-# axs[0].step(range(u.shape[0]), u_real, color='k', label='experiment')
-# axs[0].step(range(u.shape[0]), u, color='r', label='mpc')
-# axs[0].legend()
+axs[1].plot(errors, color='k', label='experiment error')
+axs[1].plot(costs, color='r', label='mpc cost')
+axs[1].legend()
 
-# axs[1].plot(errors, color='k', label='experiment error')
-# axs[1].plot(costs, color='r', label='mpc cost')
-# axs[1].legend()
-
-# plt.tight_layout()
-# plt.show()
+plt.tight_layout()
+plt.show()

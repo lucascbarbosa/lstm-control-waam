@@ -27,32 +27,49 @@ def resample_data(original_data, original_time, new_time):
     return resampled_data
 
 
-def load_experiment(data_dir, idx_train, idx_test):
-    filename_train = f"bead{idx_train}"
-    input_train = pd.read_csv(data_dir + filename_train + "_wfs.csv").to_numpy()
-    output_train = pd.read_csv(
-        data_dir + filename_train + "_w.csv"
-    ).to_numpy()
+def load_experiment(data_dir, idxs_train, idxs_test):
+    inputs_train = []
+    outputs_train = []
+    inputs_test = []
+    outputs_test = []
+    
+    for idx_train in idxs_train:
+        filename_train = f"bead{idx_train}"
+        input_train = pd.read_csv(data_dir + filename_train + "_wfs.csv").to_numpy()
+        output_train = pd.read_csv(
+            data_dir + filename_train + "_w.csv"
+        ).to_numpy()
 
-    input_train = resample_data(
-        input_train[:, 1], input_train[:, 0], output_train[:, 0]
-    )
+        input_train = resample_data(
+            input_train[:, 1], input_train[:, 0], output_train[:, 0]
+        )
+        inputs_train.append(input_train)
+        outputs_train.append(output_train)
 
-    filename_test = f"bead{idx_test}"
-    input_test = pd.read_csv(data_dir + filename_test + "_wfs.csv").to_numpy()
-    output_test = pd.read_csv(data_dir + filename_test + "_w.csv").to_numpy()
+    inputs_train = np.concatenate(inputs_train, axis=0)
+    outputs_train = np.concatenate(outputs_train, axis=0)
+    
+    for idx_test in idxs_test:
+        filename_test = f"bead{idx_test}"
+        input_test = pd.read_csv(data_dir + filename_test + "_wfs.csv").to_numpy()
+        output_test = pd.read_csv(data_dir + filename_test + "_w.csv").to_numpy()
 
-    input_test = resample_data(
-        input_test[:, 1], input_test[:, 0], output_test[:, 0]
-    )
+        input_test = resample_data(
+            input_test[:, 1], input_test[:, 0], output_test[:, 0]
+        )
+        
+        inputs_test.append(input_test)
+        outputs_test.append(output_test)
+        
+    inputs_test = np.concatenate(inputs_test, axis=0)
+    outputs_test = np.concatenate(outputs_test, axis=0)
 
     return (
-        input_train[:, 1:],
-        output_train[:, 1:],
-        input_test[:, 1:],
-        output_test[:, 1:],
+        inputs_train[:, 1:],
+        outputs_train[:, 1:],
+        inputs_test[:, 1:],
+        outputs_test[:, 1:],
     )
-
 
 def standardize_data(x):
     # Process database
@@ -111,12 +128,10 @@ def sequence_data(X, Y, P, Q, H):
 
 #     return X_seq, Y_seq
 
-# data_dir = "database/"
+data_dir = "database/"
 # inputs_train, outputs_train, inputs_test, outputs_test = load_simulation(
 #     data_dir + "simulation"/
 # )
-# input_train, output_train, input_test, output_test = load_experiment(
-#     data_dir + "experiment/", 1, 2
-# )
+input_train, output_train, input_test, output_test = load_experiment(data_dir + "experiment/", [1,2,3,4,5,6], [7])
 # P, Q, H = 5, 5, 1
 # X_train, Y_train = sequence_data(input_train, output_train, P, Q, H)

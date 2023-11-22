@@ -111,7 +111,7 @@ def run_training(
 
 # Load database
 input_train, output_train, input_test, output_test = load_experiment(
-    data_dir + "experiment/", 1, 2
+    data_dir + "experiment/", [1, 2, 3, 4, 5, 6], [7]
 )
 
 num_features_input = num_features_output = 1
