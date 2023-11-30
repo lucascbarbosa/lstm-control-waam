@@ -25,7 +25,6 @@ data_dir = "database/"
 results_dir = "results/"
 source = "experiment"
 
-
 def compute_metrics(Y_pred, Y_real):
     mses = []
     error = Y_pred - Y_real
@@ -33,9 +32,8 @@ def compute_metrics(Y_pred, Y_real):
     mses = np.mean(sq_error, axis=0)
     return mses
 
-
 # Load metrics
-best_model_id = 281
+best_model_id = 282
 best_model_filename = f"run_{best_model_id:03d}.keras"
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
@@ -48,11 +46,11 @@ model.compile(
 
 # Load and sequence data accordingly
 if source == "simulation":
-    _, outputs_train, inputs_test, outputs_test = load_simulation(
+    _, _, inputs_test, outputs_test = load_simulation(
         data_dir + f"{source}/"
     )
-    y_means = outputs_train.mean(axis=0)
-    y_stds = outputs_train.std(axis=0)
+    y_means = outputs_test.mean(axis=0)
+    y_stds = outputs_test.std(axis=0)
 
     # Scale database
     inputs_test = normalize_data(inputs_test)
@@ -92,13 +90,12 @@ if source == "simulation":
 
 
 elif source == "experiment":
-    for idx_test in range(2,8):
-
+    for idx_test in range(7,8):
         _, output_train, input_test, output_test = load_experiment(
-            data_dir + f"{source}/", 1, idx_test
+            data_dir + f"{source}/", [1, 2, 3, 4, 5, 6], [idx_test]
         )
-        y_mean = output_train.mean().reshape((1,))
-        y_std = output_train.std().reshape((1,))
+        y_mean = output_test.mean().reshape((1,))
+        y_std = output_test.std().reshape((1,))
 
         # Scale database
         input_test = normalize_data(input_test)

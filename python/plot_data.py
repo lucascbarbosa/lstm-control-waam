@@ -16,7 +16,7 @@ inputs_train, outputs_train, inputs_test, outputs_test = load_simulation(
     data_dir + "simulation/"
 )
 input_train, output_train, input_test, output_test = load_experiment(
-    data_dir + "experiment/", 1, 2
+    data_dir + "experiment/", [1,2,3,4,5,6], [7]
 )
 
 
@@ -95,8 +95,8 @@ fig_filenames = [
     "outputs_test",
 ]
 var_types = ["u", "y", "u", "y"]
-scale = True
-save = True
+scale = False
+save = False
 
 if scale:
     data_labels_exp = data_labels_exp_scaled

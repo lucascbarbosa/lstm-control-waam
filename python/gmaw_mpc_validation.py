@@ -150,8 +150,9 @@ step_time = 1 / pub_freq
 total_steps = 10
 
 # Load data
-# _, _, input_test, output_test = load_experiment(data_dir, [1, 2, 3, 4, 5, 6], [7])
-_, _, input_test, output_test = load_experiment(data_dir, [1], [2])
+input_train, output_train, input_test, output_test = load_experiment(
+    data_dir, [1, 2, 3, 4, 5, 6], [7]
+    )
 
 u_min = input_test.min(axis=0)
 u_max = input_test.max(axis=0)
@@ -166,7 +167,7 @@ errors = []
 
 # Load metrics
 metrics_df = pd.read_csv(results_dir + f"hp_metrics.csv")
-best_model_id = 281 #
+best_model_id = 282 #
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
 P = best_params.iloc[0, 1]
@@ -185,7 +186,7 @@ weight_control = 1.0
 weight_output = 1.0
 
 # Desired outputs
-y_ref = np.array([1.2])
+y_ref = np.array([0])
 
 # Historic data
 u_hist = np.zeros((P, 1))
@@ -197,9 +198,9 @@ y0_scaled = (y0 - y_mean) / y_std
 y_hist = update_hist(y_hist, np.array(y0_scaled).reshape((1, 1)))
 
 # Optimization parameters
-lr = 1e-2 #1e-1
+lr = 1e-1 #1e-1
 alpha = 1e-3 #1e-3
-cost_tol = 1e-2 #1e-1
+cost_tol = 1e-1 #1e-1
 
 # MPC loop
 M = P # control horizon
@@ -212,14 +213,17 @@ while exp_step < input_test.shape[0]:
     mpc_period = np.where(input_test == input_test[exp_step])[0].shape[0]
     u_opt, u_forecast, y_forecast, cost = optimization_function(u_hist, y_hist, lr, u_forecast)
     u_hist = update_hist(u_hist, u_opt.reshape((1, 1)))
-    u_opt = u_opt[0]
-    u_opt_descaled = u_opt * (u_max - u_min) + u_min  # Denormalize
+    u_opt_descaled = u_opt[0] * (u_max - u_min) + u_min  # Denormalize
     u_opt_descaled = u_opt_descaled[0]
-    u.append(u_opt_descaled)
     
-    for d in range(1, mpc_period):
+    d = 0
+    while d < mpc_period and exp_step + d < input_test.shape[0]:
+
+        u_hist = update_hist(u_hist, u_opt.reshape((1, 1)))
+        u.append(u_opt_descaled)
+        
         # Extract y_row from test data
-        y_row = output_test[exp_step + d,0]
+        y_row = output_test[exp_step + d, 0]
         y.append(y_row) 
         y_row_scaled = (y_row - y_mean) / y_std
         error = (y_ref[0] - y_row_scaled) * y_std
@@ -227,8 +231,7 @@ while exp_step < input_test.shape[0]:
         errors.append(error[0])
         y_hist = update_hist(y_hist, np.array(y_row_scaled).reshape((1, 1)))
 
-        u_hist = update_hist(u_hist, u_opt.reshape((1, 1)))
-        u.append(u_opt_descaled)
+        d += 1
 
     exp_step += mpc_period
 

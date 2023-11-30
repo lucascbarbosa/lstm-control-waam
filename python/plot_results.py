@@ -194,12 +194,12 @@ if source == "simulation":
     # plot_mpc(mpc_u, mpc_y, y_means,save=False)
 
 elif source == "experiment":
-    input_train, output_train, _, _ = load_experiment(data_filename, 1, 3)
+    input_train, output_train, _, _ = load_experiment(data_filename, [1, 2, 3, 4, 5, 6], [7])
     u_min = input_train.min()
     u_max = input_train.max()
     y_mean = output_train.mean()
     y_std = output_train.std()
-    for idx_test in range(2,8):
+    for idx_test in range(7,8):
         Y_real = np.loadtxt(
             results_dir + f"predictions/{source}/bead{idx_test}_y_real.csv", dtype=np.float64
         )
@@ -207,7 +207,7 @@ elif source == "experiment":
             results_dir + f"predictions/{source}/bead{idx_test}_y_pred.csv", dtype=np.float64
         )
         
-        # plot_prediction(source=source, save=True)
+        plot_prediction(source=source, save=True)
         
         bins = 32
         # histogram_error(bins, source=source, save=True)
