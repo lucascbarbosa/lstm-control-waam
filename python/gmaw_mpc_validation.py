@@ -136,7 +136,7 @@ def optimization_function(u_hist, y_hist, lr, u_forecast=None):
 
     u_opt = u_forecast[0, :]
     # print(f"U_F: \n{u_forecast}")   
-    # print(f"Y_F: \n{y_forecast}")
+    print(f"Y_F: \n{y_forecast * y_std + y_mean}")
     # print(f"u_opt: {u_opt}")
     return u_opt, u_forecast, y_forecast, last_cost
 
@@ -153,6 +153,9 @@ total_steps = 10
 input_train, output_train, input_test, output_test = load_experiment(
     data_dir, [1, 2, 3, 4, 5, 6], [7]
     )
+
+output_test = output_test[:680]
+input_test = input_test[:680]
 
 u_min = input_test.min(axis=0)
 u_max = input_test.max(axis=0)
@@ -186,7 +189,7 @@ weight_control = 1.0
 weight_output = 1.0
 
 # Desired outputs
-y_ref = np.array([0])
+y_ref = np.ones((1,)) * 0
 
 # Historic data
 u_hist = np.zeros((P, 1))
@@ -198,7 +201,7 @@ y0_scaled = (y0 - y_mean) / y_std
 y_hist = update_hist(y_hist, np.array(y0_scaled).reshape((1, 1)))
 
 # Optimization parameters
-lr = 1e-1 #1e-1
+lr = 1e-2 #1e-1
 alpha = 1e-3 #1e-3
 cost_tol = 1e-1 #1e-1
 
@@ -223,9 +226,18 @@ while exp_step < input_test.shape[0]:
         u.append(u_opt_descaled)
         
         # Extract y_row from test data
-        y_row = output_test[exp_step + d, 0]
+        if exp_step + d < 100:
+            y_row = output_test[exp_step + d, 0]
+            y_row_scaled = (y_row - y_mean) / y_std
+        else:
+            seq_input = build_sequence(u_hist, y_hist)
+            input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
+            output_tensor = keras_model(input_tensor)
+            y_row_scaled = output_tensor.numpy().reshape((1, 1))
+            y_row = y_row_scaled * y_std + y_mean
+            y_row = y_row[0,0]
+
         y.append(y_row) 
-        y_row_scaled = (y_row - y_mean) / y_std
         error = (y_ref[0] - y_row_scaled) * y_std
         costs.append(cost)
         errors.append(error[0])
@@ -241,16 +253,23 @@ costs = np.array(costs)
 errors = np.array(errors)
 
 # Plot results
-fig, axs = plt.subplots(2, 1)
-fig.set_size_inches((12,10))
+# fig, axs = plt.subplots(2, 1)
+# fig.set_size_inches((12,10))
 
-axs[0].step(range(u.shape[0]), u_real, color='k', label='experiment')
-axs[0].step(range(u.shape[0]), u, color='r', label='mpc')
-axs[0].legend()
+# axs[0].step(range(u.shape[0]), u_real, color='k', label='experiment')
+# axs[0].step(range(u.shape[0]), u, color='r', label='mpc')
+# axs[0].legend()
 
-axs[1].plot(errors, color='k', label='experiment error')
-axs[1].plot(costs, color='r', label='mpc cost')
-axs[1].legend()
+# axs[1].plot(errors, color='k', label='experiment error')
+# axs[1].plot(costs, color='r', label='mpc cost')
+# axs[1].legend()
 
+# plt.tight_layout()
+# plt.show()
+
+plt.plot(output_test, color='k', label='experiment')
+plt.plot(y, color='r', label='forecast')
+plt.title(r'$w_e$ (mm)')
 plt.tight_layout()
+plt.legend()
 plt.show()

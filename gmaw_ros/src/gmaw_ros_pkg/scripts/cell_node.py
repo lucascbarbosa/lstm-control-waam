@@ -37,7 +37,8 @@ def callback(data):
 # data_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/database/experiment/"
 # idx_bead = 2
 # input_data, output_data = load_experiment(data_dir, idx_bead)
-# input_mpc = []
+
+input_mpc = []
 
 if __name__ == '__main__':
     try:
@@ -53,7 +54,7 @@ if __name__ == '__main__':
             pub.publish(y)
             rospy.loginfo("Sending output y: %f", y)
             rate.sleep()
-            rospy.wait_for_message('u', Float32)
+            # rospy.wait_for_message('u', Float32)
             t += 1
 
     except rospy.ROSInterruptException:

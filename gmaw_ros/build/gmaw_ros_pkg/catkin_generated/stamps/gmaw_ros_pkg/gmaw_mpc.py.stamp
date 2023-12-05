@@ -30,11 +30,12 @@ class MPC:
         # Experiment data
         self.y = []
         self.u = []
+        self.costs = []
 
         # Optimization parameters
-        self.lr = 5e-2
+        self.lr = 1e-2
         self.alpha = 1e-3
-        self.cost_tol = 0.1
+        self.cost_tol = 1e-2
 
         # Load data
         self.inputs_train, self.outputs_train, _, _ = self.load_experiment(1, 2)
@@ -63,8 +64,8 @@ class MPC:
         # Define MPC parameters
         self.M = self.P  # control horizon
         self.N = self.Q  # prediction horizon
-        self.weight_control = 0.1 
-        self.weight_output = 10
+        self.weight_control = 1.0
+        self.weight_output = 1.0
 
         # Desired outputs
         self.y_ref = np.zeros(1)
@@ -238,7 +239,7 @@ class MPC:
                 print("Passed optimal solution")
                 break
         u_opt = u_forecast[0, :]
-        return u_opt, u_forecast, y_forecast
+        return u_opt, u_forecast, y_forecast, last_cost
 
 
 start_time = time.time()
@@ -252,7 +253,8 @@ rospy.wait_for_message('y', Float32)
 print(f"y: {mpc.y}")
 while not rospy.is_shutdown():
     print(f"Time step: {exp_step}")
-    u_opt, u_forecast, y_forecast = mpc.optimization_function(mpc.u_hist, mpc.y_hist, mpc.lr, mpc.u_forecast)
+    u_opt, u_forecast, y_forecast, cost = mpc.optimization_function(mpc.u_hist, mpc.y_hist, mpc.lr, mpc.u_forecast)
+    mpc.costs.append(cost)
     mpc.u_hist = mpc.update_hist(mpc.u_hist, u_opt.reshape((1, 1)))
     u_opt = u_opt[0]
     u_row = u_opt * (mpc.u_max - mpc.u_min) + mpc.u_min  # Denormalize

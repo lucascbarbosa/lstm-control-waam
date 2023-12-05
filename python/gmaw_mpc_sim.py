@@ -208,7 +208,7 @@ def optimization_function(u_hist, y_hist, lr, u_forecast=None):
             break
 
     # print(f"U_F: \n{u_forecast}")
-    # print(f"Y_F: \n{y_forecast}")
+    print(f"Y_F: \n{y_forecast * y_stds + y_means}")
     u_opt = u_forecast[0, :]
     # print(f"u_opt: {u_opt}")
     return u_opt, u_forecast, y_forecast
@@ -220,7 +220,8 @@ y_row = y0
 # Optimization parameters
 lr = 1e-1  #
 alpha = 1e-3  #
-cost_tol = 1e-3  #
+cost_tol = 1e-4  #
+
 # u_forecast = np.ones((M, 2)) * 0.5  #
 u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(M, 2)) #
 # MPC loop
@@ -245,5 +246,5 @@ u = u[:-1, :]
 u = pd.DataFrame(u, columns=["f", "Ir"])
 y = pd.DataFrame(y, columns=["we", "h"])
 
-u.to_csv(results_dir + "mpc/simulation/u.csv", index=False)
-y.to_csv(results_dir + "mpc/simulation/y.csv", index=False)
+# u.to_csv(results_dir + "mpc/simulation/u.csv", index=False)
+# y.to_csv(results_dir + "mpc/simulation/y.csv", index=False)
