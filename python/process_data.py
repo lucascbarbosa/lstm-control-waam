@@ -129,9 +129,6 @@ def sequence_data(X, Y, P, Q, H):
 #     return X_seq, Y_seq
 
 data_dir = "database/"
-# inputs_train, outputs_train, inputs_test, outputs_test = load_simulation(
-#     data_dir + "simulation"/
-# )
 input_train, output_train, input_test, output_test = load_experiment(data_dir + "experiment/", [1,2,3,4,5,6], [7])
 # P, Q, H = 5, 5, 1
 # X_train, Y_train = sequence_data(input_train, output_train, P, Q, H)

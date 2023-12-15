@@ -203,7 +203,7 @@ y_hist = update_hist(y_hist, np.array(y0_scaled).reshape((1, 1)))
 # Optimization parameters
 lr = 1e-2 #1e-1
 alpha = 1e-3 #1e-3
-cost_tol = 1e-1 #1e-1
+cost_tol = 1e-2 #1e-1
 
 # MPC loop
 M = P # control horizon
@@ -214,7 +214,11 @@ exp_step = 0
 while exp_step < input_test.shape[0]:
     print(f"Time step: {exp_step}")
     mpc_period = np.where(input_test == input_test[exp_step])[0].shape[0]
-    u_opt, u_forecast, y_forecast, cost = optimization_function(u_hist, y_hist, lr, u_forecast)
+    if exp_step > 100:
+        u_opt, u_forecast, y_forecast, cost = optimization_function(u_hist, y_hist, lr, u_forecast)
+    else: 
+        u_row = input_test[exp_step]
+        u_opt = (u_row - u_min) / (u_max - u_min)
     u_hist = update_hist(u_hist, u_opt.reshape((1, 1)))
     u_opt_descaled = u_opt[0] * (u_max - u_min) + u_min  # Denormalize
     u_opt_descaled = u_opt_descaled[0]
