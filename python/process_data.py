@@ -12,21 +12,6 @@ def load_simulation(data_dir):
     outputs_test = pd.read_csv(data_dir + "outputs_test.csv").to_numpy()
     return inputs_train, outputs_train, inputs_test, outputs_test
 
-
-def resample_data(original_data, original_time, new_time):
-    interp_func = interp1d(
-        original_time,
-        original_data,
-        kind="linear",
-        fill_value="extrapolate",
-    )
-
-    resampled_data = np.zeros((new_time.shape[0], 2))
-    resampled_data[:, 0] = new_time
-    resampled_data[:, 1] = interp_func(new_time)
-    return resampled_data
-
-
 def load_experiment(data_dir, idxs_train, idxs_test):
     inputs_train = []
     outputs_train = []
@@ -70,6 +55,26 @@ def load_experiment(data_dir, idxs_train, idxs_test):
         inputs_test[:, 1:],
         outputs_test[:, 1:],
     )
+
+def load_mpc(data_dir):
+    inputs_train = pd.read_csv(data_dir + "inputs_train.csv").to_numpy()
+    outputs_train = pd.read_csv(data_dir + "outputs_train.csv").to_numpy()
+    inputs_test = pd.read_csv(data_dir + "inputs_test.csv").to_numpy()
+    outputs_test = pd.read_csv(data_dir + "outputs_test.csv").to_numpy()
+    return inputs_train, outputs_train, inputs_test, outputs_test
+
+def resample_data(original_data, original_time, new_time):
+    interp_func = interp1d(
+        original_time,
+        original_data,
+        kind="linear",
+        fill_value="extrapolate",
+    )
+
+    resampled_data = np.zeros((new_time.shape[0], 2))
+    resampled_data[:, 0] = new_time
+    resampled_data[:, 1] = interp_func(new_time)
+    return resampled_data
 
 def standardize_data(x):
     # Process database
@@ -128,7 +133,7 @@ def sequence_data(X, Y, P, Q, H):
 
 #     return X_seq, Y_seq
 
-data_dir = "database/"
-input_train, output_train, input_test, output_test = load_experiment(data_dir + "experiment/", [1,2,3,4,5,6], [7])
+# data_dir = "database/"
+# input_train, output_train, input_test, output_test = load_experiment(data_dir + "experiment/", [1,2,3,4,5,6], [7])
 # P, Q, H = 5, 5, 1
 # X_train, Y_train = sequence_data(input_train, output_train, P, Q, H)

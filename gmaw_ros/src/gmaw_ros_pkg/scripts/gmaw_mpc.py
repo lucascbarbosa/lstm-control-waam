@@ -33,8 +33,9 @@ class MPC:
         self.costs = []
 
         # Optimization parameters
-        self.lr = 1e-2
-        self.alpha = 1e-3
+        self.lr = 5e-2
+        self.alpha_time = 1e-3
+        self.alpha_opt = 1e-3
         self.cost_tol = 1e-2
 
         # Load data
@@ -232,7 +233,7 @@ class MPC:
             print(f"Cost: {cost}\n ")
             if delta_cost < 0:
                 u_forecast += steps
-                lr = lr * (1.0 - self.alpha)
+                lr = lr * (1.0 - self.alpha_opt)
                 last_cost = cost
                 s += 1
             else:
@@ -266,6 +267,7 @@ while not rospy.is_shutdown():
     mpc.rate.sleep()
     exp_step += 1
     exp_time = mpc.step_time
+    mpc.lr = mpc.lr * (1.0 - mpc.alpha_time)
     
 rospy.spin()
 

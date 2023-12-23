@@ -208,7 +208,7 @@ def optimization_function(u_hist, y_hist, lr, u_forecast=None):
             break
 
     # print(f"U_F: \n{u_forecast}")
-    print(f"Y_F: \n{y_forecast * y_stds + y_means}")
+    # print(f"Y_F: \n{y_forecast * y_stds + y_means}")
     u_opt = u_forecast[0, :]
     # print(f"u_opt: {u_opt}")
     return u_opt, u_forecast, y_forecast

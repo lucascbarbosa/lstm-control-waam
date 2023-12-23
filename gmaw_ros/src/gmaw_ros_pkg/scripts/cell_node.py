@@ -45,7 +45,7 @@ if __name__ == '__main__':
         rospy.init_node('cell_node', anonymous=True)
         rospy.Subscriber('u', Float32, callback)
         pub = rospy.Publisher('y', Float32, queue_size=10)
-        fs = 30
+        fs = 10
         rate = rospy.Rate(fs)
         t = 0
         while not rospy.is_shutdown():
