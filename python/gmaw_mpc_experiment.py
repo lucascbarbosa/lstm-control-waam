@@ -144,8 +144,8 @@ def optimization_function(u_hist, y_hist, lr, u_forecast=None):
     return u_opt, u_forecast, y_forecast, last_cost
 
 # Filepaths
-data_dir = "database/experiment/"
-results_dir = "results/models/experiment/"
+data_dir = "database/"
+results_dir = "results/models/"
 
 # ROSPY Parameters
 pub_freq = 30  # sampling frequency of published data
@@ -154,7 +154,7 @@ total_steps = 10
 
 # Load data
 input_train, output_train, input_test, output_test = load_experiment(
-    data_dir, [1, 2, 3, 4, 5, 6], [7]
+    data_dir + 'experiment/', [1, 2, 3, 4, 5, 6], [7]
     )
 
 output_test = output_test[:680]
@@ -218,9 +218,11 @@ while exp_step < input_test.shape[0]:
     print(f"Time step: {exp_step}")
     mpc_period = np.where(input_test == input_test[exp_step])[0].shape[0]
     u_opt, u_forecast, y_forecast, cost = optimization_function(u_hist, y_hist, lr, u_forecast)
+    u_forecast[:-1] = u_forecast[1:]
     u_hist = update_hist(u_hist, u_opt.reshape((1, 1)))
     u_opt_descaled = u_opt[0] * (u_max - u_min) + u_min  # Denormalize
     u_opt_descaled = u_opt_descaled[0]
+    u.append(u_opt_descaled)
     
     try:
         y_row = output_test[exp_step, 0]
@@ -232,11 +234,30 @@ while exp_step < input_test.shape[0]:
         pass
     exp_step += 1
 
-u = np.array(u)
-u_real = input_test[:len(u)].ravel()
+u_array = np.array(u)
+y_array = np.array(y)
 costs = np.array(costs)
 
-# Plot results
+u = pd.DataFrame()
+u['f'] = u_array
+
+y = pd.DataFrame()
+y['w'] = y_array
+
+test_split = 0.3
+test_size = int(len(u)*test_split)
+
+input_train = u.iloc[:-test_size, :]
+input_test = u.iloc[-test_size:, :]
+input_train.to_csv(data_dir + 'mpc/input_train.csv', index=False)
+input_test.to_csv(data_dir + 'mpc/input_test.csv', index=False)
+
+output_train = y.iloc[:-test_size, :]
+output_test = y.iloc[-test_size:, :]
+output_train.to_csv(data_dir + 'mpc/output_train.csv', index=False)
+output_test.to_csv(data_dir + 'mpc/output_test.csv', index=False)
+
+# # Plot results
 # fig, axs = plt.subplots(2, 1)
 # fig.set_size_inches((12,10))
 
