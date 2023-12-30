@@ -35,13 +35,23 @@ def plot_prediction(source="simulation", save=False):
         plt.plot(Y_real, color="k", label="Real")
         plt.plot(Y_pred, color="r", label="Predicted")
         plt.legend()
-
+    
+    elif source == "mpc":
+        fig = plt.figure(figsize=(12, 6))
+        fig.suptitle("MPC control prediction")
+        plt.title(r"$w_e\;(mm)$")
+        plt.step(x=range(len(Y_real)), y=Y_real, color="k", label="Real")
+        plt.step(x=range(len(Y_pred)), y=Y_pred, color="r", label="Predicted")
+        plt.legend()
+    
     fig.tight_layout()
     if save:
         if source == "simulation":
             plt.savefig(results_dir + f"plots/{source}_lstm_prediction.png")
-        if source == "experiment":
+        elif source == "experiment":
             plt.savefig(results_dir + f"plots/{source}_bead{idx_test}_lstm_prediction.png")
+        elif source == "mpc":
+            plt.savefig(results_dir + f"plots/{source}_lstm_prediction.png")
     plt.show()
 
 
@@ -159,7 +169,7 @@ def plot_mpc(u, y, y_ref, save=True):
     plt.show()
 
 
-source = "experiment"
+source = "mpc"
 data_filename = data_dir + f"{source}/"
 
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
@@ -170,11 +180,6 @@ metrics_df["loss"] = metrics_df["loss"].apply(lambda x: np.nan if x > 1 else x)
 # mpc_y = pd.read_csv(results_dir + f"mpc/{source}/y.csv")
 
 if source == "simulation":
-    inputs_train, outputs_train, _, _ = load_simulation(data_filename)
-    u_mins = inputs_train.min(axis=0)
-    u_maxs = inputs_train.max(axis=0)
-    y_means = outputs_train.mean(axis=0)
-    y_stds = outputs_train.std(axis=0)
     Y_real = np.loadtxt(
         results_dir + f"predictions/{source}/y_real.csv", dtype=np.float64
     )
@@ -194,11 +199,6 @@ if source == "simulation":
     # plot_mpc(mpc_u, mpc_y, y_means,save=False)
 
 elif source == "experiment":
-    input_train, output_train, _, _ = load_experiment(data_filename, [1, 2, 3, 4, 5, 6], [7])
-    u_min = input_train.min()
-    u_max = input_train.max()
-    y_mean = output_train.mean()
-    y_std = output_train.std()
     for idx_test in range(7,8):
         Y_real = np.loadtxt(
             results_dir + f"predictions/{source}/bead{idx_test}_y_real.csv", dtype=np.float64
@@ -217,3 +217,20 @@ elif source == "experiment":
         #     plot_heatmap(batch_size, source=source, save=True)
 
         # plot_mpc(mpc_u, mpc_y, y_means,save=False)
+
+elif source == "mpc":
+    Y_real = np.loadtxt(
+        results_dir + f"predictions/{source}/u_real.csv", dtype=np.float64
+    )
+    Y_pred = np.loadtxt(
+        results_dir + f"predictions/{source}/u_pred.csv", dtype=np.float64
+    )
+    
+    plot_prediction(source=source, save=True)
+    
+    # bins = 32
+    # histogram_error(bins, source=source, save=True)
+
+    # batch_sizes = [16, 32, 64]
+    # for batch_size in batch_sizes:
+    #     plot_heatmap(batch_size, source=source, save=True)

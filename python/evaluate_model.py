@@ -1,10 +1,12 @@
 from python.process_data import (
     load_simulation,
     load_experiment,
+    load_mpc,
     sequence_data,
     standardize_data,
     normalize_data,
     destandardize_data,
+    denormalize_data,
 )
 from python.lstm import predict_data
 
@@ -23,7 +25,6 @@ import os
 # Load data
 data_dir = "database/"
 results_dir = "results/"
-source = "experiment"
 
 def compute_metrics(Y_pred, Y_real):
     mses = []
@@ -32,8 +33,9 @@ def compute_metrics(Y_pred, Y_real):
     mses = np.mean(sq_error, axis=0)
     return mses
 
+source = "mpc"
 # Load metrics
-best_model_id = 282
+best_model_id = 26
 best_model_filename = f"run_{best_model_id:03d}.keras"
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
@@ -91,11 +93,15 @@ if source == "simulation":
 
 elif source == "experiment":
     for idx_test in range(7,8):
-        _, output_train, input_test, output_test = load_experiment(
+        input_train, output_train, input_test, output_test = load_experiment(
             data_dir + f"{source}/", [1, 2, 3, 4, 5, 6], [idx_test]
         )
-        y_mean = output_test.mean().reshape((1,))
-        y_std = output_test.std().reshape((1,))
+
+        train_y_mean = output_train.mean().reshape((1,))
+        train_y_std = output_train.std().reshape((1,))
+
+        test_y_mean = output_test.mean().reshape((1,))
+        test_y_std = output_test.std().reshape((1,))
 
         # Scale database
         input_test = normalize_data(input_test)
@@ -112,14 +118,29 @@ elif source == "experiment":
             int(best_params["H"]),
         )
 
+        X_train, Y_train = sequence_data(
+            input_train,
+            output_train,
+            int(best_params["P"]),
+            int(best_params["Q"]),
+            int(best_params["H"]),
+        )
+    
+        # train_y_mean = Y_train.mean(axis=0)
+        # train_y_std = Y_train.std(axis=0)
+        
+        # test_y_mean = Y_real.mean(axis=0)
+        # test_y_std = Y_real.std(axis=0)
+
         # Prediction
         Y_pred = predict_data(model, X_real)
+
         Y_pred[:, 0] = destandardize_data(
-            Y_pred[:, 0], y_mean, y_std
+            Y_pred[:, 0], train_y_mean, train_y_std
         )  # Destandardize
 
         Y_real[:, 0] = destandardize_data(
-            Y_real[:, 0], y_mean, y_std
+            Y_real[:, 0], test_y_mean, test_y_std
         )  # Destandardize
 
         # Cutout the first P+Q elements
@@ -130,5 +151,59 @@ elif source == "experiment":
         np.savetxt(results_dir + f"predictions/experiment/bead{idx_test}_y_real.csv", Y_real)
         np.savetxt(results_dir + f"predictions/experiment/bead{idx_test}_y_pred.csv", Y_pred)
 
-        mses = compute_metrics(Y_pred, Y_real)
-        print(f"MSE for bead {idx_test}: we={mses[0]:.3f}")
+        mse = compute_metrics(Y_pred, Y_real)
+        print(f"MSE for bead {idx_test}: we={mse[0]:.3f}")
+
+elif source == "mpc":
+    input_train, output_train, input_test, output_test = load_mpc(data_dir + f"{source}/")
+
+    train_y_min = output_train.min().reshape((1,))
+    train_y_max = output_train.max().reshape((1,))
+
+    test_y_min = output_test.min().reshape((1,))
+    test_y_max = output_test.max().reshape((1,))
+
+    # Scale database
+    input_test = standardize_data(input_test)
+    output_test = normalize_data(output_test)
+    num_features_input = 1
+    num_features_output = 1
+
+    # Sequence data
+    X_real, Y_real = sequence_data(
+        input_test,
+        output_test,
+        int(best_params["P"]),
+        int(best_params["Q"]),
+        int(best_params["H"]),
+    )
+
+    X_train, Y_train = sequence_data(
+        input_train,
+        output_train,
+        int(best_params["P"]),
+        int(best_params["Q"]),
+        int(best_params["H"]),
+    )
+    
+    # train_y_min = Y_train.min(axis=0)
+    # train_y_max= Y_train.max(axis=0)
+    
+    # test_y_min= Y_real.min(axis=0)
+    # test_y_max= Y_real.max(axis=0)
+
+    # Prediction
+    Y_pred = predict_data(model, X_real)
+    Y_pred[:, 0] = denormalize_data(
+        Y_pred[:, 0], train_y_min, train_y_max
+    )  # Destandardize
+
+    Y_real[:, 0] = denormalize_data(
+        Y_real[:, 0], test_y_min, test_y_max
+    )  # Destandardize
+
+    mse = compute_metrics(Y_pred, Y_real)
+    print(f"MSE for we={mse[0]:.3f}")
+
+    np.savetxt(results_dir + f"predictions/mpc/u_real.csv", Y_real)
+    np.savetxt(results_dir + f"predictions/mpc/u_pred.csv", Y_pred)

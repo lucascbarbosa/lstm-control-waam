@@ -133,6 +133,7 @@ def optimization_function(u_hist, y_hist, lr, u_forecast=None):
             lr *= (1.0 - alpha)
             last_cost = cost
             opt_step += 1
+            u_forecast = np.clip(u_forecast, a_min=0.0, a_max=1.0)
         else:
             print("Passed optimal solution")
             break
@@ -172,7 +173,7 @@ costs = []
 errors = []
 
 # Load metrics
-metrics_df = pd.read_csv(results_dir + f"hp_metrics.csv")
+metrics_df = pd.read_csv(results_dir + "experiment/hp_metrics.csv")
 best_model_id = 282 #
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
@@ -181,7 +182,7 @@ Q = best_params.iloc[0, 2]
 
 # Load Keras model
 keras_model = load_model(
-    results_dir + f"best/{best_model_filename}"
+    results_dir + f"experiment/best/{best_model_filename}"
 )
 
 opt = Adam(learning_rate=best_params["lr"])
@@ -237,44 +238,34 @@ while exp_step < input_test.shape[0]:
 u_array = np.array(u)
 y_array = np.array(y)
 costs = np.array(costs)
+u_real = input_test.ravel()
 
+# Convert to df
 u = pd.DataFrame()
 u['f'] = u_array
 
 y = pd.DataFrame()
 y['w'] = y_array
 
+# Split into train and test
 test_split = 0.3
 test_size = int(len(u)*test_split)
 
-input_train = u.iloc[:-test_size, :]
-input_test = u.iloc[-test_size:, :]
-input_train.to_csv(data_dir + 'mpc/input_train.csv', index=False)
-input_test.to_csv(data_dir + 'mpc/input_test.csv', index=False)
+output_train_mpc = u.iloc[:-test_size, :]
+output_test_mpc = u.iloc[-test_size:, :]
+output_train_mpc.to_csv(data_dir + 'mpc/output_train.csv', index=False)
+output_test_mpc.to_csv(data_dir + 'mpc/output_test.csv', index=False)
 
-output_train = y.iloc[:-test_size, :]
-output_test = y.iloc[-test_size:, :]
-output_train.to_csv(data_dir + 'mpc/output_train.csv', index=False)
-output_test.to_csv(data_dir + 'mpc/output_test.csv', index=False)
+input_train_mpc = y.iloc[:-test_size, :]
+input_test_mpc = y.iloc[-test_size:, :]
+input_train_mpc.to_csv(data_dir + 'mpc/input_train.csv', index=False)
+input_test_mpc.to_csv(data_dir + 'mpc/input_test.csv', index=False)
 
-# # Plot results
-# fig, axs = plt.subplots(2, 1)
-# fig.set_size_inches((12,10))
-
-# axs[0].step(range(u.shape[0]), u_real, color='k', label='experiment')
-# axs[0].step(range(u.shape[0]), u, color='r', label='mpc')
-# axs[0].legend()
-
-# axs[1].plot(errors, color='k', label='experiment error')
-# axs[1].plot(costs, color='r', label='mpc cost')
-# axs[1].legend()
-
-# plt.tight_layout()
-# plt.show()
-
-# plt.plot(output_test, color='k', label='experiment')
-# plt.plot(y, color='r', label='forecast')
-# plt.title(r'$w_e$ (mm)')
-# plt.tight_layout()
-# plt.legend()
-# plt.show()
+# Plot results
+fig = plt.figure(figsize=(12, 10))
+plt.title('Control comparison MPC x Experiment')
+plt.plot(u_real, color='k', label='experiment')
+plt.plot(u, color='r', label='mpc')
+plt.legend()
+plt.tight_layout()
+plt.show()

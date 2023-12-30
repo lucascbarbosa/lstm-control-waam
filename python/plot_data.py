@@ -15,7 +15,6 @@ data_dir = "database/"
 results_dir = "results/"
 
 def plot_data(
-    N,
     data,
     data_label,
     fig_filename,
@@ -23,7 +22,10 @@ def plot_data(
     source="sim",
     scale=False,
     save=False,
+    N=None,
 ):
+    if N == None:
+        N = len(data)
     if source == "simulation":
         fig, axs = plt.subplots(2, 1)
         fig.set_size_inches(12, 6)
@@ -39,7 +41,7 @@ def plot_data(
             for i in range(data.shape[1]):
                 axs[i].plot(range(N), data[:N, i] * 1000)
 
-    if source == "experiment":
+    if source in ["experiment", "mpc"]:
         fig = plt.figure(figsize=(12, 6))
         fig.suptitle(fig_title)
         plt.title(r"$%s$" % data_label)
@@ -57,8 +59,8 @@ def plot_data(
             fig.savefig(results_dir + f"plots/{source}_{fig_filename}_raw.png")
 
 
-N = 500  # Horizon plotted
-source = "simulation"
+N = None  # Horizon plotted
+source = "mpc"
 scale = False
 save = False
 if source == "simulation":
@@ -74,17 +76,19 @@ if source == "simulation":
         ["w_e", "h"],
         ["f", "I_r"],
         ["w_e", "h"]]
+
+data_path = data_dir + f"{source}/"
     
-elif source == "experiment":
+if source == "experiment":
     input_train, output_train, input_test, output_test = load_experiment(
-    data_dir + f"{source}/", [1,2,3,4,5,6], [7])
+        data_path, [1,2,3,4,5,6], [7]
+        )
     database = [input_train, output_train, input_test, output_test]
     data_labels = ["f\;(mm/s)", "w_e\;(mm)", "f\;(mm/s)", "w_e\;(mm)"]
     data_labels_scaled = ["f", "w_e", "f", "w_e"]
 
 elif source == "mpc":
-    input_train, output_train, input_test, output_test = load_mpc(
-    data_dir + f"{source}/")
+    input_train, output_train, input_test, output_test = load_mpc(data_path)
     database = [input_train, output_train, input_test, output_test]
     data_labels = ["f\;(mm/s)", "w_e\;(mm)", "f\;(mm/s)", "w_e\;(mm)"]
     data_labels_scaled = ["f", "w_e", "f", "w_e"]
@@ -116,7 +120,6 @@ for data, data_label, fig_title, fig_filename, var_type in zip(
             data = standardize_data(data)
 
     plot_data(
-        N,
         data,
         data_label,
         fig_filename,
@@ -124,6 +127,7 @@ for data, data_label, fig_title, fig_filename, var_type in zip(
         source=source,
         scale=scale,
         save=save,
+        N=N,
     )
 
 plt.show()

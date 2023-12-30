@@ -9,7 +9,7 @@ import itertools
 import pandas as pd
 import numpy as np
 import os
-from multiprocess import Pool
+from multiprocess import Pool, cpu_count
 import logging
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
@@ -62,9 +62,6 @@ def run_training(
         run_params["H"],
     )
 
-    y_means = Y_test.mean(axis=0)
-    y_stds = Y_test.std(axis=0)
-
     # Define model
     model = create_model(
         sequence_length,
@@ -83,18 +80,18 @@ def run_training(
         run_params["batch_size"],
         run_params["num_epochs"],
         run_params["validation_split"],
-        verbose=run_params["verbose"],
+        verbose=verbose_level,
     )
-
+    
     # Prediction
     Y_pred = predict_data(model, X_test)
     for i in range(num_features_output):
         Y_pred[:, i] = destandardize_data(
-            Y_pred[:, i], y_means[i], y_stds[i]
+            Y_pred[:, i], train_y_means[i], train_y_stds[i]
         )  # Destandardize
 
         Y_test[:, i] = destandardize_data(
-            Y_test[:, i], y_means[i], y_stds[i]
+            Y_test[:, i], test_y_means[i], test_y_stds[i]
         )  # Destandardize
 
     model.save(
@@ -115,6 +112,13 @@ input_train, output_train, input_test, output_test = load_experiment(
 )
 
 num_features_input = num_features_output = 1
+
+# Output normalization parameters (means and stds)
+train_y_means = output_train.mean(axis=0)
+train_y_stds = output_train.std(axis=0)
+
+test_y_means = output_test.mean(axis=0)
+test_y_stds = output_test.std(axis=0)
 
 # Scale database
 input_train = normalize_data(input_train)
@@ -140,6 +144,7 @@ hp_combinations = list(itertools.product(*hp_search_space.values()))
 
 # iterate every combination
 list_run_params = []
+verbose_level = 0
 i = 1
 for hp_comb in hp_combinations:
     run_params = {
@@ -149,11 +154,10 @@ for hp_comb in hp_combinations:
     run_params["num_features_input"] = num_features_input
     run_params["num_features_output"] = num_features_output
     run_params["run_id"] = "%03d" % i
-    run_params["verbose"] = 0
     list_run_params.append(run_params)
     i += 1
 
-num_processes = 8
+num_processes = cpu_count()
 # Run all experiments
 with Pool(processes=num_processes) as pool:
     results = pool.starmap(
