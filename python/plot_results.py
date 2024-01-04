@@ -59,8 +59,8 @@ def plot_heatmap(batch_size, source="simulation", save=False):
     fig = plt.figure(figsize=(8, 6))
 
     heatmap_df = metrics_df[metrics_df["batch_size"] == batch_size][
-        ["P", "Q", "loss"]
-    ].pivot(index="Q", columns="P", values="loss")
+        ["P", "Q", "test_loss"]
+    ].pivot(index="Q", columns="P", values="test_loss")
 
     sns.heatmap(heatmap_df, annot=True, cmap="magma", fmt=".4f")
     plt.title(f"Erro de predição para batch_size={batch_size}")
@@ -169,11 +169,11 @@ def plot_mpc(u, y, y_ref, save=True):
     plt.show()
 
 
-source = "mpc"
+source = "experiment"
 data_filename = data_dir + f"{source}/"
 
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
-metrics_df["loss"] = metrics_df["loss"].apply(lambda x: np.nan if x > 1 else x)
+metrics_df["test_loss"] = metrics_df["test_loss"].apply(lambda x: np.nan if x > 1 else x)
 
 # mpc_u = pd.read_csv(results_dir + f"mpc/{source}/u.csv")
 # mpc_u = mpc_u.iloc[:-1, :]

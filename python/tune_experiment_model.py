@@ -19,7 +19,6 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 data_dir = "database/"
 results_dir = "results/"
 
-
 ############
 # Function #
 def delete_models(models_path):
@@ -35,7 +34,7 @@ def run_training(
     output_test,
     run_params,
 ):
-    from python.process_data import sequence_data, destandardize_data
+    from python.process_data import sequence_data, destandardize_data, denormalize_data
     from python.lstm import create_model, train_model, predict_data
 
     def compute_metrics(Y_pred, Y_real):
@@ -43,7 +42,7 @@ def run_training(
         error = Y_pred - Y_real
         sq_error = error**2
         mses = np.mean(sq_error, axis=0)
-        return mses
+        return mses.mean()
 
     # Sequencing
     sequence_length = run_params["P"] + run_params["Q"]
@@ -65,8 +64,8 @@ def run_training(
     # Define model
     model = create_model(
         sequence_length,
-        run_params["num_features_input"],
-        run_params["num_features_output"],
+        num_features_input, 
+        num_features_output,
         run_params["lr"],
         random_seed=42,
         summary=False,
@@ -82,49 +81,77 @@ def run_training(
         run_params["validation_split"],
         verbose=verbose_level,
     )
+
     
     # Prediction
     Y_pred = predict_data(model, X_test)
     for i in range(num_features_output):
-        Y_pred[:, i] = destandardize_data(
-            Y_pred[:, i], train_y_means[i], train_y_stds[i]
-        )  # Destandardize
+        if output_scaling == "mean-std":
+            Y_pred[:, i] = destandardize_data(
+                Y_pred[:, i], train_y_means[i], train_y_stds[i]
+            )  # Destandardize
 
-        Y_test[:, i] = destandardize_data(
-            Y_test[:, i], test_y_means[i], test_y_stds[i]
-        )  # Destandardize
+            Y_test[:, i] = destandardize_data(
+                Y_test[:, i], test_y_means[i], test_y_stds[i]
+            )  # Destandardize
+        elif output_scaling == "min-max":
+            Y_pred[:, i] = denormalize_data(
+                Y_pred[:, i], train_y_mins[i], train_y_maxs[i]
+            )  # Denormalize
 
+            Y_test[:, i] = denormalize_data(
+                Y_test[:, i], test_y_mins[i], test_y_maxs[i]
+            )  # Denormalize
+    
     model.save(
         results_dir
         + f"models/experiment/hyperparams/run_{run_params['run_id']}.keras"
     )
-    loss = compute_metrics(Y_test, Y_pred).mean()
-
-    print(f"Run: {run_params['run_id']}. Loss: {loss:.4f}")
+    
+    training_loss = history.history['loss'][-1]
+    validation_loss = history.history['val_loss'][-1]
+    test_loss = compute_metrics(Y_test, Y_pred)
+    print(f"Run: {run_params['run_id']}. Loss: {test_loss:.4f}.")
+    
     metrics = run_params
-    metrics["loss"] = loss
+    metrics["train_loss"] = training_loss
+    metrics["val_loss"] = validation_loss
+    metrics["test_loss"] = test_loss
     return metrics
 
 
 # Load database
 input_train, output_train, input_test, output_test = load_experiment(
-    data_dir + "experiment/", [1, 2, 3, 4, 5, 6], [7]
+    data_dir + "experiment/", [1,2,3,4,5,6], [7]
 )
 
 num_features_input = num_features_output = 1
 
-# Output normalization parameters (means and stds)
-train_y_means = output_train.mean(axis=0)
-train_y_stds = output_train.std(axis=0)
-
-test_y_means = output_test.mean(axis=0)
-test_y_stds = output_test.std(axis=0)
-
 # Scale database
-input_train = normalize_data(input_train)
-input_test = normalize_data(input_test)
-output_train = standardize_data(output_train)
-output_test = standardize_data(output_test)
+input_scaling = "min-max"
+output_scaling = "min-max"
+if input_scaling == "mean-std":
+    input_train = standardize_data(input_train)
+    input_test = standardize_data(input_test)
+elif input_scaling == "min-max":
+    input_train = normalize_data(input_train)
+    input_test = normalize_data(input_test)
+
+if output_scaling == "mean-std":
+    train_y_stds = output_train.std(axis=0)
+    train_y_means = output_train.mean(axis=0)
+    test_y_stds = output_test.std(axis=0)
+    test_y_means = output_test.mean(axis=0)
+    output_train = standardize_data(output_train)
+    output_test = standardize_data(output_test)
+
+elif output_scaling == "min-max":
+    train_y_mins = output_train.min(axis=0)
+    train_y_maxs = output_train.max(axis=0)
+    test_y_mins = output_test.min(axis=0)
+    test_y_maxs = output_test.max(axis=0)
+    output_train = normalize_data(output_train)
+    output_test = normalize_data(output_test)
 
 # Remove previous models
 delete_models(results_dir + "models/experiment/hyperparams/")
@@ -151,8 +178,6 @@ for hp_comb in hp_combinations:
         param_name: param_value
         for param_name, param_value in zip(hp_search_space.keys(), hp_comb)
     }
-    run_params["num_features_input"] = num_features_input
-    run_params["num_features_output"] = num_features_output
     run_params["run_id"] = "%03d" % i
     list_run_params.append(run_params)
     i += 1
@@ -176,15 +201,8 @@ with Pool(processes=num_processes) as pool:
 
 metrics_df = (
     pd.DataFrame.from_dict(results)
-    .drop(
-        [
-            "num_features_output",
-            "num_features_input",
-        ],
-        axis=1,
-    )
     .set_index("run_id")
-    .sort_values(by="loss")
+    .sort_values(by="test_loss")
 )
 metrics_df.to_csv(results_dir + "models/experiment/hp_metrics.csv")
 

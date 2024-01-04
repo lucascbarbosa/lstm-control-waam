@@ -14,6 +14,30 @@ import time
 import matplotlib.pyplot as plt
 
 # Load experiment method
+def scale_input(u):
+    if input_scaling == 'min-max':
+        return (u - u_min) / (u_max - u_min)
+    elif input_scaling == 'mean-std':
+        return (u - u_mean) / u_std
+
+def scale_output(y):
+    if input_scaling == 'min-max':
+        return (y - y_min) / (y_max - y_min)
+    elif input_scaling == 'mean-std':
+        return (y - y_mean) / y_std
+
+def descale_input(u):
+    if input_scaling == 'min-max':
+        return u * (u_max - u_min) + u_min
+    elif input_scaling == 'mean-std':
+        return u * u_std + u_mean
+
+def descale_output(y):
+    if input_scaling == 'min-max':
+        return y * (y_max - y_min) + y_min
+    elif input_scaling == 'mean-std':
+        return y * y_std + y_mean
+
 def update_hist(current_hist, new_states):
     new_hist = current_hist.copy()
     len_new = new_states.shape[0]
@@ -49,7 +73,7 @@ def build_input_jacobian():
 # Cost function method
 def cost_function(u_forecast, y_forecast, y_ref):
     u_diff_forecast = create_control_diff(u_forecast)
-    output_error = (y_ref - y_forecast) * y_std
+    output_error = scale_output(y_ref) - scale_output(y_forecast)
     output_cost = np.sum(output_error**2 * weight_output)
     control_cost = np.sum(u_diff_forecast**2 * weight_control)
     return output_cost + control_cost
@@ -89,7 +113,7 @@ def compute_step(u_hist, y_hist, u_forecast):
     input_jacobian = build_input_jacobian()
     steps = np.zeros(u_forecast.shape)
     u_diff_forecast = create_control_diff(u_forecast)
-    output_error = (y_ref - y_forecast) * y_std
+    output_error = scale_output(y_ref) - scale_output(y_forecast)
     input_diff = u_diff_forecast
     # print(f"output_error: \n{output_error}")
     # print(f"output_jacobian: \n{output_jacobian}")
@@ -107,6 +131,7 @@ def compute_step(u_hist, y_hist, u_forecast):
         # print(f"output_step: \n{output_step}")
         total_step = output_step + input_step
         steps[j, 0] = total_step
+
     return steps, y_forecast
 
 # Optimization function method
@@ -122,7 +147,7 @@ def optimization_function(u_hist, y_hist, lr, u_forecast=None):
     while delta_cost < -cost_tol:
         steps, y_forecast = compute_step(u_hist, y_hist, u_forecast)
         gradient_hist[opt_step, :] = steps[:,0]
-        ada_grad = np.sqrt(np.sum(gradient_hist[:opt_step+1,:]**2,axis=0)+1e-10).reshape((50, 1))
+        ada_grad = np.sqrt(np.sum(gradient_hist[:opt_step+1,:]**2,axis=0)+1e-10).reshape((M, 1))
         cost = cost_function(u_forecast, y_forecast, y_ref)
         delta_cost = cost - last_cost
         print(f"Opt step: {opt_step+1}")
@@ -130,17 +155,17 @@ def optimization_function(u_hist, y_hist, lr, u_forecast=None):
         # print(f"Steps: \n{steps}")
         if delta_cost < 0:
             u_forecast += (-lr/ada_grad)*steps
+            u_forecast = np.clip(u_forecast, a_min=0.0, a_max=1.0)
             lr *= (1.0 - alpha)
             last_cost = cost
             opt_step += 1
-            u_forecast = np.clip(u_forecast, a_min=0.0, a_max=1.0)
         else:
             print("Passed optimal solution")
             break
 
     u_opt = u_forecast[0, :]
     # print(f"U_F: \n{u_forecast}")   
-    # print(f"Y_F: \n{y_forecast * y_std + y_mean}")
+    # print(f"Y_F: \n{descale_output(y_forecast)}")
     # print(f"u_opt: {u_opt}")
     return u_opt, u_forecast, y_forecast, last_cost
 
@@ -161,10 +186,22 @@ input_train, output_train, input_test, output_test = load_experiment(
 output_test = output_test[:680]
 input_test = input_test[:680]
 
-u_min = input_test.min(axis=0)
-u_max = input_test.max(axis=0)
-y_mean = output_test.mean(axis=0)
-y_std = output_test.std(axis=0)
+# Scale database
+input_scaling = "min-max"
+output_scaling = "min-max"
+if input_scaling == "mean-std":
+    u_mean = input_test.mean(axis=0)
+    u_std = input_test.std(axis=0)
+elif input_scaling == "min-max":
+    u_min = input_test.min(axis=0)
+    u_max = input_test.max(axis=0)
+
+if output_scaling == "mean-std":
+    y_mean = output_test.mean(axis=0)
+    y_std = output_test.std(axis=0)
+elif output_scaling == "min-max":
+    y_min = output_test.min(axis=0)
+    y_max = output_test.max(axis=0)
 
 # Experiment data
 u = []
@@ -174,7 +211,7 @@ errors = []
 
 # Load metrics
 metrics_df = pd.read_csv(results_dir + "experiment/hp_metrics.csv")
-best_model_id = 282 #
+best_model_id = 121
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
 P = best_params.iloc[0, 1]
@@ -201,7 +238,7 @@ y_hist = np.zeros((Q, 1))
 
 # Initial condition
 y0 = output_test[0,0]
-y0_scaled = (y0 - y_mean) / y_std
+y0_scaled = scale_output(y0)
 y_hist = update_hist(y_hist, np.array(y0_scaled).reshape((1, 1)))
 
 # Optimization parameters
@@ -221,14 +258,14 @@ while exp_step < input_test.shape[0]:
     u_opt, u_forecast, y_forecast, cost = optimization_function(u_hist, y_hist, lr, u_forecast)
     u_forecast[:-1] = u_forecast[1:]
     u_hist = update_hist(u_hist, u_opt.reshape((1, 1)))
-    u_opt_descaled = u_opt[0] * (u_max - u_min) + u_min  # Denormalize
+    u_opt_descaled = descale_input(u_opt[0])
     u_opt_descaled = u_opt_descaled[0]
     u.append(u_opt_descaled)
     
     try:
         y_row = output_test[exp_step, 0]
         y.append(y_row) 
-        y_row_scaled = (y_row - y_mean) / y_std
+        y_row_scaled = scale_output(y_row)
         costs.append(cost)
         y_hist = update_hist(y_hist, np.array(y_row_scaled).reshape((1, 1)))
     except:
