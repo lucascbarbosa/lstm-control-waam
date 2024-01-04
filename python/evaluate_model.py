@@ -33,12 +33,12 @@ def compute_metrics(Y_pred, Y_real):
     mses = np.mean(sq_error, axis=0)
     return mses
 
-source = "experiment"
+source = "mpc"
 input_scaling = "min-max"
 output_scaling = "min-max"
 
 # Load metrics
-best_model_id = 33
+best_model_id = 17
 best_model_filename = f"run_{best_model_id:03d}.keras"
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
@@ -71,9 +71,9 @@ if source == "simulation":
     X_real, Y_real = sequence_data(
         inputs_test,
         outputs_test,
-        int(best_params["P"]),
-        int(best_params["Q"]),
-        int(best_params["H"]),
+        int(best_params["P"].iloc[0]),
+        int(best_params["Q"].iloc[0]),
+        int(best_params["H"].iloc[0]),
     )
 
     # Prediction
@@ -130,9 +130,9 @@ elif source == "experiment":
         X_real, Y_real = sequence_data(
             input_test,
             output_test,
-            int(best_params["P"]),
-            int(best_params["Q"]),
-            int(best_params["H"]),
+            int(best_params["P"].iloc[0]),
+            int(best_params["Q"].iloc[0]),
+            int(best_params["H"].iloc[0]),
         )
 
         # Prediction
@@ -181,18 +181,20 @@ elif source == "mpc":
         input_test = normalize_data(input_test)
 
     if output_scaling == "mean-std":
-        train_y_stds = output_train.std(axis=0)
-        train_y_means = output_train.mean(axis=0)
-        test_y_stds = output_test.std(axis=0)
-        test_y_means = output_test.mean(axis=0)
+        train_u_stds = output_train.std(axis=0)
+        train_u_means = output_train.mean(axis=0)
+        test_u_stds = output_test.std(axis=0)
+        test_u_means = output_test.mean(axis=0)
+
         output_train = standardize_data(output_train)
         output_test = standardize_data(output_test)
 
     elif output_scaling == "min-max":
-        train_y_mins = output_train.min(axis=0)
-        train_y_maxs = output_train.max(axis=0)
-        test_y_mins = output_test.min(axis=0)
-        test_y_maxs = output_test.max(axis=0)
+        train_u_mins = output_train.min(axis=0)
+        train_u_maxs = output_train.max(axis=0)
+        test_u_mins = output_test.min(axis=0)
+        test_u_maxs = output_test.max(axis=0)
+        
         output_train = normalize_data(output_train)
         output_test = normalize_data(output_test)
 
@@ -200,28 +202,28 @@ elif source == "mpc":
     X_real, Y_real = sequence_data(
         input_test,
         output_test,
-        int(best_params["P"]),
-        int(best_params["Q"]),
-        int(best_params["H"]),
+        int(best_params["P"].iloc[0]),
+        int(best_params["Q"].iloc[0]),
+        int(best_params["H"].iloc[0]),
     )
     # Prediction
     Y_pred = predict_data(model, X_real)
     for i in range(num_features_output):
         if output_scaling == "mean-std":
             Y_pred[:, i] = destandardize_data(
-                Y_pred[:, i], train_y_means[i], train_y_stds[i]
+                Y_pred[:, i], train_u_means[i], train_u_stds[i]
             )  # Destandardize
 
             Y_real[:, i] = destandardize_data(
-                Y_real[:, i], test_y_means[i], test_y_stds[i]
+                Y_real[:, i], test_u_means[i], test_u_stds[i]
             )  # Destandardize
         elif output_scaling == "min-max":
             Y_pred[:, i] = denormalize_data(
-                Y_pred[:, i], train_y_mins[i], train_y_maxs[i]
+                Y_pred[:, i], train_u_mins[i], train_u_maxs[i]
             )  # Denormalize
 
             Y_real[:, i] = denormalize_data(
-                Y_real[:, i], test_y_mins[i], test_y_maxs[i]
+                Y_real[:, i], test_u_mins[i], test_u_maxs[i]
             )  # Denormalize
     
     mse = compute_metrics(Y_pred, Y_real)

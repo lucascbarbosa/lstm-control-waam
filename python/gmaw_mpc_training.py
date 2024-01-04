@@ -277,9 +277,20 @@ y_array = np.array(y)
 costs = np.array(costs)
 u_real = input_test.ravel()
 
+def moving_avg(arr, k):
+    return np.concatenate([u_array[:k-1], np.convolve(arr, np.ones(k)/k, mode='valid')])
+
+k = 5
+u_avg = moving_avg(u_array, k)
+
+# plt.plot(u_array, label='original')
+# plt.plot(u_avg, label='avg')
+# plt.legend()
+# plt.show()
+
 # Convert to df
 u = pd.DataFrame()
-u['f'] = u_array
+u['f'] = u_avg
 
 y = pd.DataFrame()
 y['w'] = y_array
@@ -301,8 +312,9 @@ input_test_mpc.to_csv(data_dir + 'mpc/input_test.csv', index=False)
 # Plot results
 fig = plt.figure(figsize=(12, 10))
 plt.title('Control comparison MPC x Experiment')
-plt.plot(u_real, color='k', label='experiment')
-plt.plot(u, color='r', label='mpc')
+plt.step(x=range(u_real.shape[0]), y=u_real, color='k', label='experiment')
+plt.step(x=range(u_array.shape[0]), y=u_array, color='r', label='mpc')
+plt.step(x=range(u_avg.shape[0]), y=u_avg, color='b', label='mpc_avg')
 plt.legend()
 plt.tight_layout()
 plt.show()

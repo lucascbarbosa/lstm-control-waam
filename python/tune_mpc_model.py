@@ -44,6 +44,7 @@ def run_training(
 
     # Sequencing
     sequence_length = run_params["P"] + run_params["Q"]
+
     X_train, Y_train = sequence_data(
         input_train,
         output_train,
@@ -130,22 +131,28 @@ input_scaling = "min-max"
 output_scaling = "min-max"
 if input_scaling == "mean-std":
     input_train = standardize_data(input_train)
+    input_test = standardize_data(input_test)
 elif input_scaling == "min-max":
+    input_test = normalize_data(input_test)
     input_test = normalize_data(input_test)
 
 if output_scaling == "mean-std":
-    output_train = standardize_data(output_train)
     train_u_stds = output_train.std(axis=0)
     train_u_means = output_train.mean(axis=0)
     test_u_stds = output_test.std(axis=0)
     test_u_means = output_test.mean(axis=0)
 
+    output_train = standardize_data(output_train)
+    output_test = standardize_data(output_test)
+
 elif output_scaling == "min-max":
-    output_test = normalize_data(output_test)
     train_u_mins = output_train.min(axis=0)
     train_u_maxs = output_train.max(axis=0)
     test_u_mins = output_test.min(axis=0)
     test_u_maxs = output_test.max(axis=0)
+
+    output_train = normalize_data(output_train)
+    output_test = normalize_data(output_test)
 
 # Remove previous models
 delete_models(results_dir + "models/mpc/hyperparams/")
@@ -199,8 +206,9 @@ metrics_df = (
     .sort_values(by="test_loss")
 )
 metrics_df.to_csv(results_dir + "models/mpc/hp_metrics.csv")
+print(metrics_df)
 
-best_model_id = metrics_df.index[0]
+best_model_id = input('Best model id: ')
 best_model = load_model(
     results_dir + f"models/mpc/hyperparams/run_{best_model_id}.keras"
 )

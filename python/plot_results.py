@@ -39,7 +39,7 @@ def plot_prediction(source="simulation", save=False):
     elif source == "mpc":
         fig = plt.figure(figsize=(12, 6))
         fig.suptitle("MPC control prediction")
-        plt.title(r"$w_e\;(mm)$")
+        plt.title(r"$WFS\;(mm/s)$")
         plt.step(x=range(len(Y_real)), y=Y_real, color="k", label="Real")
         plt.step(x=range(len(Y_pred)), y=Y_pred, color="r", label="Predicted")
         plt.legend()
@@ -169,7 +169,7 @@ def plot_mpc(u, y, y_ref, save=True):
     plt.show()
 
 
-source = "experiment"
+source = "mpc"
 data_filename = data_dir + f"{source}/"
 
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
