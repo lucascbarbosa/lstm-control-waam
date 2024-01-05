@@ -21,9 +21,9 @@ def scale_input(u):
         return (u - u_mean) / u_std
 
 def scale_output(y):
-    if input_scaling == 'min-max':
+    if output_scaling == 'min-max':
         return (y - y_min) / (y_max - y_min)
-    elif input_scaling == 'mean-std':
+    elif output_scaling == 'mean-std':
         return (y - y_mean) / y_std
 
 def descale_input(u):
@@ -33,9 +33,9 @@ def descale_input(u):
         return u * u_std + u_mean
 
 def descale_output(y):
-    if input_scaling == 'min-max':
+    if output_scaling == 'min-max':
         return y * (y_max - y_min) + y_min
-    elif input_scaling == 'mean-std':
+    elif output_scaling == 'mean-std':
         return y * y_std + y_mean
 
 def update_hist(current_hist, new_states):
@@ -230,7 +230,8 @@ weight_control = 1.0
 weight_output = 1.0
 
 # Desired outputs
-y_ref = np.ones((1,)) * 0
+y_ref = output_test[-1:].mean(axis=0)
+y_ref = scale_output(y_ref)
 
 # Historic data
 u_hist = np.zeros((P, 1))
@@ -280,7 +281,7 @@ u_real = input_test.ravel()
 def moving_avg(arr, k):
     return np.concatenate([u_array[:k-1], np.convolve(arr, np.ones(k)/k, mode='valid')])
 
-k = 5
+k = 10
 u_avg = moving_avg(u_array, k)
 
 # plt.plot(u_array, label='original')

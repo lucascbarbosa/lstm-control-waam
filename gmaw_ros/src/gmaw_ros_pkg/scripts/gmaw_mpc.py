@@ -29,23 +29,38 @@ class MPC:
         self.cost_tol = 1e-2
 
         # Load data
-        self.process_inputs_train, self.process_outputs_train, _, _ = self.load_experiment([1, 2, 3, 4, 5, 6], [7])
-
-        self.process_u_min = self.process_inputs_train.min(axis=0)
-        self.process_u_max = self.process_inputs_train.max(axis=0)
-        self.process_y_mean = self.process_outputs_train.mean(axis=0)
-        self.process_y_std = self.process_outputs_train.std(axis=0)
-
+        self.process_inputs_train, self.process_outputs_train, self.process_input_test, _ = self.load_experiment([1, 2, 3, 4, 5, 6], [7])
         self.mpc_inputs_train, self.mpc_outputs_train, _, _ = self.load_mpc()
 
-        self.mpc_u_mean = self.mpc_inputs_train.mean(axis=0)
-        self.mpc_u_std = self.mpc_inputs_train.std(axis=0)
-        self.mpc_y_min = self.mpc_outputs_train.min(axis=0)
-        self.mpc_y_max = self.mpc_outputs_train.max(axis=0)
+        self.input_scaling = "min-max"
+        self.output_scaling = "min-max"
+        if self.input_scaling == "mean-std":
+            self.process_y_mean = self.process_inputs_train.mean(axis=0)
+            self.process_y_std = self.process_inputs_train.std(axis=0)
+            self.mpc_y_mean = self.mpc_inputs_train.mean(axis=0)
+            self.mpc_y_std = self.mpc_inputs_train.std(axis=0)
+
+        elif self.input_scaling == "min-max":
+            self.process_y_min = self.process_inputs_train.min(axis=0)
+            self.process_y_max = self.process_inputs_train.max(axis=0)
+            self.mpc_y_min = self.mpc_inputs_train.min(axis=0)
+            self.mpc_y_max = self.mpc_inputs_train.max(axis=0)
+
+        if self.output_scaling == "mean-std":
+            self.process_u_mean = self.process_outputs_train.mean(axis=0)
+            self.process_u_std = self.process_outputs_train.std(axis=0)
+            self.mpc_u_mean = self.mpc_outputs_train.mean(axis=0)
+            self.mpc_u_std = self.mpc_outputs_train.std(axis=0)
+
+        elif self.output_scaling == "min-max":
+            self.process_u_min = self.process_outputs_train.min(axis=0)
+            self.process_u_max = self.process_outputs_train.max(axis=0)
+            self.mpc_u_min = self.mpc_outputs_train.min(axis=0)
+            self.mpc_u_max = self.mpc_outputs_train.max(axis=0)
 
         # Load process metrics
         self.metrics_process = pd.read_csv(self.results_dir + f"models/experiment/hp_metrics.csv")
-        self.process_best_model_id = 33
+        self.process_best_model_id = 121
         self.process_best_model_filename = f"run_{self.process_best_model_id:03d}.keras"
         self.process_best_params = self.metrics_process[self.metrics_process["run_id"] == int(self.process_best_model_id)]
         self.process_P = self.process_best_params.iloc[0, 1]
@@ -61,7 +76,7 @@ class MPC:
 
         # Load process metrics
         self.metrics_mpc = pd.read_csv(self.results_dir + f"models/mpc/hp_metrics.csv")
-        self.mpc_best_model_id = 88
+        self.mpc_best_model_id = 25
         self.mpc_best_model_filename = f"run_{self.mpc_best_model_id:03d}.keras"
         self.mpc_best_params = self.metrics_mpc[self.metrics_mpc["run_id"] == int(self.mpc_best_model_id)]
         self.mpc_P = self.mpc_best_params.iloc[0, 1]
@@ -108,7 +123,10 @@ class MPC:
         y_row = data.data
         t = time.time()
         self.y.append([t-start_time, y_row])
-        y_row_scaled = (y_row - self.process_y_mean) / self.process_y_std
+        if self.output_scaling == 'min-max':
+            y_row_scaled = (y_row - self.process_y_min) / (self.process_y_max - self.process_y_min)
+        elif self.output_scaling == 'mean-std':
+            y_row_scaled = (y_row - self.process_y_mean) / self.process_y_std
         self.process_y_hist = self.update_hist(self.process_y_hist, y_row_scaled.reshape((1, 1)))
         self.mpc_y_hist = self.update_hist(self.mpc_y_hist, (self.y_ref - y_row_scaled).reshape((1, 1)))
 
@@ -214,7 +232,12 @@ class MPC:
     # Cost function method
     def cost_function(self, u_forecast, y_forecast):
         u_diff_forecast = self.create_control_diff(u_forecast)
-        output_error = (self.y_ref - y_forecast) * self.process_y_std
+
+        if self.input_scaling == 'min-max':
+            output_error = (self.y_ref - y_forecast) * (self.process_y_max-self.process_y_min)
+        elif self.input_scaling == 'mean-std':
+            output_error = (self.y_ref - y_forecast) * self.process_y_std
+
         output_cost = np.sum(output_error**2 * self.weight_output)
         control_cost = np.sum(u_diff_forecast**2 * self.weight_control)
         return output_cost + control_cost
@@ -230,7 +253,7 @@ class MPC:
             u_hist = self.update_hist(u_hist, u_row)
             seq_input = self.build_sequence(u_hist, y_hist)
             input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
-            for j in range(1):
+            for j in range(1): 
                 with tf.GradientTape() as t:
                     t.watch(input_tensor)
                     output_tensor = self.process_model(input_tensor)
@@ -254,7 +277,12 @@ class MPC:
         input_jacobian = self.build_input_jacobian()
         steps = np.zeros(u_forecast.shape)
         u_diff_forecast = self.create_control_diff(u_forecast)
-        output_error = (self.y_ref - y_forecast) * self.process_y_std
+
+        if self.input_scaling == 'min-max':
+            output_error = (self.y_ref - y_forecast) * (self.process_y_max-self.process_y_min)
+        elif self.input_scaling == 'mean-std':
+            output_error = (self.y_ref - y_forecast) * self.process_y_std      
+              
         input_diff = u_diff_forecast
         for j in range(self.M):
             output_step = (
@@ -280,13 +308,13 @@ class MPC:
         cost = np.inf
         last_cost = cost
         delta_cost = -cost
-        gradient_hist = np.zeros((self.input_test.shape[0],self.M)) # gradient history for adaptive learning rate algorithm
+        gradient_hist = np.zeros((self.process_input_test.shape[0],self.M)) # gradient history for adaptive learning rate algorithm
         while delta_cost < -self.cost_tol:
             steps, y_forecast = self.compute_step(u_hist, y_hist, u_forecast, lr)
             cost = self.cost_function(u_forecast, y_forecast)
             delta_cost = cost - last_cost
             gradient_hist[s, :] = steps[:,0]
-            ada_grad = np.sqrt(np.sum(gradient_hist[:s+1,:]**2,axis=0)+1e-10).reshape((M, 1))
+            ada_grad = np.sqrt(np.sum(gradient_hist[:s+1,:]**2,axis=0)+1e-10).reshape((self.M, 1))
             print(f"Opt step: {s+1}")
             print(f"Cost: {cost}\n ")
             if delta_cost < 0:
@@ -301,19 +329,25 @@ class MPC:
         u_opt = u_forecast[0, :]
         self.u_forecast[:-1 ] = u_forecast[1:]
         u_opt = u_opt[0]
-        mpc.process_u_hist = mpc.update_hist(mpc.process_u_hist, u_opt.reshape((1, 1)))    
+        self.process_u_hist = self.update_hist(self.process_u_hist, u_opt.reshape((1, 1)))    
         print(f"u_opt_scaled: {u_opt}")
-        u_opt = u_opt * (mpc.process_u_max - mpc.process_u_min) + mpc.process_u_min  # Denormalize
+        if self.output_scaling == 'min-max':
+            u_opt = u_opt * (self.process_u_max - self.process_u_min) + self.process_u_min
+        elif self.output_scaling == 'mean-std':
+            u_opt = u_opt * self.process_u_mean + self.process_u_std
         print(f"u_opt: {u_opt}")
         return u_opt, y_forecast, last_cost
 
     def mpc_prediction(self):
-        input_seq = self.build_sequence(mpc.mpc_u_hist, mpc.mpc_y_hist)
+        input_seq = self.build_sequence(self.mpc_u_hist, self.mpc_y_hist)
         input_tensor = tf.convert_to_tensor(input_seq, dtype=tf.float32)
         u_pred = self.mpc_model(input_tensor).numpy()[0,0]
         print(f"u_pred_scaled: {u_pred}")
-        mpc.mpc_u_hist = mpc.update_hist(mpc.mpc_u_hist, u_pred.reshape((1, 1)))
-        u_pred = u_pred * (mpc.mpc_y_max - mpc.mpc_y_min) + mpc.mpc_y_min  # Denormalize
+        self.mpc_u_hist = self.update_hist(self.mpc_u_hist, u_pred.reshape((1, 1)))
+        if self.output_scaling == 'min-max':
+            u_pred = u_pred * (self.mpc_u_max - self.mpc_u_min) + self.mpc_u_min
+        if self.output_scaling == 'mean-std':
+            u_pred = u_pred * self.process_u_mean + self.process_u_std
         print(f"u_pred: {u_pred}")
         return u_pred
     

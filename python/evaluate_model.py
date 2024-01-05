@@ -38,7 +38,7 @@ input_scaling = "min-max"
 output_scaling = "min-max"
 
 # Load metrics
-best_model_id = 17
+best_model_id = 25
 best_model_filename = f"run_{best_model_id:03d}.keras"
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
@@ -194,7 +194,7 @@ elif source == "mpc":
         train_u_maxs = output_train.max(axis=0)
         test_u_mins = output_test.min(axis=0)
         test_u_maxs = output_test.max(axis=0)
-        
+
         output_train = normalize_data(output_train)
         output_test = normalize_data(output_test)
 

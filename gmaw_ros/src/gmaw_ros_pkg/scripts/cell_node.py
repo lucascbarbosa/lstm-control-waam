@@ -16,15 +16,26 @@ class Cell(object):
         self.data_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/database/experiment/"
         self.results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
         self.input_train, self.output_train, _, _ = self.load_experiment([1, 2, 3, 4, 5, 6], [7])
+        self.input_scaling = "min-max"
+        self.output_scaling = "min-max"
+        
+        if self.input_scaling == "mean-std":
+            self.u_mean = self.input_train.mean(axis=0)
+            self.u_std = self.input_train.std(axis=0)
+        elif self.input_scaling == "min-max":
+            self.u_min = self.input_train.min(axis=0)
+            self.u_max = self.input_train.max(axis=0)
 
-        self.u_min = self.input_train.min(axis=0)
-        self.u_max = self.input_train.max(axis=0)
+        if self.output_scaling == "mean-std":
+            self.y_mean = self.output_train.mean(axis=0)
+            self.y_std = self.output_train.std(axis=0)
 
-        self.y_mean = self.output_train.mean(axis=0)
-        self.y_std = self.output_train.std(axis=0)
+        elif self.output_scaling == "min-max":
+            self.y_min = self.output_train.min(axis=0)
+            self.y_max = self.output_train.max(axis=0)
 
         metrics = pd.read_csv(self.results_dir + f"models/experiment/hp_metrics.csv")
-        best_model_id = 16
+        best_model_id = 121
         best_model_filename = f"run_{best_model_id:03d}.keras"
         best_params = metrics[metrics["run_id"] == int(best_model_id)]
         self.P = best_params.iloc[0, 1]
@@ -51,7 +62,10 @@ class Cell(object):
 
     def callback(self, data):
         u = data.data
-        u_scaled = (u - self.u_min) / (self.u_max - self.u_min)
+        if self.input_scaling == 'min-max':
+            u_scaled = (u - self.u_min) / (self.u_max - self.u_min)
+        if self.input_scaling == 'mean-std':
+            u_scaled = (u - self.u_mean) / self.u_std
         self.u_hist = self.update_hist(self.u_hist, u_scaled)
         rospy.loginfo("Received control u: %f", u)
         self.control_mpc.append(u)
@@ -130,8 +144,12 @@ class Cell(object):
         input_seq = self.build_sequence()
         input_tensor = tf.convert_to_tensor(input_seq, dtype=tf.float32)
         y_scaled = self.model(input_tensor).numpy()
+        print(f'y_scaled: {y_scaled}')
         self.y_hist = self.update_hist(self.y_hist, y_scaled)
-        y = y_scaled * self.y_std + self.y_mean
+        if self.output_scaling == 'min-max':
+            y = y_scaled * (self.y_max - self.y_min) + self.y_min
+        if self.output_scaling == 'mean-std':
+            y = y_scaled * self.y_std + self.y_mean
         cell.pub.publish(y)
         rospy.loginfo("Sending output y: %f", y)
         cell.rate.sleep()
