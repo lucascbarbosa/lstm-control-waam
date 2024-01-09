@@ -35,7 +35,7 @@ def run_training(
     run_params,
 ):
     from python.process_data import sequence_data, destandardize_data
-    from python.lstm import create_model, train_model, predict_data
+    from python.process_model import create_model, train_model, predict_data
 
     def compute_metrics(Y_pred, Y_real):
         mses = []

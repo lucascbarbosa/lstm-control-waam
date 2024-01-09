@@ -8,7 +8,7 @@ from python.process_data import (
     destandardize_data,
     denormalize_data,
 )
-from python.lstm import predict_data
+from python.process_model import predict_data
 
 import pandas as pd
 import numpy as np
