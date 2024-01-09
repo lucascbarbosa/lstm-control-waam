@@ -7,18 +7,16 @@ from std_msgs.msg import Float32, Bool
 import time
 
 class Experiment(object):
-    def __init__(self, pub_freq):
+    def __init__(self, pub_freq, split):
         # Filepaths
         self.data_dir = f"/home/lbarbosa/Documents/Github/lstm-control-waam/database/"
         self.results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
 
         # Load input data
-        self.input_train = pd.read_csv(self.data_dir + "experiment/inputs_train.csv").to_numpy()
-        self.input_test = pd.read_csv(self.data_dir + "experiment/inputs_test.csv").to_numpy()
-
+        self.input_data = pd.read_csv(self.data_dir + f"experiment/input_{split}.csv").to_numpy()
+        
         # Output data
-        self.output_train = self.input_train.shape
-        self.output_test = self.input_test.shape
+        self.output_data = []
 
         self.input_scaling = "min-max"
         self.output_scaling = "min-max"
@@ -32,30 +30,44 @@ class Experiment(object):
         self.pub_freq = pub_freq  # sampling frequency of width data
         self.step_time = 1 / self.pub_freq
         self.rate = rospy.Rate(self.pub_freq)
-
+        
     # Callback method
     def callback_arc(self, data):
+        if not self.arc_state and bool(data.data):
+            self.arcon_time = time.time()
+        elif self.arc_state and not bool(data.data):
+            self.export_output()
+            rospy.signal_shutdown("Shutting down")
         self.arc_state = bool(data.data)
 
     def callback_width(self, data):
-        rospy.loginfo("Received output w: %f", data.data)
-        y_row = data.data
-        t = time.time()
-        self.y.append([t-start_time, y_row])
-        if self.input_scaling == 'min-max':
-            y_row_scaled = (y_row - self.y_min) / (self.y_max - self.y_min)
-        elif self.input_scaling == 'mean-std':
-            y_row_scaled = (y_row - self.y_mean) / self.y_std
-        self.y.append(y_row_scaled)
+        current_time = time.time() - start_time
+        y_row = data.data * int(self.arc_state)
+        rospy.loginfo("Received output w: %f", y_row)
+        self.output_data.append({'t': current_time, 'w': y_row})
 
+    def publish_command(self):
+        if self.arc_state:
+            current_time = np.round(time.time() - self.arcon_time, 2)
+            idx = np.where(self.input_data[:, 0] == current_time)[0]
+            if len(idx) > 0:
+                idx = idx[0]
+                f = self.input_data[idx, 1]
+                self.pub.publish(f)
+                rospy.loginfo("Sending command wfs: %f", f)
+
+    def export_output(self):
+        self.output_data = pd.DataFrame(self.output_data)
+        self.output_data = self.output_data[self.output_data['w'] > 0]
+        self.output_data.to_csv(self.data_dir + f"experiment/output_{split}.csv", index=False) 
+
+pub_freq = 30
+split = 'test'
+exp = Experiment(pub_freq, split)
 start_time = time.time()
-exp_time = 0
-pub_freq = 10
-exp = Experiment(pub_freq)
 while not rospy.is_shutdown():
     if exp.arc_state:
         exp.rate.sleep()
-        exp_time = exp.step_time
-        
-rospy.spin()
+        exp.publish_command()
 
+rospy.spin()

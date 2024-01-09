@@ -56,14 +56,14 @@ class Cell(object):
         rospy.init_node("cell_node", anonymous=True)
         rospy.Subscriber("fronius_remote_command", Float32, self.callback)
         self.pub_arc = rospy.Publisher("arc_state", Bool, queue_size=10)
-        self.arc_state_idx = 50
+        self.arc_idxs = [30, 350]
         self.pub_width = rospy.Publisher("xiris/bead/filtered", Float32, queue_size=10)
         fs = 10
         self.rate = rospy.Rate(fs)
 
     def callback(self, data):
         u = data.data
-        rospy.loginfo("Received control u: %f", u)
+        rospy.loginfo("Received command wfs: %f", u)
         if self.input_scaling == "min-max":
             u_scaled = (u - self.u_min) / (self.u_max - self.u_min)
         if self.input_scaling == "mean-std":
@@ -139,7 +139,7 @@ class Cell(object):
     def build_sequence(self):
         u = self.u_hist.ravel()
         y = self.y_hist.ravel()
-        return np.hstack((u, y)).reshape((1, 1 * (self.P + self.Q), 1))
+        return np.hstack((u, y)).reshape((1, self.P + self.Q, 1))
 
     def predict_output(self):
         input_seq = self.build_sequence()
@@ -152,10 +152,9 @@ class Cell(object):
             y = y_scaled * self.y_std + self.y_mean
         self.pub_width.publish(y)
         rospy.loginfo("Sending output y: %f", y)
-        self.rate.sleep()
 
     def set_arcstate(self, t):
-        arc_state = t > self.arc_state_idx
+        arc_state = t > self.arc_idxs[0] and t < self.arc_idxs[1]
         self.pub_arc.publish(arc_state)
         rospy.loginfo("Sending arc_state: %s", arc_state)
         
@@ -166,6 +165,7 @@ try:
         cell.predict_output()
         cell.set_arcstate(t)
         t += 1
+        cell.rate.sleep()
 except rospy.ROSInterruptException:
     pass
 

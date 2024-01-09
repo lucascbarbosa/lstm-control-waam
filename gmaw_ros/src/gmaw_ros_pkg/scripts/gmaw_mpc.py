@@ -114,6 +114,8 @@ class MPC:
     # Callback method
     def callback_arc(self, data):
         rospy.loginfo("Received arc_state %s", bool(data.data))
+        if not self.arc_state and bool(data.data):
+            self.arcon_time = time.time()
         self.arc_state = bool(data.data)
 
     def callback_width(self, data):

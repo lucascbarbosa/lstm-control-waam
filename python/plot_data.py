@@ -3,6 +3,7 @@ import numpy as np
 from python.process_data import (
     load_simulation,
     load_experiment,
+    load_experiment_igor,
     load_mpc,
     standardize_data,
     normalize_data,
@@ -25,7 +26,7 @@ def plot_data(
     N=None,
 ):
     if N == None:
-        N = len(data)
+        N = data.shape[0]
     if source == "simulation":
         fig, axs = plt.subplots(2, 1)
         fig.set_size_inches(12, 6)
@@ -41,15 +42,15 @@ def plot_data(
             for i in range(data.shape[1]):
                 axs[i].plot(range(N), data[:N, i] * 1000)
 
-    if source in ["experiment", "mpc"]:
+    elif source == "experiment":
         fig = plt.figure(figsize=(12, 6))
         fig.suptitle(fig_title)
         plt.title(r"$%s$" % data_label)
-        plt.xlabel(r"k")
+        plt.xlabel(r"t")
         if var_type == "u":
-            plt.step(range(N), data[:N])
+            plt.step(data[:N, 0], data[:N, 1])
         else:
-            plt.plot(range(N), data[:N])
+            plt.plot(data[:N, 0], data[:N, 1])
 
     plt.tight_layout()
     if save:
@@ -60,9 +61,9 @@ def plot_data(
 
 
 N = None  # Horizon plotted
-source = "mpc"
-scale = False
-save = False
+source = "experiment"
+scale = True
+save = True
 if source == "simulation":
     inputs_train, outputs_train, inputs_test, outputs_test = load_simulation(data_dir + "simulation/")
     database = [inputs_train, outputs_train, inputs_test, outputs_test]
@@ -79,16 +80,16 @@ if source == "simulation":
 
 data_path = data_dir + f"{source}/"
     
-if source == "experiment":
-    input_train, output_train, input_test, output_test = load_experiment(
+if source == "experiment_igor":
+    input_train, output_train, input_test, output_test = load_experiment_igor(
         data_path, [1,2,3,4,5,6], [7]
         )
     database = [input_train, output_train, input_test, output_test]
     data_labels = ["f\;(mm/s)", "w_e\;(mm)", "f\;(mm/s)", "w_e\;(mm)"]
     data_labels_scaled = ["f", "w_e", "f", "w_e"]
 
-elif source == "mpc":
-    input_train, output_train, input_test, output_test = load_mpc(data_path)
+if source == "experiment":
+    input_train, output_train, input_test, output_test = load_experiment(data_path)
     database = [input_train, output_train, input_test, output_test]
     data_labels = ["f\;(mm/s)", "w_e\;(mm)", "f\;(mm/s)", "w_e\;(mm)"]
     data_labels_scaled = ["f", "w_e", "f", "w_e"]
@@ -115,10 +116,15 @@ for data, data_label, fig_title, fig_filename, var_type in zip(
 ):
     if scale:
         if var_type == "u":
-            data = normalize_data(data)
+            if source == "simulation":
+                data = normalize_data(data)
+            elif source == "experiment":
+                data[:, 1] = normalize_data(data[:, 1].reshape(-1, 1)).ravel()
         else:
-            data = standardize_data(data)
-
+            if source == "simulation":
+                data = normalize_data(data)
+            elif source == "experiment":
+                data[:, 1] = normalize_data(data[:, 1].reshape(-1, 1)).ravel()
     plot_data(
         data,
         data_label,

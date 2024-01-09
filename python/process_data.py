@@ -12,7 +12,7 @@ def load_simulation(data_dir):
     outputs_test = pd.read_csv(data_dir + "outputs_test.csv").to_numpy()
     return inputs_train, outputs_train, inputs_test, outputs_test
 
-def load_experiment(data_dir, idxs_train, idxs_test):
+def load_experiment_igor(data_dir, idxs_train, idxs_test):
     inputs_train = []
     outputs_train = []
     inputs_test = []
@@ -55,6 +55,13 @@ def load_experiment(data_dir, idxs_train, idxs_test):
         inputs_test[:, 1:],
         outputs_test[:, 1:],
     )
+
+def load_experiment(data_dir):
+    input_train = pd.read_csv(data_dir + "input_train.csv").to_numpy()
+    output_train = pd.read_csv(data_dir + "output_train.csv").to_numpy()
+    input_test = pd.read_csv(data_dir + "input_test.csv").to_numpy()
+    output_test = pd.read_csv(data_dir + "output_test.csv").to_numpy()
+    return input_train, output_train, input_test, output_test
 
 def load_mpc(data_dir):
     input_train = pd.read_csv(data_dir + "input_train.csv").to_numpy()

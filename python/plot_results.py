@@ -15,12 +15,12 @@ def plot_prediction(source="simulation", save=False):
         fig, axs = plt.subplots(2, 1)
         fig.set_size_inches(12, 6)
 
-        axs[0].plot(Y_real[:, 0] * 1000, color="k", label="Real")
+        axs[0].plot(Y_real[:, 0] * 1000, color="k", label="Measured")
         axs[0].plot(Y_pred[:, 0] * 1000, color="r", label="Predicted")
         axs[0].set_xlabel(r"t")
         axs[0].set_title(r"$w_e\;(mm)$")
 
-        axs[1].plot(Y_real[:, 1] * 1000, color="k", label="Real")
+        axs[1].plot(Y_real[:, 1] * 1000, color="k", label="Measured")
         axs[1].plot(Y_pred[:, 1] * 1000, color="r", label="Predicted")
         axs[1].set_title(r"$h\;(mm)$")
 
@@ -32,7 +32,7 @@ def plot_prediction(source="simulation", save=False):
         fig = plt.figure(figsize=(12, 6))
         fig.suptitle("Output prediction")
         plt.title(r"$w_e\;(mm)$")
-        plt.plot(Y_real, color="k", label="Real")
+        plt.plot(Y_real, color="k", label="Measured")
         plt.plot(Y_pred, color="r", label="Predicted")
         plt.legend()
     
@@ -40,7 +40,7 @@ def plot_prediction(source="simulation", save=False):
         fig = plt.figure(figsize=(12, 6))
         fig.suptitle("MPC control prediction")
         plt.title(r"$WFS\;(mm/s)$")
-        plt.step(x=range(len(Y_real)), y=Y_real, color="k", label="Real")
+        plt.step(x=range(len(Y_real)), y=Y_real, color="k", label="Measured")
         plt.step(x=range(len(Y_pred)), y=Y_pred, color="r", label="Predicted")
         plt.legend()
     
@@ -198,7 +198,7 @@ if source == "simulation":
     
     # plot_mpc(mpc_u, mpc_y, y_means,save=False)
 
-elif source == "experiment":
+elif source == "experiment_igor":
     for idx_test in range(7,8):
         Y_real = np.loadtxt(
             results_dir + f"predictions/{source}/bead{idx_test}_y_real.csv", dtype=np.float64
@@ -218,19 +218,21 @@ elif source == "experiment":
 
         # plot_mpc(mpc_u, mpc_y, y_means,save=False)
 
-elif source == "mpc":
+elif source == "experiment":
     Y_real = np.loadtxt(
-        results_dir + f"predictions/{source}/u_real.csv", dtype=np.float64
+        results_dir + f"predictions/{source}/y_real.csv", dtype=np.float64
     )
     Y_pred = np.loadtxt(
-        results_dir + f"predictions/{source}/u_pred.csv", dtype=np.float64
+        results_dir + f"predictions/{source}/y_pred.csv", dtype=np.float64
     )
     
     plot_prediction(source=source, save=True)
     
-    # bins = 32
+    bins = 32
     # histogram_error(bins, source=source, save=True)
 
     # batch_sizes = [16, 32, 64]
     # for batch_size in batch_sizes:
     #     plot_heatmap(batch_size, source=source, save=True)
+
+    # plot_mpc(mpc_u, mpc_y, y_means,save=False)
