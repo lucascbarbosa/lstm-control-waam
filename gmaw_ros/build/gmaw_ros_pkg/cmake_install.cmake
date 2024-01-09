@@ -53,7 +53,7 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/gmaw_ros_pkg" TYPE PROGRAM FILES "/home/lbarbosa/Documents/Github/lstm-control-waam/gmaw_ros/build/gmaw_ros_pkg/catkin_generated/installspace/mpc_node.py")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/gmaw_ros_pkg" TYPE PROGRAM FILES "/home/lbarbosa/Documents/Github/lstm-control-waam/gmaw_ros/build/gmaw_ros_pkg/catkin_generated/installspace/gmaw_mpc.py")
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
@@ -61,6 +61,6 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/gmaw_ros_pkg" TYPE PROGRAM FILES "/home/lbarbosa/Documents/Github/lstm-control-waam/gmaw_ros/build/gmaw_ros_pkg/catkin_generated/installspace/gmaw_mpc.py")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/gmaw_ros_pkg" TYPE PROGRAM FILES "/home/lbarbosa/Documents/Github/lstm-control-waam/gmaw_ros/build/gmaw_ros_pkg/catkin_generated/installspace/gmaw_training.py")
 endif()
 

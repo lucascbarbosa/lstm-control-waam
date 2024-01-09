@@ -20,7 +20,7 @@ set(CMAKE_MAKEFILE_DEPENDS
   "/home/lbarbosa/Documents/Github/lstm-control-waam/gmaw_ros/src/gmaw_ros_pkg/package.xml"
   "/home/lbarbosa/Documents/Github/lstm-control-waam/gmaw_ros/src/gmaw_ros_pkg/scripts/cell_node.py"
   "/home/lbarbosa/Documents/Github/lstm-control-waam/gmaw_ros/src/gmaw_ros_pkg/scripts/gmaw_mpc.py"
-  "/home/lbarbosa/Documents/Github/lstm-control-waam/gmaw_ros/src/gmaw_ros_pkg/scripts/mpc_node.py"
+  "/home/lbarbosa/Documents/Github/lstm-control-waam/gmaw_ros/src/gmaw_ros_pkg/scripts/gmaw_training.py"
   "/opt/ros/noetic/share/catkin/cmake/all.cmake"
   "/opt/ros/noetic/share/catkin/cmake/assert.cmake"
   "/opt/ros/noetic/share/catkin/cmake/atomic_configure_file.cmake"

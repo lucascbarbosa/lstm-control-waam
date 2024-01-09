@@ -33,12 +33,12 @@ def compute_metrics(Y_pred, Y_real):
     mses = np.mean(sq_error, axis=0)
     return mses
 
-source = "mpc"
+source = "experiment"
 input_scaling = "min-max"
 output_scaling = "min-max"
 
 # Load metrics
-best_model_id = 25
+best_model_id = 121
 best_model_filename = f"run_{best_model_id:03d}.keras"
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]

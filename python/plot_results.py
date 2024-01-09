@@ -169,7 +169,7 @@ def plot_mpc(u, y, y_ref, save=True):
     plt.show()
 
 
-source = "mpc"
+source = "experiment"
 data_filename = data_dir + f"{source}/"
 
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")

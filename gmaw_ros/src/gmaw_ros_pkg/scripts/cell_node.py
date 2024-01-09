@@ -1,6 +1,5 @@
-#!/usr/bin/env python3
 import rospy
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, Bool, Float64MultiArray
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
@@ -13,7 +12,7 @@ from tensorflow.keras.optimizers import Adam
 
 class Cell(object):
     def __init__(self):
-        self.data_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/database/experiment/"
+        self.data_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/database/experiment_igor/"
         self.results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
         self.input_train, self.output_train, _, _ = self.load_experiment([1, 2, 3, 4, 5, 6], [7])
         self.input_scaling = "min-max"
@@ -34,7 +33,7 @@ class Cell(object):
             self.y_min = self.output_train.min(axis=0)
             self.y_max = self.output_train.max(axis=0)
 
-        metrics = pd.read_csv(self.results_dir + f"models/experiment/hp_metrics.csv")
+        metrics = pd.read_csv(self.results_dir + f"models/experiment_igor/hp_metrics.csv")
         best_model_id = 121
         best_model_filename = f"run_{best_model_id:03d}.keras"
         best_params = metrics[metrics["run_id"] == int(best_model_id)]
@@ -43,7 +42,7 @@ class Cell(object):
 
         # Load process model
         self.model = load_model(
-            self.results_dir + f"models/experiment/best/{best_model_filename}"
+            self.results_dir + f"models/experiment_igor/best/{best_model_filename}"
         )
 
         opt = Adam(learning_rate=best_params["lr"])
@@ -54,20 +53,22 @@ class Cell(object):
         self.y_hist = np.zeros((self.Q, 1))
 
         # Rospy setup
-        rospy.init_node('cell_node', anonymous=True)
-        rospy.Subscriber('u', Float32, self.callback)
-        self.pub = rospy.Publisher('y', Float32, queue_size=10)
+        rospy.init_node("cell_node", anonymous=True)
+        rospy.Subscriber("fronius_remote_command", Float32, self.callback)
+        self.pub_arc = rospy.Publisher("arc_state", Bool, queue_size=10)
+        self.arc_state_idx = 50
+        self.pub_width = rospy.Publisher("xiris/bead/filtered", Float32, queue_size=10)
         fs = 10
         self.rate = rospy.Rate(fs)
 
     def callback(self, data):
         u = data.data
-        if self.input_scaling == 'min-max':
+        rospy.loginfo("Received control u: %f", u)
+        if self.input_scaling == "min-max":
             u_scaled = (u - self.u_min) / (self.u_max - self.u_min)
-        if self.input_scaling == 'mean-std':
+        if self.input_scaling == "mean-std":
             u_scaled = (u - self.u_mean) / self.u_std
         self.u_hist = self.update_hist(self.u_hist, u_scaled)
-        rospy.loginfo("Received control u: %f", u)
         self.control_mpc.append(u)
 
     def load_experiment(self, idxs_train, idxs_test):
@@ -144,22 +145,26 @@ class Cell(object):
         input_seq = self.build_sequence()
         input_tensor = tf.convert_to_tensor(input_seq, dtype=tf.float32)
         y_scaled = self.model(input_tensor).numpy()
-        print(f'y_scaled: {y_scaled}')
         self.y_hist = self.update_hist(self.y_hist, y_scaled)
-        if self.output_scaling == 'min-max':
+        if self.output_scaling == "min-max":
             y = y_scaled * (self.y_max - self.y_min) + self.y_min
-        if self.output_scaling == 'mean-std':
+        if self.output_scaling == "mean-std":
             y = y_scaled * self.y_std + self.y_mean
-        cell.pub.publish(y)
+        self.pub_width.publish(y)
         rospy.loginfo("Sending output y: %f", y)
-        cell.rate.sleep()
+        self.rate.sleep()
 
+    def set_arcstate(self, t):
+        arc_state = t > self.arc_state_idx
+        self.pub_arc.publish(arc_state)
+        rospy.loginfo("Sending arc_state: %s", arc_state)
+        
 cell = Cell()
 t = 0
-
 try:
     while not rospy.is_shutdown():
         cell.predict_output()
+        cell.set_arcstate(t)
         t += 1
 except rospy.ROSInterruptException:
     pass

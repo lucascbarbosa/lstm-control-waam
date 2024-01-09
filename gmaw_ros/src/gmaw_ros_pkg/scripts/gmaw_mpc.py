@@ -8,7 +8,7 @@ import pandas as pd
 from scipy.interpolate import interp1d
 
 import rospy
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, Bool, Float64MultiArray
 
 import time
 
@@ -29,106 +29,103 @@ class MPC:
         self.cost_tol = 1e-2
 
         # Load data
-        self.process_inputs_train, self.process_outputs_train, self.process_input_test, _ = self.load_experiment([1, 2, 3, 4, 5, 6], [7])
-        self.mpc_inputs_train, self.mpc_outputs_train, _, _ = self.load_mpc()
+        self.process_input_train, self.process_output_train, self.process_input_test, self.process_output_test = self.load_experiment([1, 2, 3, 4, 5, 6], [7])
 
         self.input_scaling = "min-max"
         self.output_scaling = "min-max"
         if self.input_scaling == "mean-std":
-            self.process_y_mean = self.process_inputs_train.mean(axis=0)
-            self.process_y_std = self.process_inputs_train.std(axis=0)
-            self.mpc_y_mean = self.mpc_inputs_train.mean(axis=0)
-            self.mpc_y_std = self.mpc_inputs_train.std(axis=0)
+            self.process_y_mean = self.process_input_train.mean(axis=0)
+            self.process_y_std = self.process_input_train.std(axis=0)
 
         elif self.input_scaling == "min-max":
-            self.process_y_min = self.process_inputs_train.min(axis=0)
-            self.process_y_max = self.process_inputs_train.max(axis=0)
-            self.mpc_y_min = self.mpc_inputs_train.min(axis=0)
-            self.mpc_y_max = self.mpc_inputs_train.max(axis=0)
+            self.process_y_min = self.process_input_train.min(axis=0)
+            self.process_y_max = self.process_input_train.max(axis=0)
 
         if self.output_scaling == "mean-std":
-            self.process_u_mean = self.process_outputs_train.mean(axis=0)
-            self.process_u_std = self.process_outputs_train.std(axis=0)
-            self.mpc_u_mean = self.mpc_outputs_train.mean(axis=0)
-            self.mpc_u_std = self.mpc_outputs_train.std(axis=0)
+            self.process_u_mean = self.process_output_train.mean(axis=0)
+            self.process_u_std = self.process_output_train.std(axis=0)
 
         elif self.output_scaling == "min-max":
-            self.process_u_min = self.process_outputs_train.min(axis=0)
-            self.process_u_max = self.process_outputs_train.max(axis=0)
-            self.mpc_u_min = self.mpc_outputs_train.min(axis=0)
-            self.mpc_u_max = self.mpc_outputs_train.max(axis=0)
+            self.process_u_min = self.process_output_train.min(axis=0)
+            self.process_u_max = self.process_output_train.max(axis=0)
 
         # Load process metrics
-        self.metrics_process = pd.read_csv(self.results_dir + f"models/experiment/hp_metrics.csv")
+        self.metrics_process = pd.read_csv(self.results_dir + f"models/experiment_igor/hp_metrics.csv")
         self.process_best_model_id = 121
         self.process_best_model_filename = f"run_{self.process_best_model_id:03d}.keras"
         self.process_best_params = self.metrics_process[self.metrics_process["run_id"] == int(self.process_best_model_id)]
-        self.process_P = self.process_best_params.iloc[0, 1]
-        self.process_Q = self.process_best_params.iloc[0, 2]
+        self.P = self.process_best_params.iloc[0, 1]
+        self.Q = self.process_best_params.iloc[0, 2]
 
         # Load process model
         self.process_model = load_model(
-            self.results_dir + f"models/experiment/best/{self.process_best_model_filename}"
+            self.results_dir + f"models/experiment_igor/best/{self.process_best_model_filename}"
         )
 
         self.opt = Adam(learning_rate=self.process_best_params["lr"])
         self.process_model.compile(optimizer=self.opt, loss=mean_squared_error)
 
-        # Load process metrics
-        self.metrics_mpc = pd.read_csv(self.results_dir + f"models/mpc/hp_metrics.csv")
-        self.mpc_best_model_id = 25
-        self.mpc_best_model_filename = f"run_{self.mpc_best_model_id:03d}.keras"
-        self.mpc_best_params = self.metrics_mpc[self.metrics_mpc["run_id"] == int(self.mpc_best_model_id)]
-        self.mpc_P = self.mpc_best_params.iloc[0, 1]
-        self.mpc_Q = self.mpc_best_params.iloc[0, 2]
+        # # Load process metrics
+        # self.metrics_gradient = pd.read_csv(self.results_dir + f"models/gradient/hp_metrics.csv")
+        # self.gradient_best_model_id = 1
+        # self.gradient_best_model_filename = f"run_{self.gradient_best_model_id:03d}.keras"
+        # self.gradient_best_params = self.metrics_gradient[self.metrics_gradient["run_id"] == int(self.gradient_best_model_id)]
+        # self.gradient_P = self.gradient_best_params.iloc[0, 1]
+        # self.gradient_Q = self.gradient_best_params.iloc[0, 2]
 
-        # Load mpc model
-        self.mpc_model = load_model(
-            self.results_dir + f"models/mpc/best/{self.mpc_best_model_filename}"
-        )
+        # # Load gradient model
+        # self.gradient_model = load_model(
+        #     self.results_dir + f"models/gradient/best/{self.gradient_best_model_filename}"
+        # )
 
-        self.opt = Adam(learning_rate=self.mpc_best_params["lr"])
-        self.mpc_model.compile(optimizer=self.opt, loss=mean_squared_error)
+        # self.opt = Adam(learning_rate=self.gradient_best_params["lr"])
+        # self.gradient_model.compile(optimizer=self.opt, loss=mean_squared_error)
 
         # Define MPC parameters
-        self.M = self.process_P  # control horizon
-        self.N = self.process_Q  # prediction horizon
+        self.M = self.P  # control horizon
+        self.N = self.Q  # prediction horizon
         self.weight_control = 1.0
         self.weight_output = 1.0
 
         # Desired outputs
-        self.y_ref = np.zeros(1)
+        self.y_ref = self.process_output_test[-1:].mean(axis=0)
+        if self.input_scaling == 'min-max':
+            self.y_ref = (self.y_ref - self.process_y_min) / (self.process_y_max - self.process_y_min)
+        if self.input_scaling == 'mean-std':
+            self.y_ref = (self.y_ref - self.process_y_mean) / self.process_y_std
 
         # Historic data
-        self.process_u_hist = np.zeros((self.process_P, 1))
-        self.process_y_hist = np.zeros((self.process_Q, 1))
-
-        self.mpc_u_hist = np.zeros((self.mpc_P, 1))
-        self.mpc_y_hist = np.zeros((self.mpc_Q, 1))
+        self.u_hist = np.zeros((self.P, 1))
+        self.y_hist = np.zeros((self.Q, 1))
 
         self.u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(self.M, 1)) #
 
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
-        rospy.Subscriber("y", Float32, self.callback)
-        self.pub = rospy.Publisher("u", Float32, queue_size=10)
+        rospy.Subscriber("arc_state", Bool, self.callback_arc)
+        self.arc_state = False
+        rospy.Subscriber("xiris/bead/filtered", Float32, self.callback_width)
+        self.pub = rospy.Publisher("fronius_remote_command", Float32, queue_size=10)
         self.pub_freq = 30  # sampling frequency of published data
         self.step_time = 1 / self.pub_freq
         self.total_steps = 10
         self.rate = rospy.Rate(self.pub_freq)
 
     # Callback method
-    def callback(self, data):
-        rospy.loginfo("Received output y: %f", data.data)
+    def callback_arc(self, data):
+        rospy.loginfo("Received arc_state %s", bool(data.data))
+        self.arc_state = bool(data.data)
+
+    def callback_width(self, data):
+        rospy.loginfo("Received output w: %f", data.data)
         y_row = data.data
         t = time.time()
         self.y.append([t-start_time, y_row])
-        if self.output_scaling == 'min-max':
+        if self.input_scaling == 'min-max':
             y_row_scaled = (y_row - self.process_y_min) / (self.process_y_max - self.process_y_min)
-        elif self.output_scaling == 'mean-std':
+        elif self.input_scaling == 'mean-std':
             y_row_scaled = (y_row - self.process_y_mean) / self.process_y_std
-        self.process_y_hist = self.update_hist(self.process_y_hist, y_row_scaled.reshape((1, 1)))
-        self.mpc_y_hist = self.update_hist(self.mpc_y_hist, (self.y_ref - y_row_scaled).reshape((1, 1)))
+        self.y_hist = self.update_hist(self.y_hist, y_row_scaled.reshape((1, 1)))
 
     # Load experiment method
     def load_experiment(self, idxs_train, idxs_test):
@@ -138,7 +135,7 @@ class MPC:
         outputs_test = []
         
         for idx_train in idxs_train:
-            filename_train = f"experiment/bead{idx_train}"
+            filename_train = f"experiment_igor/bead{idx_train}"
             input_train = pd.read_csv(self.data_dir + filename_train + "_wfs.csv").to_numpy()
             output_train = pd.read_csv(
                 self.data_dir + filename_train + "_w.csv"
@@ -154,7 +151,7 @@ class MPC:
         outputs_train = np.concatenate(outputs_train, axis=0)
         
         for idx_test in idxs_test:
-            filename_test = f"experiment/bead{idx_test}"
+            filename_test = f"experiment_igor/bead{idx_test}"
             input_test = pd.read_csv(self.data_dir + filename_test + "_wfs.csv").to_numpy()
             output_test = pd.read_csv(self.data_dir + filename_test + "_w.csv").to_numpy()
 
@@ -210,9 +207,9 @@ class MPC:
         return np.hstack((u, y)).reshape((1, 1 * (P + Q), 1))
 
     def split_sequence(self, seq):
-        seq = seq.reshape((1 * (self.process_P + self.process_Q),))
-        u = seq[: 1 * self.process_P].reshape((self.process_P, 1))
-        y = seq[1 * self.process_P :].reshape((self.process_Q, 1))
+        seq = seq.reshape((1 * (self.P + self.Q),))
+        u = seq[: 1 * self.P].reshape((self.P, 1))
+        y = seq[1 * self.P :].reshape((self.Q, 1))
         return u, y
     
     # Create control diff method
@@ -262,7 +259,7 @@ class MPC:
                     ).numpy()[0, :, 0]
 
                 input_gradient, _ = self.split_sequence(gradient)
-                if i < self.process_P - 1:
+                if i < self.P - 1:
                     output_jacobian[i, : i + 1] = input_gradient[
                         -(i + 1) :, :
                     ].ravel()
@@ -329,7 +326,7 @@ class MPC:
         u_opt = u_forecast[0, :]
         self.u_forecast[:-1 ] = u_forecast[1:]
         u_opt = u_opt[0]
-        self.process_u_hist = self.update_hist(self.process_u_hist, u_opt.reshape((1, 1)))    
+        self.u_hist = self.update_hist(self.u_hist, u_opt.reshape((1, 1)))    
         print(f"u_opt_scaled: {u_opt}")
         if self.output_scaling == 'min-max':
             u_opt = u_opt * (self.process_u_max - self.process_u_min) + self.process_u_min
@@ -338,19 +335,6 @@ class MPC:
         print(f"u_opt: {u_opt}")
         return u_opt, y_forecast, last_cost
 
-    def mpc_prediction(self):
-        input_seq = self.build_sequence(self.mpc_u_hist, self.mpc_y_hist)
-        input_tensor = tf.convert_to_tensor(input_seq, dtype=tf.float32)
-        u_pred = self.mpc_model(input_tensor).numpy()[0,0]
-        print(f"u_pred_scaled: {u_pred}")
-        self.mpc_u_hist = self.update_hist(self.mpc_u_hist, u_pred.reshape((1, 1)))
-        if self.output_scaling == 'min-max':
-            u_pred = u_pred * (self.mpc_u_max - self.mpc_u_min) + self.mpc_u_min
-        if self.output_scaling == 'mean-std':
-            u_pred = u_pred * self.process_u_mean + self.process_u_std
-        print(f"u_pred: {u_pred}")
-        return u_pred
-    
 start_time = time.time()
 # Create an instance of the MPC class
 mpc = MPC()
@@ -358,22 +342,22 @@ mpc = MPC()
 # MPC loop
 exp_time = 0
 exp_step = 1
+# rospy.wait_for_message("xiris/bead/filtered", Float32)
 while not rospy.is_shutdown():
-    print(f"Time step: {exp_step}")
-    for i in range(10):
-        rospy.wait_for_message('y', Float32)
-    u_opt, y_forecast, cost = mpc.optimization_function(mpc.process_u_hist, mpc.process_y_hist, mpc.lr, mpc.u_forecast)
-    u_pred = mpc.mpc_prediction()
-    u_selected = u_opt
-    mpc.u.append(u_selected)
-    
-    # Send the "u_row" variable
-    mpc.pub.publish(u_selected)
-    rospy.loginfo("Sending control u: %f", u_selected)
-    mpc.rate.sleep()
-    exp_step += 1
-    exp_time = mpc.step_time
-    mpc.lr = mpc.lr * (1.0 - mpc.alpha_time)
-    
+    if mpc.arc_state:
+        print(f"Time step: {exp_step}")
+        u_opt, y_forecast, cost = mpc.optimization_function(mpc.u_hist, mpc.y_hist, mpc.lr, mpc.u_forecast)
+        mpc.u.append(u_opt)
+        
+        # Send the "u_row" variable
+        mpc.pub.publish(u_opt)
+        rospy.loginfo("Sending control u: %f", u_opt)
+        mpc.rate.sleep()
+        exp_step += 1
+        exp_time = mpc.step_time
+        mpc.lr = mpc.lr * (1.0 - mpc.alpha_time)
+    else:
+        pass
+
 rospy.spin()
 

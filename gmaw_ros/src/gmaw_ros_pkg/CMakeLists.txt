@@ -108,7 +108,7 @@ catkin_package(
 #  DEPENDS system_lib
 )
 
-catkin_install_python(PROGRAMS scripts/mpc_node.py scripts/cell_node.py scripts/gmaw_mpc.py
+catkin_install_python(PROGRAMS scripts/gmaw_mpc.py scripts/cell_node.py scripts/gmaw_training.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
