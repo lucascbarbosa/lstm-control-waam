@@ -3,7 +3,7 @@ import numpy as np
 
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
+from tensorflow.keras.layers import Dense, Reshape
 from tensorflow.keras.losses import mean_squared_error
 from tensorflow.keras.optimizers import Adam
 
@@ -13,7 +13,6 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 def create_model(
-    sequence_length,
     num_features_input,
     num_features_output,
     lr,
@@ -24,17 +23,13 @@ def create_model(
         tf.random.set_seed(random_seed)
     model = Sequential()
     model.add(
-        LSTM(
-            units=64,
-            activation="relu",
-            input_shape=(num_features_input * sequence_length, 1),
-        )
+        Dense(num_features_input * num_features_output,
+              activation="relu",
+              input_shape=(num_features_input+num_features_output, ),)
     )
-    # model.add(TimeDistributed(Dense(units=Y_train_seq.shape[-1])))
-    model.add(Dense(units=num_features_output))
+
     # Compile the model
     model.compile(optimizer=Adam(learning_rate=lr), loss=mean_squared_error)
-
     # Display model summary
     if summary:
         model.summary()
@@ -42,29 +37,28 @@ def create_model(
 
 def train_model(
     model,
-    X_train_seq,
-    Y_train_seq,
+    X_train,
+    Y_train,
     batch_size,
-    epochs,
+    num_epochs,
     validation_split,
     verbose=0,
 ):
     history = model.fit(
-        X_train_seq,
-        Y_train_seq,
+        X_train,
+        Y_train,
         batch_size=batch_size,
-        epochs=epochs,
+        epochs=num_epochs,
         validation_split=validation_split,
         verbose=verbose,
     )  # fit data
     return model, history
 
 
-def predict_data(model, X_test_seq, verbose=0):
+def predict_data(model, X_test, verbose=0):
     # Predict with model
-    Y_pred_seq = model.predict(X_test_seq, verbose=verbose)
-    return Y_pred_seq
-
+    Y_pred = model.predict(X_test, verbose=verbose)
+    return Y_pred
 
 def plot_loss(history):
     fig, axs = plt.subplots(2, 1, figsize=(8, 6))
@@ -77,3 +71,18 @@ def plot_loss(history):
         ax.set_title(titles[i])
 
     plt.show()
+
+# num_features_input = P + Q
+# num_features_output = 1
+# gradient_model = create_model(num_features_input, num_features_output, 1e-4, 42)
+
+# batch_size = 32
+# num_epochs = 100
+# validation_split = 0.3
+# train_model(gradient_model, 
+#             input_gradient, 
+#             output_gradient, 
+#             batch_size, 
+#             num_epochs, 
+#             validation_split=validation_split, 
+#             verbose=1)

@@ -1,6 +1,5 @@
-#!/usr/bin/env python3
 import rospy
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, Bool, Float64MultiArray
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
@@ -54,18 +53,20 @@ class Cell(object):
         self.y_hist = np.zeros((self.Q, 1))
 
         # Rospy setup
-        rospy.init_node('cell_node', anonymous=True)
-        rospy.Subscriber('u', Float32, self.callback)
-        self.pub = rospy.Publisher('y', Float32, queue_size=10)
+        rospy.init_node("cell_node", anonymous=True)
+        rospy.Subscriber("fronius_remote_command", Float32, self.callback)
+        self.pub_arc = rospy.Publisher("arc_state", Bool, queue_size=10)
+        self.arc_idxs = [30, 350]
+        self.pub_width = rospy.Publisher("xiris/bead/filtered", Float32, queue_size=10)
         fs = 10
         self.rate = rospy.Rate(fs)
 
     def callback(self, data):
         u = data.data
-        rospy.loginfo("Received control u: %f", u)
-        if self.input_scaling == 'min-max':
+        rospy.loginfo("Received command wfs: %f", u)
+        if self.input_scaling == "min-max":
             u_scaled = (u - self.u_min) / (self.u_max - self.u_min)
-        if self.input_scaling == 'mean-std':
+        if self.input_scaling == "mean-std":
             u_scaled = (u - self.u_mean) / self.u_std
         self.u_hist = self.update_hist(self.u_hist, u_scaled)
         self.control_mpc.append(u)
@@ -138,28 +139,33 @@ class Cell(object):
     def build_sequence(self):
         u = self.u_hist.ravel()
         y = self.y_hist.ravel()
-        return np.hstack((u, y)).reshape((1, 1 * (self.P + self.Q), 1))
+        return np.hstack((u, y)).reshape((1, self.P + self.Q, 1))
 
     def predict_output(self):
         input_seq = self.build_sequence()
         input_tensor = tf.convert_to_tensor(input_seq, dtype=tf.float32)
         y_scaled = self.model(input_tensor).numpy()
         self.y_hist = self.update_hist(self.y_hist, y_scaled)
-        if self.output_scaling == 'min-max':
+        if self.output_scaling == "min-max":
             y = y_scaled * (self.y_max - self.y_min) + self.y_min
-        if self.output_scaling == 'mean-std':
+        if self.output_scaling == "mean-std":
             y = y_scaled * self.y_std + self.y_mean
-        cell.pub.publish(y)
+        self.pub_width.publish(y)
         rospy.loginfo("Sending output y: %f", y)
-        cell.rate.sleep()
 
+    def set_arcstate(self, t):
+        arc_state = t > self.arc_idxs[0] and t < self.arc_idxs[1]
+        self.pub_arc.publish(arc_state)
+        rospy.loginfo("Sending arc_state: %s", arc_state)
+        
 cell = Cell()
 t = 0
-
 try:
     while not rospy.is_shutdown():
         cell.predict_output()
+        cell.set_arcstate(t)
         t += 1
+        cell.rate.sleep()
 except rospy.ROSInterruptException:
     pass
 

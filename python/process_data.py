@@ -70,6 +70,13 @@ def load_mpc(data_dir):
     output_test = pd.read_csv(data_dir + "output_test.csv").to_numpy()
     return input_train, output_train, input_test, output_test
 
+def load_gradient(data_dir):
+    input_train = np.loadtxt(data_dir + "input_train.csv")
+    output_train = np.loadtxt(data_dir + "output_train.csv")
+    input_test = np.loadtxt(data_dir + "input_test.csv")
+    output_test = np.loadtxt(data_dir + "output_test.csv")
+    return input_train, output_train, input_test, output_test
+
 def resample_data(original_data, original_time, new_time):
     interp_func = interp1d(
         original_time,

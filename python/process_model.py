@@ -31,7 +31,6 @@ def create_model(
             input_shape=(num_features_input * sequence_length, 1),
         )
     )
-    # model.add(TimeDistributed(Dense(units=Y_train_seq.shape[-1])))
     model.add(Dense(units=num_features_output))
     # Compile the model
     model.compile(optimizer=Adam(learning_rate=lr), loss=mean_squared_error)
