@@ -1,7 +1,7 @@
 from python.process_data import (
     load_simulation,
+    load_experiment_igor,
     load_experiment,
-    load_mpc,
     sequence_data,
     standardize_data,
     normalize_data,
@@ -93,9 +93,9 @@ if source == "simulation":
     mses = compute_metrics(Y_pred, Y_real)
     print(f"MSE: we={mses[0]:.3f} h={mses[1]:.3f}")
 
-elif source == "experiment":
+elif source == "experiment_igor":
     for idx_test in range(7,8):
-        _, output_train, input_test, output_test = load_experiment(
+        input_train, output_train, input_test, output_test = load_experiment_igor(
             data_dir + f"{source}/", [1, 2, 3, 4, 5, 6], [idx_test]
         )
         num_features_input = 1
@@ -161,3 +161,71 @@ elif source == "experiment":
 
         mse = compute_metrics(Y_pred, Y_real)
         print(f"MSE for bead {idx_test}: we={mse[0]:.3f}")
+
+elif source == "experiment":
+    input_train, output_train, input_test, output_test = load_experiment(
+        data_dir + f"{source}/"
+    )
+    num_features_input = 1
+    num_features_output = 1
+
+    # Scale database
+    if input_scaling == "mean-std":
+        input_train = standardize_data(input_train)
+        input_test = standardize_data(input_test)
+
+    elif input_scaling == "min-max":
+        input_train = normalize_data(input_train)
+        input_test = normalize_data(input_test)
+
+    if output_scaling == "mean-std":
+        train_y_stds = output_train.std(axis=0)
+        train_y_means = output_train.mean(axis=0)
+        test_y_stds = output_test.std(axis=0)
+        test_y_means = output_test.mean(axis=0)
+        output_train = standardize_data(output_train)
+        output_test = standardize_data(output_test)
+
+    elif output_scaling == "min-max":
+        train_y_mins = output_train.min(axis=0)
+        train_y_maxs = output_train.max(axis=0)
+        test_y_mins = output_test.min(axis=0)
+        test_y_maxs = output_test.max(axis=0)
+        output_train = normalize_data(output_train)
+        output_test = normalize_data(output_test)
+
+    # Sequence data
+    X_real, Y_real = sequence_data(
+        input_test,
+        output_test,
+        int(best_params["P"].iloc[0]),
+        int(best_params["Q"].iloc[0]),
+        int(best_params["H"].iloc[0]),
+    )
+
+    # Prediction
+    Y_pred = predict_data(model, X_real)
+    for i in range(num_features_output):
+        if output_scaling == "mean-std":
+            Y_pred[:, i] = destandardize_data(
+                Y_pred[:, i], train_y_means[i], train_y_stds[i]
+            )  # Destandardize
+
+            Y_real[:, i] = destandardize_data(
+                Y_real[:, i], test_y_means[i], test_y_stds[i]
+            )  # Destandardize
+
+        elif output_scaling == "min-max":
+            Y_pred[:, i] = denormalize_data(
+                Y_pred[:, i], train_y_mins[i], train_y_maxs[i]
+            )  # Denormalize
+
+            Y_real[:, i] = denormalize_data(
+                Y_real[:, i], test_y_mins[i], test_y_maxs[i]
+            )  # Denormalize
+    # Save real and predicted data
+    np.savetxt(results_dir + f"predictions/experiment/y_real.csv", Y_real)
+    np.savetxt(results_dir + f"predictions/experiment/y_pred.csv", Y_pred)
+
+    mse = compute_metrics(Y_pred, Y_real)
+    print(f"MSE for bead {idx_test}: we={mse[0]:.3f}")
