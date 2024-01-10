@@ -95,9 +95,9 @@ class MPC:
             self.gradient_y_max = self.gradient_output_train.max(axis=0)
         
         # Load gradient model metrics
-        self.gradient_source = "knn"
+        self.gradient_source = "model"
         self.metrics_gradient = pd.read_csv(self.results_dir + f"models/gradient_{self.gradient_source}/hp_metrics.csv")
-        if self.gradient_source == "knn":
+        if self.gradient_source == "algo":
             gradient_best_model_id = 357
             gradient_best_model_filename = f"run_{gradient_best_model_id:03d}.pkl"
             self.gradient_model = joblib.load(self.results_dir + 
@@ -404,7 +404,7 @@ class MPC:
     def predict_gradient(self,gradient_input):
         if self.gradient_source == "model":
             gradient_pred = self.gradient_model(gradient_input).numpy().ravel()
-        elif self.gradient_source == "knn":
+        elif self.gradient_source == "algo":
             gradient_pred = self.gradient_model.predict(gradient_input).ravel()
         
         if self.gradient_output_scaling == 'mean-std':
