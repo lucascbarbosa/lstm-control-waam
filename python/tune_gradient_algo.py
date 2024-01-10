@@ -33,7 +33,7 @@ def run_training(
     Y_test,
     run_params,
 ):
-    from python.gradient_knn import create_model, train_model, predict_data
+    from python.gradient_algo import create_model, train_model, predict_data
     import joblib
 
     def compute_metrics(Y_pred, Y_real):
@@ -79,7 +79,7 @@ def run_training(
     joblib.dump(
         model,
         results_dir
-        + f"models/gradient_knn/hyperparams/run_{run_params['run_id']}.pkl"
+        + f"models/gradient_algo/hyperparams/run_{run_params['run_id']}.pkl"
     )
     
     test_loss = compute_metrics(Y_test, Y_pred)

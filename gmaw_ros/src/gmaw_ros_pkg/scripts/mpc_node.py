@@ -31,7 +31,15 @@ class MPC:
         self.cost_tol = 1e-2
 
         # Process data
-        self.process_input_train, self.process_output_train, self.process_input_test, self.process_output_test = self.load_experiment_igor([1, 2, 3, 4, 5, 6], [7])
+        (self.process_input_train, 
+         self.process_output_train, 
+         self.process_input_test, 
+         self.process_output_test) = self.load_experiment_igor([1, 2, 3, 4, 5, 6], [7])
+        
+        # (self.process_input_train, 
+        #  self.process_output_train, 
+        #  self.process_input_test, 
+        #  self.process_output_test) = self.load_experiment([1, 2, 3, 4, 5, 6], [7])
 
         self.process_input_scaling = "min-max"
         self.process_output_scaling = "min-max"
@@ -52,23 +60,31 @@ class MPC:
             self.process_u_max = self.process_input_train.max(axis=0)
 
         # Load process model metrics
-        self.metrics_process = pd.read_csv(self.results_dir + f"models/experiment_igor/hp_metrics.csv")
+        self.metrics_process = pd.read_csv(self.results_dir + \
+                                           f"models/experiment_igor/hp_metrics.csv"
+                                           )
         process_best_model_id = 121
         process_best_model_filename = f"run_{process_best_model_id:03d}.keras"
-        self.process_best_params = self.metrics_process[self.metrics_process["run_id"] == int(process_best_model_id)]
+        self.process_best_params = self.metrics_process[
+            self.metrics_process["run_id"] == int(process_best_model_id)
+            ]
         self.P = self.process_best_params.iloc[0, 1]
         self.Q = self.process_best_params.iloc[0, 2]
 
         # Load process model
         self.process_model = load_model(
-            self.results_dir + f"models/experiment_igor/best/{process_best_model_filename}"
+            self.results_dir + \
+            f"models/experiment_igor/best/{process_best_model_filename}"
         )
 
         self.opt = Adam(learning_rate=self.process_best_params["lr"])
         self.process_model.compile(optimizer=self.opt, loss=mean_squared_error)
         
         # Gradient data
-        self.gradient_input_train, self.gradient_output_train, self.gradient_input_test, self.gradient_output_test = self.load_([1, 2, 3, 4, 5, 6], [7])
+        (self.gradient_input_train,
+         self.gradient_output_train,
+         _, 
+         _) = self.load_gradient()
         self.gradient_output_scaling = "mean-std"
         if self.gradient_output_scaling == "mean-std":
             self.gradient_y_mean = self.gradient_output_train.mean(axis=0)
@@ -84,9 +100,11 @@ class MPC:
         if self.gradient_source == "knn":
             gradient_best_model_id = 357
             gradient_best_model_filename = f"run_{gradient_best_model_id:03d}.pkl"
-            self.gradient_model = joblib.load(self.results_dir + f"models/gradient_{self.gradient_source}/best/{gradient_best_model_filename}")
+            self.gradient_model = joblib.load(self.results_dir + 
+                f"models/gradient_{self.gradient_source}/best/{gradient_best_model_filename}"
+            )
         elif self.gradient_source == "model":
-            gradient_best_model_id = 25
+            gradient_best_model_id = 78
             gradient_best_model_filename = f"run_{gradient_best_model_id:03d}.keras"
             self.gradient_best_params = self.metrics_gradient[self.metrics_gradient["run_id"] == int(gradient_best_model_id)]
             # Load gradient model
@@ -96,7 +114,7 @@ class MPC:
 
             self.opt = Adam(learning_rate=self.gradient_best_params["lr"])
             self.gradient_model.compile(optimizer=self.opt, loss=mean_squared_error)
-        
+
         # Define MPC parameters
         self.M = self.P  # control horizon
         self.N = self.Q  # prediction horizon
@@ -116,8 +134,6 @@ class MPC:
 
         self.u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(self.M, 1)) #
 
-
-
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
         rospy.Subscriber("arc_state", Bool, self.callback_arc)
@@ -129,7 +145,6 @@ class MPC:
         self.total_steps = 10
         self.rate = rospy.Rate(self.pub_freq)
 
-    # Callback method
     def callback_arc(self, data):
         if not self.arc_state and bool(data.data):
             self.arcon_time = time.time()
@@ -159,7 +174,12 @@ class MPC:
 
     # Load experiment method
     def load_experiment(self):
-        pass
+        input_train = pd.read_csv(self.data_dir + "experiment/input_train.csv").to_numpy()
+        output_train = pd.read_csv(self.data_dir + "experiment/output_train.csv").to_numpy()
+        input_test = pd.read_csv(self.data_dir + "experiment/input_test.csv").to_numpy()
+        output_test = pd.read_csv(self.data_dir + "experiment/output_test.csv").to_numpy()
+        return input_train, output_train, input_test, output_test
+        
     # Load experiment_igor method
     def load_experiment_igor(self, idxs_train, idxs_test):
         inputs_train = []
@@ -296,10 +316,8 @@ class MPC:
                     np.concatenate([seq_input.ravel(), output_tensor.numpy()[0]])
                     .reshape(1, self.P + self.Q + 1)
                     )
-                if self.gradient_source == "model":
-                    gradient_pred = self.gradient_model(gradient_input).numpy().ravel()
-                elif self.gradient_source == "knn":
-                    gradient_pred = self.gradient_model.predict(gradient_input).ravel()
+                
+                gradient_pred = self.predict_gradient(gradient_input)
                 print(gradient_pred)
                 print(gradient)
                 print('\n\n')
@@ -352,13 +370,14 @@ class MPC:
         cost = np.inf
         last_cost = cost
         delta_cost = -cost
-        gradient_hist = np.zeros((self.process_input_test.shape[0],self.M)) # gradient history for adaptive learning rate algorithm
+        # gradient_hist = np.zeros((self.process_input_test.shape[0],self.M)) # gradient history for adaptive learning rate algorithm
+        gradient_hist = [] # gradient history for adaptive learning rate algorithm
         while delta_cost < -self.cost_tol:
             steps, y_forecast = self.compute_step(u_hist, y_hist, u_forecast, lr)
             cost = self.cost_function(u_forecast, y_forecast)
             delta_cost = cost - last_cost
-            gradient_hist[opt_step, :] = steps[:,0]
-            ada_grad = np.sqrt(np.sum(gradient_hist[:opt_step+1,:]**2,axis=0)+1e-10).reshape((self.M, 1))
+            gradient_hist.append(steps[:,0].ravel().tolist())
+            ada_grad = np.sqrt(np.sum(np.array(gradient_hist)[:opt_step+1,:]**2,axis=0)+1e-10).reshape((self.M, 1))
             print(f"Opt step: {opt_step+1} Cost: {cost}\n")
             if delta_cost < 0:
                 u_forecast += (-lr/ada_grad)*steps
@@ -382,6 +401,18 @@ class MPC:
         self.u.append(u_opt)
         return u_opt, y_forecast, last_cost
 
+    def predict_gradient(self,gradient_input):
+        if self.gradient_source == "model":
+            gradient_pred = self.gradient_model(gradient_input).numpy().ravel()
+        elif self.gradient_source == "knn":
+            gradient_pred = self.gradient_model.predict(gradient_input).ravel()
+        
+        if self.gradient_output_scaling == 'mean-std':
+            gradient_pred = gradient_pred * self.gradient_y_std + self.gradient_y_mean
+        elif self.gradient_output_scaling == 'min-max':
+            gradient_pred = gradient_pred * (self.gradient_y_max - self.gradient_y_min) + self.gradient_y_min
+
+        return gradient_pred
 # Create an instance of the MPC class
 mpc = MPC()
 
@@ -404,4 +435,3 @@ while not rospy.is_shutdown():
         pass
 
 rospy.spin()
-
