@@ -3,7 +3,7 @@ import numpy as np
 
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Reshape
+from tensorflow.keras.layers import Dense, Conv1D, MaxPooling1D, Flatten
 from tensorflow.keras.losses import mean_squared_error
 from tensorflow.keras.optimizers import Adam
 
@@ -23,10 +23,24 @@ def create_model(
         tf.random.set_seed(random_seed)
     model = Sequential()
     model.add(
-        Dense(num_features_input * num_features_output,
-              activation="relu",
-              input_shape=(num_features_input+num_features_output, ),)
+        Conv1D(filters=32, 
+               kernel_size=3, 
+               activation='relu', 
+               input_shape=(num_features_input+num_features_output, 1))
     )
+
+    model.add(MaxPooling1D(pool_size=2))
+
+    # Flatten layer
+    model.add(Flatten())
+
+    # Dense layers for regression
+    model.add(Dense(units=64, activation='relu'))
+    model.add(
+        Dense(units=num_features_input * num_features_output, 
+              activation='linear')
+    )  # Output layer with 30 neurons for regression
+
 
     # Compile the model
     model.compile(optimizer=Adam(learning_rate=lr), loss=mean_squared_error)

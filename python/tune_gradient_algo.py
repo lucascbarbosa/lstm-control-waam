@@ -75,7 +75,6 @@ def run_training(
             Y_test, test_y_min, test_y_max
         )  # Denormalize
 
-    
     joblib.dump(
         model,
         results_dir
@@ -96,7 +95,7 @@ X_train, Y_train, X_test, Y_test = load_gradient(
 )
 
 # Scaling
-output_scaling = "mean-std"
+output_scaling = "min-max"
 if output_scaling == "mean-std":
     train_y_mean = np.mean(Y_train, axis=0)
     train_y_std = np.std(Y_train, axis=0)
@@ -111,7 +110,10 @@ elif output_scaling == "min-max":
     Y_train = normalize_data(Y_train)
 
 # Get process model parameters
-metrics_process = pd.read_csv(results_dir + f"models/experiment_igor/hp_metrics.csv")
+metrics_process = pd.read_csv(
+    results_dir + \
+    f"models/experiment_igor/hp_metrics.csv"
+    )
 best_model_id = 121
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics_process[metrics_process["run_id"] == int(best_model_id)]

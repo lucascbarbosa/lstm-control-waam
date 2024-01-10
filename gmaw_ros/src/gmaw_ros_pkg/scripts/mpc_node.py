@@ -95,7 +95,7 @@ class MPC:
             self.gradient_y_max = self.gradient_output_train.max(axis=0)
         
         # Load gradient model metrics
-        self.gradient_source = "model"
+        self.gradient_source = "algo"
         self.metrics_gradient = pd.read_csv(self.results_dir + f"models/gradient_{self.gradient_source}/hp_metrics.csv")
         if self.gradient_source == "algo":
             gradient_best_model_id = 357

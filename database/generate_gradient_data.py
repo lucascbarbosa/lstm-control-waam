@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from itertools import product
+from tqdm import tqdm
 
 import tensorflow as tf
 from keras.models import load_model
@@ -44,15 +45,14 @@ opt = Adam(learning_rate=best_params["lr"])
 process_model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Create input data
-N = 1_000
+N = 10_000
 num_features_input = P + Q
 num_features_output = 1
 X_process = np.random.rand(N, num_features_input).round(3)
 Y_process = np.zeros((N, num_features_output))
 gradient_process = np.zeros((N, num_features_input * num_features_output))
-for i in range(X_process.shape[0]):
+for i in tqdm(range(X_process.shape[0]), desc='Processing', unit='iteration'):
     input_tensor = tf.convert_to_tensor(X_process[i, :].reshape((1, P + Q, 1)), dtype=tf.float32)
-    print(i)
     for j in range(1): 
         with tf.GradientTape() as t:
             t.watch(input_tensor)

@@ -87,14 +87,18 @@ def run_training(
         + f"models/gradient_model/hyperparams/run_{run_params['run_id']}.keras"
     )
     
-    training_loss = history.history['loss'][-1]
-    validation_loss = history.history['val_loss'][-1]
+    train_loss = history.history['loss'][-1]
+    val_loss = history.history['val_loss'][-1]
     test_loss = compute_metrics(Y_test, Y_pred)
-    print(f"Run: {run_params['run_id']}. Loss: {test_loss:.6f}.")
+    print(f"Run: {run_params['run_id']}. " +
+          f"Epochs: {run_params['num_epochs']} " +
+          f"train_loss: {train_loss:.6f} " +
+          f"val_loss {val_loss:.6f} " +
+          f"test_loss: {test_loss:.6f}")
     
     metrics = run_params
-    metrics["train_loss"] = training_loss
-    metrics["val_loss"] = validation_loss
+    metrics["train_loss"] = train_loss
+    metrics["val_loss"] = val_loss
     metrics["test_loss"] = test_loss
     return metrics
 
@@ -102,6 +106,9 @@ def run_training(
 X_train, Y_train, X_test, Y_test = load_gradient(
     data_dir + "gradient/"
 )
+
+X_train = X_train.reshape((X_train.shape[0], X_train.shape[1], 1)) 
+X_test = X_test.reshape((X_test.shape[0], X_test.shape[1], 1)) 
 
 # Scaling
 output_scaling = "mean-std"
@@ -136,7 +143,7 @@ delete_models(results_dir + "models/gradient_model/hyperparams/")
 # set search space for hp's
 hp_search_space = {
     "batch_size": [16, 32, 64],
-    "num_epochs": [50, 100, 150, 200],
+    "num_epochs": [200, 300, 400, 500],
     "validation_split": [0.1, 0.2, 0.3],
     "lr": [1e-4, 1e-3, 1e-2],
 }
@@ -176,7 +183,7 @@ with Pool(processes=num_processes) as pool:
 metrics_df = (
     pd.DataFrame.from_dict(results)
     .set_index("run_id")
-    .sort_values(by="test_loss")
+    .sort_values(by="train_loss")
 )
 
 metrics_df.to_csv(results_dir + "models/gradient_model/hp_metrics.csv")
