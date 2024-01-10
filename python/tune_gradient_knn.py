@@ -4,14 +4,13 @@ from python.process_data import (
     destandardize_data, 
     normalize_data, 
     denormalize_data)
-import tensorflow as tf
-from tensorflow.keras.models import load_model
+from sklearn.metrics import mean_squared_error
+import joblib
 import itertools
 import pandas as pd
 import numpy as np
 import os
 from multiprocess import Pool, cpu_count
-import logging
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
@@ -34,37 +33,31 @@ def run_training(
     Y_test,
     run_params,
 ):
-    from python.gradient_model import create_model, train_model, predict_data
+    from python.gradient_knn import create_model, train_model, predict_data
+    import joblib
 
     def compute_metrics(Y_pred, Y_real):
-        mses = []
-        error = Y_pred - Y_real
-        sq_error = error**2
-        mses = np.mean(sq_error, axis=0)
-        return mses.mean()
+        return mean_squared_error(Y_real, Y_pred)
 
     # Define model
     model = create_model(
-        num_features_input, 
-        num_features_output,
-        run_params["lr"],
-        random_seed=42,
-        summary=False,
+        run_params['n_neighbors'],
+        run_params['weights'],
+        run_params['algorithm'],
+        run_params['leaf_size'],
+        run_params['p']
     )
 
     # Training
-    model, history = train_model(
+    model = train_model(
         model,
         X_train,
         Y_train,
-        run_params["batch_size"],
-        run_params["num_epochs"],
-        run_params["validation_split"],
-        verbose=verbose_level,
     )
-
+    
     # Prediction
     Y_pred = predict_data(model, X_test)
+
     if output_scaling == "mean-std":
         Y_pred = destandardize_data(
             Y_pred, train_y_mean, train_y_std
@@ -82,21 +75,20 @@ def run_training(
             Y_test, test_y_min, test_y_max
         )  # Denormalize
 
-    model.save(
+    
+    joblib.dump(
+        model,
         results_dir
-        + f"models/gradient_model/hyperparams/run_{run_params['run_id']}.keras"
+        + f"models/gradient_knn/hyperparams/run_{run_params['run_id']}.pkl"
     )
     
-    training_loss = history.history['loss'][-1]
-    validation_loss = history.history['val_loss'][-1]
     test_loss = compute_metrics(Y_test, Y_pred)
     print(f"Run: {run_params['run_id']}. Loss: {test_loss:.6f}.")
     
     metrics = run_params
-    metrics["train_loss"] = training_loss
-    metrics["val_loss"] = validation_loss
     metrics["test_loss"] = test_loss
     return metrics
+
 
 # Load database
 X_train, Y_train, X_test, Y_test = load_gradient(
@@ -131,14 +123,15 @@ num_features_input = P + Q
 num_features_output = 1
 
 # Remove previous models
-delete_models(results_dir + "models/gradient_model/hyperparams/")
+delete_models(results_dir + "models/gradient_knn/hyperparams/")
 
 # set search space for hp's
 hp_search_space = {
-    "batch_size": [16, 32, 64],
-    "num_epochs": [50, 100, 150, 200],
-    "validation_split": [0.1, 0.2, 0.3],
-    "lr": [1e-4, 1e-3, 1e-2],
+    "n_neighbors": [2, 5, 7, 10],
+    "weights": ['uniform', 'distance'],
+    "algorithm": ['auto', 'ball_tree', 'kd_tree', 'brute'],
+    "leaf_size": [10, 20, 30],
+    'p': [1.0, 2.0, 1.5, 2.5]
 }
 
 hp_combinations = list(itertools.product(*hp_search_space.values()))
@@ -179,13 +172,14 @@ metrics_df = (
     .sort_values(by="test_loss")
 )
 
-metrics_df.to_csv(results_dir + "models/gradient_model/hp_metrics.csv")
+metrics_df.to_csv(results_dir + "models/gradient_knn/hp_metrics.csv")
 print(metrics_df)
 
 best_model_id = input('Best model id: ')
-best_model = load_model(
-    results_dir + f"models/gradient_model/hyperparams/run_{best_model_id}.keras"
+best_model = joblib.load(
+    results_dir + f"models/gradient_knn/hyperparams/run_{best_model_id}.pkl"
 )
-best_model.save(
-    results_dir + f"models/gradient_model/best/run_{best_model_id}.keras"
+joblib.dump(
+    best_model,
+    results_dir + f"models/gradient_knn/best/run_{best_model_id}.pkl"
 )

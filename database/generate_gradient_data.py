@@ -20,7 +20,7 @@ def build_sequence(u, y):
 def build_gradient_dataset(X_process, Y_process, gradient_process, test_split):
     input_gradient = np.hstack([X_process, Y_process])
     output_gradient = gradient_process
-    idx_split = int(N * test_split)
+    idx_split = int(N * (1-test_split))
     input_train = input_gradient[:idx_split, :]
     input_test = input_gradient[idx_split:, :]
     output_train = output_gradient[:idx_split, :]
@@ -44,23 +44,24 @@ opt = Adam(learning_rate=best_params["lr"])
 process_model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Create input data
-# N = 1_000
-# num_features_input = P + Q
-# num_features_output = 1
-# X_process = np.random.rand(N, num_features_input)
-# Y_process = np.zeros((N, num_features_output))
-# gradient_process = np.zeros((N, num_features_input * num_features_output))
-# for i in range(X_process.shape[0]):
-#     input_tensor = tf.convert_to_tensor(X_process[i, :].reshape((1, P + Q, 1)), dtype=tf.float32)
-#     for j in range(1): 
-#         with tf.GradientTape() as t:
-#             t.watch(input_tensor)
-#             output_tensor = process_model(input_tensor)
-#             gradient = t.gradient(
-#                 output_tensor[:, j], input_tensor
-#             ).numpy()[0, :, 0]
-#             gradient_process[i, :, j] = gradient
-#             Y_process[i, :] = output_tensor.numpy().ravel()
+N = 1_000
+num_features_input = P + Q
+num_features_output = 1
+X_process = np.random.rand(N, num_features_input).round(3)
+Y_process = np.zeros((N, num_features_output))
+gradient_process = np.zeros((N, num_features_input * num_features_output))
+for i in range(X_process.shape[0]):
+    input_tensor = tf.convert_to_tensor(X_process[i, :].reshape((1, P + Q, 1)), dtype=tf.float32)
+    print(i)
+    for j in range(1): 
+        with tf.GradientTape() as t:
+            t.watch(input_tensor)
+            output_tensor = process_model(input_tensor)
+            gradient = t.gradient(
+                output_tensor[:, j], input_tensor
+            ).numpy()[0, :, 0]
+            gradient_process[i, :] = gradient
+            Y_process[i, :] = output_tensor.numpy().ravel()
 
 input_train, input_test, output_train, output_test = build_gradient_dataset(X_process, 
                                                          Y_process, 

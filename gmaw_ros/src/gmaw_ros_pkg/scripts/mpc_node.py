@@ -2,6 +2,8 @@ import tensorflow as tf
 from keras.models import load_model
 from tensorflow.keras.losses import mean_squared_error
 from tensorflow.keras.optimizers import Adam
+from sklearn.neighbors import KNeighborsRegressor
+import joblib
 
 import numpy as np
 import pandas as pd
@@ -28,59 +30,73 @@ class MPC:
         self.alpha_opt = 1e-3
         self.cost_tol = 1e-2
 
-        # Load data
-        self.process_input_train, self.process_output_train, self.process_input_test, self.process_output_test = self.load_experiment([1, 2, 3, 4, 5, 6], [7])
+        # Process data
+        self.process_input_train, self.process_output_train, self.process_input_test, self.process_output_test = self.load_experiment_igor([1, 2, 3, 4, 5, 6], [7])
 
-        self.input_scaling = "min-max"
-        self.output_scaling = "min-max"
-        if self.input_scaling == "mean-std":
-            self.process_y_mean = self.process_input_train.mean(axis=0)
-            self.process_y_std = self.process_input_train.std(axis=0)
+        self.process_input_scaling = "min-max"
+        self.process_output_scaling = "min-max"
+        if self.process_output_scaling == "mean-std":
+            self.process_y_mean = self.process_output_train.mean(axis=0)
+            self.process_y_std = self.process_output_train.std(axis=0)
 
-        elif self.input_scaling == "min-max":
-            self.process_y_min = self.process_input_train.min(axis=0)
-            self.process_y_max = self.process_input_train.max(axis=0)
+        elif self.process_output_scaling == "min-max":
+            self.process_y_min = self.process_output_train.min(axis=0)
+            self.process_y_max = self.process_output_train.max(axis=0)
 
-        if self.output_scaling == "mean-std":
-            self.process_u_mean = self.process_output_train.mean(axis=0)
-            self.process_u_std = self.process_output_train.std(axis=0)
+        if self.process_input_scaling == "mean-std":
+            self.process_u_mean = self.process_input_train.mean(axis=0)
+            self.process_u_std = self.process_input_train.std(axis=0)
 
-        elif self.output_scaling == "min-max":
-            self.process_u_min = self.process_output_train.min(axis=0)
-            self.process_u_max = self.process_output_train.max(axis=0)
+        elif self.process_input_scaling == "min-max":
+            self.process_u_min = self.process_input_train.min(axis=0)
+            self.process_u_max = self.process_input_train.max(axis=0)
 
-        # Load process metrics
+        # Load process model metrics
         self.metrics_process = pd.read_csv(self.results_dir + f"models/experiment_igor/hp_metrics.csv")
-        self.process_best_model_id = 121
-        self.process_best_model_filename = f"run_{self.process_best_model_id:03d}.keras"
-        self.process_best_params = self.metrics_process[self.metrics_process["run_id"] == int(self.process_best_model_id)]
+        process_best_model_id = 121
+        process_best_model_filename = f"run_{process_best_model_id:03d}.keras"
+        self.process_best_params = self.metrics_process[self.metrics_process["run_id"] == int(process_best_model_id)]
         self.P = self.process_best_params.iloc[0, 1]
         self.Q = self.process_best_params.iloc[0, 2]
 
         # Load process model
         self.process_model = load_model(
-            self.results_dir + f"models/experiment_igor/best/{self.process_best_model_filename}"
+            self.results_dir + f"models/experiment_igor/best/{process_best_model_filename}"
         )
 
         self.opt = Adam(learning_rate=self.process_best_params["lr"])
         self.process_model.compile(optimizer=self.opt, loss=mean_squared_error)
+        
+        # Gradient data
+        self.gradient_input_train, self.gradient_output_train, self.gradient_input_test, self.gradient_output_test = self.load_([1, 2, 3, 4, 5, 6], [7])
+        self.gradient_output_scaling = "mean-std"
+        if self.gradient_output_scaling == "mean-std":
+            self.gradient_y_mean = self.gradient_output_train.mean(axis=0)
+            self.gradient_y_std = self.gradient_output_train.std(axis=0)
 
-        # # Load process metrics
-        # self.metrics_gradient = pd.read_csv(self.results_dir + f"models/gradient/hp_metrics.csv")
-        # self.gradient_best_model_id = 1
-        # self.gradient_best_model_filename = f"run_{self.gradient_best_model_id:03d}.keras"
-        # self.gradient_best_params = self.metrics_gradient[self.metrics_gradient["run_id"] == int(self.gradient_best_model_id)]
-        # self.gradient_P = self.gradient_best_params.iloc[0, 1]
-        # self.gradient_Q = self.gradient_best_params.iloc[0, 2]
+        elif self.gradient_output_scaling == "min-max":
+            self.gradient_y_min = self.gradient_output_train.min(axis=0)
+            self.gradient_y_max = self.gradient_output_train.max(axis=0)
+        
+        # Load gradient model metrics
+        self.gradient_source = "knn"
+        self.metrics_gradient = pd.read_csv(self.results_dir + f"models/gradient_{self.gradient_source}/hp_metrics.csv")
+        if self.gradient_source == "knn":
+            gradient_best_model_id = 357
+            gradient_best_model_filename = f"run_{gradient_best_model_id:03d}.pkl"
+            self.gradient_model = joblib.load(self.results_dir + f"models/gradient_{self.gradient_source}/best/{gradient_best_model_filename}")
+        elif self.gradient_source == "model":
+            gradient_best_model_id = 25
+            gradient_best_model_filename = f"run_{gradient_best_model_id:03d}.keras"
+            self.gradient_best_params = self.metrics_gradient[self.metrics_gradient["run_id"] == int(gradient_best_model_id)]
+            # Load gradient model
+            self.gradient_model = load_model(
+                self.results_dir + f"models/gradient_{self.gradient_source}/best/{gradient_best_model_filename}"
+            )
 
-        # # Load gradient model
-        # self.gradient_model = load_model(
-        #     self.results_dir + f"models/gradient/best/{self.gradient_best_model_filename}"
-        # )
-
-        # self.opt = Adam(learning_rate=self.gradient_best_params["lr"])
-        # self.gradient_model.compile(optimizer=self.opt, loss=mean_squared_error)
-
+            self.opt = Adam(learning_rate=self.gradient_best_params["lr"])
+            self.gradient_model.compile(optimizer=self.opt, loss=mean_squared_error)
+        
         # Define MPC parameters
         self.M = self.P  # control horizon
         self.N = self.Q  # prediction horizon
@@ -89,9 +105,9 @@ class MPC:
 
         # Desired outputs
         self.y_ref = self.process_output_test[-1:].mean(axis=0)
-        if self.input_scaling == 'min-max':
+        if self.process_input_scaling == 'min-max':
             self.y_ref = (self.y_ref - self.process_y_min) / (self.process_y_max - self.process_y_min)
-        if self.input_scaling == 'mean-std':
+        if self.process_input_scaling == 'mean-std':
             self.y_ref = (self.y_ref - self.process_y_mean) / self.process_y_std
 
         # Historic data
@@ -99,6 +115,8 @@ class MPC:
         self.y_hist = np.zeros((self.Q, 1))
 
         self.u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(self.M, 1)) #
+
+
 
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
@@ -113,24 +131,37 @@ class MPC:
 
     # Callback method
     def callback_arc(self, data):
-        rospy.loginfo("Received arc_state %s", bool(data.data))
         if not self.arc_state and bool(data.data):
             self.arcon_time = time.time()
+        elif self.arc_state and not bool(data.data):
+            self.export_output()
+            rospy.signal_shutdown("Shutting down")
         self.arc_state = bool(data.data)
 
     def callback_width(self, data):
-        rospy.loginfo("Received output w: %f", data.data)
-        y_row = data.data
-        t = time.time()
-        self.y.append([t-start_time, y_row])
-        if self.input_scaling == 'min-max':
+        current_time = time.time() - start_time
+        y_row = data.data * int(self.arc_state)
+        rospy.loginfo("Received output w: %f", y_row)
+        self.y.append({'t': current_time, 'w': y_row})
+        if self.process_input_scaling == 'min-max':
             y_row_scaled = (y_row - self.process_y_min) / (self.process_y_max - self.process_y_min)
-        elif self.input_scaling == 'mean-std':
+        elif self.process_input_scaling == 'mean-std':
             y_row_scaled = (y_row - self.process_y_mean) / self.process_y_std
         self.y_hist = self.update_hist(self.y_hist, y_row_scaled.reshape((1, 1)))
 
     # Load experiment method
-    def load_experiment(self, idxs_train, idxs_test):
+    def load_gradient(self):
+        input_train = np.loadtxt(self.data_dir + "gradient/input_train.csv")
+        output_train = np.loadtxt(self.data_dir + "gradient/output_train.csv")
+        input_test = np.loadtxt(self.data_dir + "gradient/input_test.csv")
+        output_test = np.loadtxt(self.data_dir + "gradient/output_test.csv")
+        return input_train, output_train, input_test, output_test
+
+    # Load experiment method
+    def load_experiment(self):
+        pass
+    # Load experiment_igor method
+    def load_experiment_igor(self, idxs_train, idxs_test):
         inputs_train = []
         outputs_train = []
         inputs_test = []
@@ -232,9 +263,9 @@ class MPC:
     def cost_function(self, u_forecast, y_forecast):
         u_diff_forecast = self.create_control_diff(u_forecast)
 
-        if self.input_scaling == 'min-max':
+        if self.process_input_scaling == 'min-max':
             output_error = (self.y_ref - y_forecast) * (self.process_y_max-self.process_y_min)
-        elif self.input_scaling == 'mean-std':
+        elif self.process_input_scaling == 'mean-std':
             output_error = (self.y_ref - y_forecast) * self.process_y_std
 
         output_cost = np.sum(output_error**2 * self.weight_output)
@@ -260,6 +291,20 @@ class MPC:
                         output_tensor[:, j], input_tensor
                     ).numpy()[0, :, 0]
 
+                # Predict gradient
+                gradient_input = tf.convert_to_tensor(
+                    np.concatenate([seq_input.ravel(), output_tensor.numpy()[0]])
+                    .reshape(1, self.P + self.Q + 1)
+                    )
+                if self.gradient_source == "model":
+                    gradient_pred = self.gradient_model(gradient_input).numpy().ravel()
+                elif self.gradient_source == "knn":
+                    gradient_pred = self.gradient_model.predict(gradient_input).ravel()
+                print(gradient_pred)
+                print(gradient)
+                print('\n\n')
+
+                # Split gradients
                 input_gradient, _ = self.split_sequence(gradient)
                 if i < self.P - 1:
                     output_jacobian[i, : i + 1] = input_gradient[
@@ -277,9 +322,9 @@ class MPC:
         steps = np.zeros(u_forecast.shape)
         u_diff_forecast = self.create_control_diff(u_forecast)
 
-        if self.input_scaling == 'min-max':
+        if self.process_input_scaling == 'min-max':
             output_error = (self.y_ref - y_forecast) * (self.process_y_max-self.process_y_min)
-        elif self.input_scaling == 'mean-std':
+        elif self.process_input_scaling == 'mean-std':
             output_error = (self.y_ref - y_forecast) * self.process_y_std      
               
         input_diff = u_diff_forecast
@@ -303,7 +348,7 @@ class MPC:
     def optimization_function(self, u_hist, y_hist, lr, u_forecast=None):
         if u_forecast is None:
             u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(self.M, 1)) #
-        s = 0
+        opt_step = 0
         cost = np.inf
         last_cost = cost
         delta_cost = -cost
@@ -312,16 +357,15 @@ class MPC:
             steps, y_forecast = self.compute_step(u_hist, y_hist, u_forecast, lr)
             cost = self.cost_function(u_forecast, y_forecast)
             delta_cost = cost - last_cost
-            gradient_hist[s, :] = steps[:,0]
-            ada_grad = np.sqrt(np.sum(gradient_hist[:s+1,:]**2,axis=0)+1e-10).reshape((self.M, 1))
-            print(f"Opt step: {s+1}")
-            print(f"Cost: {cost}\n ")
+            gradient_hist[opt_step, :] = steps[:,0]
+            ada_grad = np.sqrt(np.sum(gradient_hist[:opt_step+1,:]**2,axis=0)+1e-10).reshape((self.M, 1))
+            print(f"Opt step: {opt_step+1} Cost: {cost}\n")
             if delta_cost < 0:
                 u_forecast += (-lr/ada_grad)*steps
                 u_forecast = np.clip(u_forecast, a_min=0.0, a_max=1.0)
                 lr = lr * (1.0 - self.alpha_opt)
                 last_cost = cost
-                s += 1
+                opt_step += 1
             else:
                 print("Passed optimal solution")
                 break
@@ -329,31 +373,29 @@ class MPC:
         self.u_forecast[:-1 ] = u_forecast[1:]
         u_opt = u_opt[0]
         self.u_hist = self.update_hist(self.u_hist, u_opt.reshape((1, 1)))    
-        print(f"u_opt_scaled: {u_opt}")
-        if self.output_scaling == 'min-max':
+        if self.process_output_scaling == 'min-max':
             u_opt = u_opt * (self.process_u_max - self.process_u_min) + self.process_u_min
-        elif self.output_scaling == 'mean-std':
+        elif self.process_output_scaling == 'mean-std':
             u_opt = u_opt * self.process_u_mean + self.process_u_std
-        print(f"u_opt: {u_opt}")
+        self.pub.publish(u_opt)
+        rospy.loginfo("Sending control u: %f", u_opt)
+        self.u.append(u_opt)
         return u_opt, y_forecast, last_cost
 
-start_time = time.time()
 # Create an instance of the MPC class
 mpc = MPC()
 
 # MPC loop
 exp_time = 0
 exp_step = 1
-# rospy.wait_for_message("xiris/bead/filtered", Float32)
+start_time = time.time()
+rospy.wait_for_message("xiris/bead/filtered", Float32)
 while not rospy.is_shutdown():
     if mpc.arc_state:
         print(f"Time step: {exp_step}")
         u_opt, y_forecast, cost = mpc.optimization_function(mpc.u_hist, mpc.y_hist, mpc.lr, mpc.u_forecast)
-        mpc.u.append(u_opt)
         
         # Send the "u_row" variable
-        mpc.pub.publish(u_opt)
-        rospy.loginfo("Sending control u: %f", u_opt)
         mpc.rate.sleep()
         exp_step += 1
         exp_time = mpc.step_time

@@ -1,4 +1,4 @@
-from python.gmaw_process import *
+from python.simulalte_process import *
 from python.process_data import load_experiment, load_simulation
 
 import tensorflow as tf

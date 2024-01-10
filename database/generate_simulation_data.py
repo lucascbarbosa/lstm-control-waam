@@ -1,4 +1,4 @@
-from python.gmaw_process import *
+from python.simulalte_process import *
 import numpy as np
 import pandas as pd
 

@@ -71,18 +71,3 @@ def plot_loss(history):
         ax.set_title(titles[i])
 
     plt.show()
-
-# num_features_input = P + Q
-# num_features_output = 1
-# gradient_model = create_model(num_features_input, num_features_output, 1e-4, 42)
-
-# batch_size = 32
-# num_epochs = 100
-# validation_split = 0.3
-# train_model(gradient_model, 
-#             input_gradient, 
-#             output_gradient, 
-#             batch_size, 
-#             num_epochs, 
-#             validation_split=validation_split, 
-#             verbose=1)
