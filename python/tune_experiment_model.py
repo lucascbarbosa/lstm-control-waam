@@ -207,7 +207,6 @@ metrics_df = (
     .sort_values(by="test_loss")
 )
 metrics_df.to_csv(results_dir + "models/experiment/hp_metrics.csv")
-metrics_df.to_csv(results_dir + "models/mpc/hp_metrics.csv")
 print(metrics_df)
 
 best_model_id = input('Best model id: ')

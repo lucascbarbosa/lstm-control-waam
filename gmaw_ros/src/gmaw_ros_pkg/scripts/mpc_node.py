@@ -43,13 +43,6 @@ class MPC:
 
         self.process_input_scaling = "min-max"
         self.process_output_scaling = "min-max"
-        if self.process_output_scaling == "mean-std":
-            self.process_y_mean = self.process_output_train.mean(axis=0)
-            self.process_y_std = self.process_output_train.std(axis=0)
-
-        elif self.process_output_scaling == "min-max":
-            self.process_y_min = self.process_output_train.min(axis=0)
-            self.process_y_max = self.process_output_train.max(axis=0)
 
         if self.process_input_scaling == "mean-std":
             self.process_u_mean = self.process_input_train.mean(axis=0)
@@ -58,6 +51,14 @@ class MPC:
         elif self.process_input_scaling == "min-max":
             self.process_u_min = self.process_input_train.min(axis=0)
             self.process_u_max = self.process_input_train.max(axis=0)
+
+        if self.process_output_scaling == "mean-std":
+            self.process_y_mean = self.process_output_train.mean(axis=0)
+            self.process_y_std = self.process_output_train.std(axis=0)
+
+        elif self.process_output_scaling == "min-max":
+            self.process_y_min = self.process_output_train.min(axis=0)
+            self.process_y_max = self.process_output_train.max(axis=0)
 
         # Load process model metrics
         self.metrics_process = pd.read_csv(self.results_dir + \
@@ -85,7 +86,17 @@ class MPC:
          self.gradient_output_train,
          _, 
          _) = self.load_gradient()
-        self.gradient_output_scaling = "mean-std"
+        self.gradient_input_scaling = "min-max"
+        self.gradient_output_scaling = "min-max"
+
+        if self.gradient_input_scaling == "mean-std":
+            self.gradient_x_mean = self.gradient_input_train.mean(axis=0)
+            self.gradient_x_std = self.gradient_input_train.std(axis=0)
+
+        elif self.gradient_input_scaling == "min-max":
+            self.gradient_x_min = self.gradient_input_train.min(axis=0)
+            self.gradient_x_max = self.gradient_input_train.max(axis=0)
+
         if self.gradient_output_scaling == "mean-std":
             self.gradient_y_mean = self.gradient_output_train.mean(axis=0)
             self.gradient_y_std = self.gradient_output_train.std(axis=0)
@@ -95,16 +106,16 @@ class MPC:
             self.gradient_y_max = self.gradient_output_train.max(axis=0)
         
         # Load gradient model metrics
-        self.gradient_source = "algo"
+        self.gradient_source = "model"
         self.metrics_gradient = pd.read_csv(self.results_dir + f"models/gradient_{self.gradient_source}/hp_metrics.csv")
         if self.gradient_source == "algo":
-            gradient_best_model_id = 357
+            gradient_best_model_id = 353
             gradient_best_model_filename = f"run_{gradient_best_model_id:03d}.pkl"
             self.gradient_model = joblib.load(self.results_dir + 
                 f"models/gradient_{self.gradient_source}/best/{gradient_best_model_filename}"
             )
         elif self.gradient_source == "model":
-            gradient_best_model_id = 78
+            gradient_best_model_id = 11
             gradient_best_model_filename = f"run_{gradient_best_model_id:03d}.keras"
             self.gradient_best_params = self.metrics_gradient[self.metrics_gradient["run_id"] == int(gradient_best_model_id)]
             # Load gradient model
@@ -140,7 +151,7 @@ class MPC:
         self.arc_state = False
         rospy.Subscriber("xiris/bead/filtered", Float32, self.callback_width)
         self.pub = rospy.Publisher("fronius_remote_command", Float32, queue_size=10)
-        self.pub_freq = 30  # sampling frequency of published data
+        self.pub_freq = 10  # sampling frequency of published data
         self.step_time = 1 / self.pub_freq
         self.total_steps = 10
         self.rate = rospy.Rate(self.pub_freq)
@@ -317,9 +328,17 @@ class MPC:
                     .reshape(1, self.P + self.Q + 1)
                     )
                 
+                if self.gradient_input_scaling == 'min-max':
+                    gradient_input = (gradient_input - self.gradient_x_min) /  \
+                    (self.gradient_x_max - self.gradient_x_min)
+                if self.gradient_input_scaling == 'mean-std':
+                    gradient_input = (gradient_input - self.gradient_x_mean) / self.gradient_x_std
+                
                 gradient_pred = self.predict_gradient(gradient_input)
-                print(gradient_pred)
-                print(gradient)
+                print('Pred: \n', gradient_pred)
+                print('Real: \n', gradient)
+                print(gradient_pred / gradient)
+                # print((gradient - gradient_pred) / gradient)
                 print('\n\n')
 
                 # Split gradients
@@ -407,6 +426,7 @@ class MPC:
         elif self.gradient_source == "algo":
             gradient_pred = self.gradient_model.predict(gradient_input).ravel()
         
+        # Descaling
         if self.gradient_output_scaling == 'mean-std':
             gradient_pred = gradient_pred * self.gradient_y_std + self.gradient_y_mean
         elif self.gradient_output_scaling == 'min-max':

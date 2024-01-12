@@ -94,20 +94,47 @@ X_train, Y_train, X_test, Y_test = load_gradient(
     data_dir + "gradient/"
 )
 
+N = 1000
+X_train = X_train[: N]
+X_test = X_test[: N]
+Y_train = Y_train[: N]
+Y_test = Y_test[: N]
+
 # Scaling
+input_scaling = "min-max"
 output_scaling = "min-max"
+
+if input_scaling == "mean-std":
+    train_x_mean = np.mean(X_train, axis=0)
+    train_x_std = np.std(X_train, axis=0)
+    test_x_mean = np.mean(X_test, axis=0)
+    test_x_std = np.std(X_test, axis=0)
+    X_train = standardize_data(X_train)
+    X_test = standardize_data(X_test)
+
+elif input_scaling == "min-max":
+    train_x_min = np.min(X_train, axis=0)
+    train_x_max = np.max(X_train, axis=0)
+    test_x_min = np.min(X_test, axis=0)
+    test_x_max = np.max(X_test, axis=0)
+    X_train = normalize_data(X_train)
+    X_test = normalize_data(X_test)
+
 if output_scaling == "mean-std":
     train_y_mean = np.mean(Y_train, axis=0)
     train_y_std = np.std(Y_train, axis=0)
     test_y_mean = np.mean(Y_test, axis=0)
     test_y_std = np.std(Y_test, axis=0)
     Y_train = standardize_data(Y_train)
+    Y_test = standardize_data(Y_test)
+
 elif output_scaling == "min-max":
     train_y_min = np.min(Y_train, axis=0)
     train_y_max = np.max(Y_train, axis=0)
     test_y_min = np.min(Y_test, axis=0)
     test_y_max = np.max(Y_test, axis=0)
     Y_train = normalize_data(Y_train)
+    Y_test = normalize_data(Y_test)
 
 # Get process model parameters
 metrics_process = pd.read_csv(
@@ -125,7 +152,7 @@ num_features_input = P + Q
 num_features_output = 1
 
 # Remove previous models
-delete_models(results_dir + "models/gradient_knn/hyperparams/")
+delete_models(results_dir + "models/gradient_algo/hyperparams/")
 
 # set search space for hp's
 hp_search_space = {
@@ -174,14 +201,14 @@ metrics_df = (
     .sort_values(by="test_loss")
 )
 
-metrics_df.to_csv(results_dir + "models/gradient_knn/hp_metrics.csv")
+metrics_df.to_csv(results_dir + "models/gradient_algo/hp_metrics.csv")
 print(metrics_df)
 
 best_model_id = input('Best model id: ')
 best_model = joblib.load(
-    results_dir + f"models/gradient_knn/hyperparams/run_{best_model_id}.pkl"
+    results_dir + f"models/gradient_algo/hyperparams/run_{best_model_id}.pkl"
 )
 joblib.dump(
     best_model,
-    results_dir + f"models/gradient_knn/best/run_{best_model_id}.pkl"
+    results_dir + f"models/gradient_algo/best/run_{best_model_id}.pkl"
 )

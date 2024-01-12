@@ -1,9 +1,9 @@
 from python.process_data import (
     load_gradient, 
-    standardize_data, 
-    destandardize_data, 
-    normalize_data, 
-    denormalize_data)
+    normalize_data,
+    denormalize_data,
+    standardize_data,
+    destandardize_data)
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 import itertools
@@ -73,6 +73,7 @@ def run_training(
         Y_test = destandardize_data(
             Y_test, test_y_mean, test_y_std
         )  # Destandardize
+        
     elif output_scaling == "min-max":
         Y_pred = denormalize_data(
             Y_pred, train_y_min, train_y_max
@@ -107,23 +108,51 @@ X_train, Y_train, X_test, Y_test = load_gradient(
     data_dir + "gradient/"
 )
 
-X_train = X_train.reshape((X_train.shape[0], X_train.shape[1], 1)) 
-X_test = X_test.reshape((X_test.shape[0], X_test.shape[1], 1)) 
+N = 1000
+X_train = X_train[: N]
+X_test = X_test[: N]
+Y_train = Y_train[: N]
+Y_test = Y_test[: N]
 
 # Scaling
-output_scaling = "mean-std"
+input_scaling = "min-max"
+output_scaling = "min-max"
+
+if input_scaling == "mean-std":
+    train_x_mean = np.mean(X_train, axis=0)
+    train_x_std = np.std(X_train, axis=0)
+    test_x_mean = np.mean(X_test, axis=0)
+    test_x_std = np.std(X_test, axis=0)
+    X_train = standardize_data(X_train)
+    X_test = standardize_data(X_test)
+
+elif input_scaling == "min-max":
+    train_x_min = np.min(X_train, axis=0)
+    train_x_max = np.max(X_train, axis=0)
+    test_x_min = np.min(X_test, axis=0)
+    test_x_max = np.max(X_test, axis=0)
+    X_train = normalize_data(X_train)
+    X_test = normalize_data(X_test)
+
 if output_scaling == "mean-std":
     train_y_mean = np.mean(Y_train, axis=0)
     train_y_std = np.std(Y_train, axis=0)
     test_y_mean = np.mean(Y_test, axis=0)
     test_y_std = np.std(Y_test, axis=0)
     Y_train = standardize_data(Y_train)
+    Y_test = standardize_data(Y_test)
+
 elif output_scaling == "min-max":
     train_y_min = np.min(Y_train, axis=0)
     train_y_max = np.max(Y_train, axis=0)
     test_y_min = np.min(Y_test, axis=0)
     test_y_max = np.max(Y_test, axis=0)
     Y_train = normalize_data(Y_train)
+    Y_test = normalize_data(Y_test)
+
+# Reshape to fit model input
+X_train = X_train.reshape((X_train.shape[0], X_train.shape[1], 1)) 
+X_test = X_test.reshape((X_test.shape[0], X_test.shape[1], 1)) 
 
 # Get process model parameters
 metrics_process = pd.read_csv(results_dir + f"models/experiment_igor/hp_metrics.csv")
@@ -183,7 +212,7 @@ with Pool(processes=num_processes) as pool:
 metrics_df = (
     pd.DataFrame.from_dict(results)
     .set_index("run_id")
-    .sort_values(by="train_loss")
+    .sort_values(by="test_loss")
 )
 
 metrics_df.to_csv(results_dir + "models/gradient_model/hp_metrics.csv")
