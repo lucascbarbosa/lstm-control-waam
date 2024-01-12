@@ -108,7 +108,7 @@ X_train, Y_train, X_test, Y_test = load_gradient(
     data_dir + "gradient/"
 )
 
-N = 1000
+N = 5000
 X_train = X_train[: N]
 X_test = X_test[: N]
 Y_train = Y_train[: N]
@@ -163,8 +163,8 @@ P = best_params.iloc[0, 1]
 Q = best_params.iloc[0, 2]
 
 # Num features
-num_features_input = P + Q
-num_features_output = 1
+num_features_input = P + Q + 1
+num_features_output = P
 
 # Remove previous models
 delete_models(results_dir + "models/gradient_model/hyperparams/")

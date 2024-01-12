@@ -26,7 +26,7 @@ def create_model(
         Conv1D(filters=32, 
                kernel_size=3, 
                activation='relu', 
-               input_shape=(num_features_input+num_features_output, 1))
+               input_shape=(num_features_input, 1))
     )
 
     model.add(MaxPooling1D(pool_size=2))
@@ -37,7 +37,7 @@ def create_model(
     # Dense layers for regression
     model.add(Dense(units=64, activation='relu'))
     model.add(
-        Dense(units=num_features_input * num_features_output, 
+        Dense(units=num_features_output, 
               activation='linear')
     )  # Output layer with 30 neurons for regression
 

@@ -115,7 +115,7 @@ class MPC:
                 f"models/gradient_{self.gradient_source}/best/{gradient_best_model_filename}"
             )
         elif self.gradient_source == "model":
-            gradient_best_model_id = 11
+            gradient_best_model_id = 29
             gradient_best_model_filename = f"run_{gradient_best_model_id:03d}.keras"
             self.gradient_best_params = self.metrics_gradient[self.metrics_gradient["run_id"] == int(gradient_best_model_id)]
             # Load gradient model
@@ -160,7 +160,6 @@ class MPC:
         if not self.arc_state and bool(data.data):
             self.arcon_time = time.time()
         elif self.arc_state and not bool(data.data):
-            self.export_output()
             rospy.signal_shutdown("Shutting down")
         self.arc_state = bool(data.data)
 
@@ -270,10 +269,10 @@ class MPC:
         Q = y_hist.shape[0]
         return np.hstack((u, y)).reshape((1, 1 * (P + Q), 1))
 
-    def split_sequence(self, seq):
-        seq = seq.reshape((1 * (self.P + self.Q),))
-        u = seq[: 1 * self.P].reshape((self.P, 1))
-        y = seq[1 * self.P :].reshape((self.Q, 1))
+    def split_gradient(self, grad):
+        grad = grad.reshape((1 * (self.P + self.Q),))
+        u = grad[: 1 * self.P].reshape((self.P, 1))
+        y = grad[1 * self.P :].reshape((self.Q, 1))
         return u, y
     
     # Create control diff method
@@ -315,12 +314,13 @@ class MPC:
             seq_input = self.build_sequence(u_hist, y_hist)
             input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
             for j in range(1): 
-                with tf.GradientTape() as t:
-                    t.watch(input_tensor)
-                    output_tensor = self.process_model(input_tensor)
-                    gradient = t.gradient(
-                        output_tensor[:, j], input_tensor
-                    ).numpy()[0, :, 0]
+                output_tensor = self.process_model(input_tensor)
+                # with tf.GradientTape() as t:
+                #     t.watch(input_tensor)
+                #     output_tensor = self.process_model(input_tensor)
+                    # gradient = t.gradient(
+                    #     output_tensor[:, j], input_tensor
+                    # ).numpy()[0, :, 0]
 
                 # Predict gradient
                 gradient_input = tf.convert_to_tensor(
@@ -335,14 +335,12 @@ class MPC:
                     gradient_input = (gradient_input - self.gradient_x_mean) / self.gradient_x_std
                 
                 gradient_pred = self.predict_gradient(gradient_input)
-                print('Pred: \n', gradient_pred)
-                print('Real: \n', gradient)
-                print(gradient_pred / gradient)
-                # print((gradient - gradient_pred) / gradient)
-                print('\n\n')
 
                 # Split gradients
-                input_gradient, _ = self.split_sequence(gradient)
+                # input_gradient, _ = self.split_gradient(gradient)
+                
+                input_gradient = gradient_pred
+
                 if i < self.P - 1:
                     output_jacobian[i, : i + 1] = input_gradient[
                         -(i + 1) :, :
@@ -416,7 +414,7 @@ class MPC:
         elif self.process_output_scaling == 'mean-std':
             u_opt = u_opt * self.process_u_mean + self.process_u_std
         self.pub.publish(u_opt)
-        rospy.loginfo("Sending control u: %f", u_opt)
+        rospy.loginfo("Sending control wfs: %f", u_opt)
         self.u.append(u_opt)
         return u_opt, y_forecast, last_cost
 
@@ -432,7 +430,8 @@ class MPC:
         elif self.gradient_output_scaling == 'min-max':
             gradient_pred = gradient_pred * (self.gradient_y_max - self.gradient_y_min) + self.gradient_y_min
 
-        return gradient_pred
+        return gradient_pred.reshape((-1, 1))
+    
 # Create an instance of the MPC class
 mpc = MPC()
 

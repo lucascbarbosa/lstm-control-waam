@@ -29,6 +29,11 @@ def build_gradient_dataset(X_process, Y_process, gradient_process, test_split):
 
     return input_train, input_test, output_train, output_test
 
+def split_gradient(seq):
+    seq = seq.ravel()
+    input_gradient = seq[: 1 * P]
+    return input_gradient
+
 # Process model parameters
 metrics_process = pd.read_csv(results_dir + f"models/experiment_igor/hp_metrics.csv")
 best_model_id = 121
@@ -50,7 +55,7 @@ num_features_input = P + Q
 num_features_output = 1
 X_process = np.random.rand(N, num_features_input).round(3)
 Y_process = np.zeros((N, num_features_output))
-gradient_process = np.zeros((N, num_features_input * num_features_output))
+gradient_process = np.zeros((N, P))
 for i in tqdm(range(X_process.shape[0]), desc='Processing', unit='iteration'):
     input_tensor = tf.convert_to_tensor(X_process[i, :].reshape((1, P + Q, 1)), dtype=tf.float32)
     for j in range(1): 
@@ -60,7 +65,8 @@ for i in tqdm(range(X_process.shape[0]), desc='Processing', unit='iteration'):
             gradient = t.gradient(
                 output_tensor[:, j], input_tensor
             ).numpy()[0, :, 0]
-            gradient_process[i, :] = gradient
+            gradient_input = split_gradient(gradient)
+            gradient_process[i, :] = gradient_input
             Y_process[i, :] = output_tensor.numpy().ravel()
 
 input_train, input_test, output_train, output_test = build_gradient_dataset(X_process, 
