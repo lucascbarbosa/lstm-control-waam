@@ -34,7 +34,7 @@ def run_training(
     Y_test,
     run_params,
 ):
-    from python.gradient_model import create_model, train_model, predict_data
+    from python.gradient import create_model, train_model, predict_data
 
     def compute_metrics(Y_pred, Y_real):
         mses = []
@@ -85,7 +85,7 @@ def run_training(
 
     model.save(
         results_dir
-        + f"models/gradient_model/hyperparams/run_{run_params['run_id']}.keras"
+        + f"models/gradient/hyperparams/run_{run_params['run_id']}.keras"
     )
     
     train_loss = history.history['loss'][-1]
@@ -167,7 +167,7 @@ num_features_input = P + Q + 1
 num_features_output = P
 
 # Remove previous models
-delete_models(results_dir + "models/gradient_model/hyperparams/")
+delete_models(results_dir + "models/gradient/hyperparams/")
 
 # set search space for hp's
 hp_search_space = {
@@ -215,13 +215,13 @@ metrics_df = (
     .sort_values(by="test_loss")
 )
 
-metrics_df.to_csv(results_dir + "models/gradient_model/hp_metrics.csv")
+metrics_df.to_csv(results_dir + "models/gradient/hp_metrics.csv")
 print(metrics_df)
 
 best_model_id = input('Best model id: ')
 best_model = load_model(
-    results_dir + f"models/gradient_model/hyperparams/run_{best_model_id}.keras"
+    results_dir + f"models/gradient/hyperparams/run_{best_model_id}.keras"
 )
 best_model.save(
-    results_dir + f"models/gradient_model/best/run_{best_model_id}.keras"
+    results_dir + f"models/gradient/best/run_{best_model_id}.keras"
 )

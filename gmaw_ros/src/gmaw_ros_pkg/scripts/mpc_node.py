@@ -20,9 +20,9 @@ class MPC:
         self.data_dir = f"/home/lbarbosa/Documents/Github/lstm-control-waam/database/"
         self.results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
 
-        # Experiment data
-        self.y = []
-        self.u = []
+        # Process data
+        self.w = []
+        self.wfs = []
 
         # Optimization parameters
         self.lr = 5e-2
@@ -106,25 +106,21 @@ class MPC:
             self.gradient_y_max = self.gradient_output_train.max(axis=0)
         
         # Load gradient model metrics
-        self.gradient_source = "model"
-        self.metrics_gradient = pd.read_csv(self.results_dir + f"models/gradient_{self.gradient_source}/hp_metrics.csv")
-        if self.gradient_source == "algo":
-            gradient_best_model_id = 353
-            gradient_best_model_filename = f"run_{gradient_best_model_id:03d}.pkl"
-            self.gradient_model = joblib.load(self.results_dir + 
-                f"models/gradient_{self.gradient_source}/best/{gradient_best_model_filename}"
-            )
-        elif self.gradient_source == "model":
-            gradient_best_model_id = 29
-            gradient_best_model_filename = f"run_{gradient_best_model_id:03d}.keras"
-            self.gradient_best_params = self.metrics_gradient[self.metrics_gradient["run_id"] == int(gradient_best_model_id)]
-            # Load gradient model
-            self.gradient_model = load_model(
-                self.results_dir + f"models/gradient_{self.gradient_source}/best/{gradient_best_model_filename}"
-            )
+        self.metrics_gradient = pd.read_csv(self.results_dir + f"models/gradient/hp_metrics.csv")
+        gradient_best_model_id = 29
+        gradient_best_model_filename = f"run_{gradient_best_model_id:03d}.keras"
+        self.gradient_best_params = self.metrics_gradient[self.metrics_gradient["run_id"] == int(gradient_best_model_id)]
+        # Load gradient model
+        self.gradient_model = load_model(
+            self.results_dir + f"models/gradient/best/{gradient_best_model_filename}"
+        )
 
-            self.opt = Adam(learning_rate=self.gradient_best_params["lr"])
-            self.gradient_model.compile(optimizer=self.opt, loss=mean_squared_error)
+        self.opt = Adam(learning_rate=self.gradient_best_params["lr"])
+        self.gradient_model.compile(optimizer=self.opt, loss=mean_squared_error)
+
+        # Gradient data
+        self.gradient_inputs = []
+        self.gradient_outputs = []
 
         # Define MPC parameters
         self.M = self.P  # control horizon
@@ -167,7 +163,7 @@ class MPC:
         current_time = time.time() - start_time
         y_row = data.data * int(self.arc_state)
         rospy.loginfo("Received output w: %f", y_row)
-        self.y.append({'t': current_time, 'w': y_row})
+        self.w.append({'t': current_time, 'w': y_row})
         if self.process_input_scaling == 'min-max':
             y_row_scaled = (y_row - self.process_y_min) / (self.process_y_max - self.process_y_min)
         elif self.process_input_scaling == 'mean-std':
@@ -334,7 +330,9 @@ class MPC:
                 if self.gradient_input_scaling == 'mean-std':
                     gradient_input = (gradient_input - self.gradient_x_mean) / self.gradient_x_std
                 
+                self.gradient_inputs.append(gradient_input.numpy().tolist())
                 gradient_pred = self.predict_gradient(gradient_input)
+                self.gradient_outputs.append(gradient_pred.tolist())
 
                 # Split gradients
                 # input_gradient, _ = self.split_gradient(gradient)
@@ -415,15 +413,11 @@ class MPC:
             u_opt = u_opt * self.process_u_mean + self.process_u_std
         self.pub.publish(u_opt)
         rospy.loginfo("Sending control wfs: %f", u_opt)
-        self.u.append(u_opt)
+        self.wfs.append(u_opt)
         return u_opt, y_forecast, last_cost
 
     def predict_gradient(self,gradient_input):
-        if self.gradient_source == "model":
-            gradient_pred = self.gradient_model(gradient_input).numpy().ravel()
-        elif self.gradient_source == "algo":
-            gradient_pred = self.gradient_model.predict(gradient_input).ravel()
-        
+        gradient_pred = self.gradient_model(gradient_input).numpy().ravel()
         # Descaling
         if self.gradient_output_scaling == 'mean-std':
             gradient_pred = gradient_pred * self.gradient_y_std + self.gradient_y_mean
