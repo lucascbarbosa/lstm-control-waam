@@ -264,10 +264,11 @@ elif source == "gradient":
     fig  = plt.figure(figsize=(20, 9))
     avg = np.mean(angles)
     plt.title('Angular error between real and predicted gradients')
-    sns.histplot(angles, bins=64)
+    sns.histplot(angles, bins=100)
     plt.axvline(90, linestyle='--', color='black', label= '90 deg')
     plt.axvline(avg, linestyle='--', color='red', label=f'Mean: {avg:.2f}')
     plt.legend()
+    plt.tight_layout()
     plt.savefig(results_dir + "plots/gradient_angles.png")
 
     # Dimensions error

@@ -86,7 +86,7 @@ class MPC:
          _, 
          _) = self.load_gradient()
         
-        self.gradient_source = "real"
+        self.gradient_source = "both"
         self.gradient_input_scaling = "min-max"
         self.gradient_output_scaling = "min-max"
         if self.gradient_input_scaling == "mean-std":
@@ -321,7 +321,7 @@ class MPC:
 
         return output_tensor, gradient
     
-    def compute_step(self, u_hist, y_hist, u_forecast, lr):
+    def compute_step(self, u_hist, y_hist, u_forecast):
         output_jacobian = np.zeros((self.N, self.M))
         y_forecast = np.zeros((self.N, 1))
         for i in range(self.N):
@@ -333,7 +333,7 @@ class MPC:
             seq_input = self.build_sequence(u_hist, y_hist)
             input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
             for j in range(1): 
-                if self.gradient_source == "pred":
+                if self.gradient_source in ["both", "pred"]:
                     output_tensor = self.process_model(input_tensor)
                     gradient_input = tf.convert_to_tensor(
                         np.concatenate([seq_input.ravel(), output_tensor.numpy()[0]])
@@ -351,12 +351,12 @@ class MPC:
                     self.gradient_preds.append(gradient_pred.ravel().tolist())
                     input_gradient = gradient_pred
                 
-                elif self.gradient_source == "real":
+                if self.gradient_source in ["both", "real"]:
                     output_tensor, gradient_real = self.compute_gradient(input_tensor, j)
                     gradient_real, _ = self.split_gradient(gradient_real)
                     self.gradient_reals.append(gradient_real.ravel().tolist())
                     input_gradient = gradient_real
-
+                
                 if i < self.P - 1:
                     output_jacobian[i, : i + 1] = input_gradient[
                         -(i + 1) :, :
@@ -407,7 +407,7 @@ class MPC:
         gradient_hist = [] # gradient history for adaptive learning rate algorithm
         converged = True
         while delta_cost < -self.cost_tol:
-            steps, y_forecast = self.compute_step(u_hist, y_hist, u_forecast, lr)
+            steps, y_forecast = self.compute_step(u_hist, y_hist, u_forecast)
             cost = self.cost_function(u_forecast, y_forecast)
             delta_cost = cost - last_cost
             gradient_hist.append(steps[:,0].ravel().tolist())
@@ -457,7 +457,6 @@ exp_time = 0
 exp_step = 1
 start_time = time.time()
 rospy.wait_for_message("xiris/bead/filtered", Float32)
-
 while not rospy.is_shutdown():
     if mpc.arc_state:
         print(f"Time step: {exp_step}")
@@ -470,6 +469,7 @@ while not rospy.is_shutdown():
     else:
         pass
 
-mpc.export_gradient()
 mpc.export_performance()
+if mpc.gradient_source == 'both':
+    mpc.export_gradient()
 rospy.spin()
