@@ -34,7 +34,7 @@ def run_training(
     Y_test,
     run_params,
 ):
-    from python.gradient import create_model, train_model, predict_data
+    from python.gradient_model import create_model, train_model, predict_data
 
     def compute_metrics(Y_pred, Y_real):
         mses = []
@@ -108,7 +108,7 @@ X_train, Y_train, X_test, Y_test = load_gradient(
     data_dir + "gradient/"
 )
 
-N = 5000
+N = 10_000
 X_train = X_train[: N]
 X_test = X_test[: N]
 Y_train = Y_train[: N]
@@ -212,7 +212,7 @@ with Pool(processes=num_processes) as pool:
 metrics_df = (
     pd.DataFrame.from_dict(results)
     .set_index("run_id")
-    .sort_values(by="test_loss")
+    .sort_values(by="train_loss")
 )
 
 metrics_df.to_csv(results_dir + "models/gradient/hp_metrics.csv")

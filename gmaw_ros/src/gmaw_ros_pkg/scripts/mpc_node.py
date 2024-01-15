@@ -86,9 +86,11 @@ class MPC:
          self.gradient_output_train,
          _, 
          _) = self.load_gradient()
+        
+        self.gradient_source = "pred"
+
         self.gradient_input_scaling = "min-max"
         self.gradient_output_scaling = "min-max"
-
         if self.gradient_input_scaling == "mean-std":
             self.gradient_x_mean = self.gradient_input_train.mean(axis=0)
             self.gradient_x_std = self.gradient_input_train.std(axis=0)
@@ -107,7 +109,7 @@ class MPC:
         
         # Load gradient model metrics
         self.metrics_gradient = pd.read_csv(self.results_dir + f"models/gradient/hp_metrics.csv")
-        gradient_best_model_id = 29
+        gradient_best_model_id = 71
         gradient_best_model_filename = f"run_{gradient_best_model_id:03d}.keras"
         self.gradient_best_params = self.metrics_gradient[self.metrics_gradient["run_id"] == int(gradient_best_model_id)]
         # Load gradient model
@@ -119,12 +121,12 @@ class MPC:
         self.gradient_model.compile(optimizer=self.opt, loss=mean_squared_error)
 
         # Gradient data
-        self.gradient_inputs = []
-        self.gradient_outputs = []
+        self.gradient_preds = []
+        self.gradient_reals = []
 
         # Define MPC parameters
         self.M = self.P  # control horizon
-        self.N = self.Q  # prediction horizon
+        self.N = 5  # prediction horizon
         self.weight_control = 1.0
         self.weight_output = 1.0
 
@@ -298,6 +300,26 @@ class MPC:
         control_cost = np.sum(u_diff_forecast**2 * self.weight_control)
         return output_cost + control_cost
 
+    def predict_gradient(self,gradient_input):
+        gradient_pred = self.gradient_model(gradient_input).numpy().ravel()
+        # Descaling
+        if self.gradient_output_scaling == 'mean-std':
+            gradient_pred = gradient_pred * self.gradient_y_std + self.gradient_y_mean
+        elif self.gradient_output_scaling == 'min-max':
+            gradient_pred = gradient_pred * (self.gradient_y_max - self.gradient_y_min) + self.gradient_y_min
+
+        return gradient_pred.reshape((-1, 1))
+    
+    def compute_gradient(self, input_tensor, j):
+        with tf.GradientTape() as t:
+            t.watch(input_tensor)
+            output_tensor = self.process_model(input_tensor)
+            gradient = t.gradient(
+                output_tensor[:, j], input_tensor
+            ).numpy()[0, :, 0]
+
+        return output_tensor, gradient
+    
     def compute_step(self, u_hist, y_hist, u_forecast, lr):
         output_jacobian = np.zeros((self.N, self.M))
         y_forecast = np.zeros((self.N, 1))
@@ -310,34 +332,29 @@ class MPC:
             seq_input = self.build_sequence(u_hist, y_hist)
             input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
             for j in range(1): 
-                output_tensor = self.process_model(input_tensor)
-                # with tf.GradientTape() as t:
-                #     t.watch(input_tensor)
-                #     output_tensor = self.process_model(input_tensor)
-                    # gradient = t.gradient(
-                    #     output_tensor[:, j], input_tensor
-                    # ).numpy()[0, :, 0]
-
-                # Predict gradient
-                gradient_input = tf.convert_to_tensor(
-                    np.concatenate([seq_input.ravel(), output_tensor.numpy()[0]])
-                    .reshape(1, self.P + self.Q + 1)
-                    )
+                if self.gradient_source == "pred":
+                    output_tensor = self.process_model(input_tensor)
+                    gradient_input = tf.convert_to_tensor(
+                        np.concatenate([seq_input.ravel(), output_tensor.numpy()[0]])
+                        .reshape(1, self.P + self.Q + 1)
+                        )
+                    
+                    if self.gradient_input_scaling == 'min-max':
+                        gradient_input = (gradient_input - self.gradient_x_min) /  \
+                        (self.gradient_x_max - self.gradient_x_min)
+                    if self.gradient_input_scaling == 'mean-std':
+                        gradient_input = (gradient_input - self.gradient_x_mean) / self.gradient_x_std
+                    
+                    # Split gradients
+                    gradient_pred = self.predict_gradient(gradient_input)
+                    self.gradient_preds.append(gradient_pred.ravel().tolist())
+                    input_gradient = gradient_pred
                 
-                if self.gradient_input_scaling == 'min-max':
-                    gradient_input = (gradient_input - self.gradient_x_min) /  \
-                    (self.gradient_x_max - self.gradient_x_min)
-                if self.gradient_input_scaling == 'mean-std':
-                    gradient_input = (gradient_input - self.gradient_x_mean) / self.gradient_x_std
-                
-                self.gradient_inputs.append(gradient_input.numpy().tolist())
-                gradient_pred = self.predict_gradient(gradient_input)
-                self.gradient_outputs.append(gradient_pred.tolist())
-
-                # Split gradients
-                # input_gradient, _ = self.split_gradient(gradient)
-                
-                input_gradient = gradient_pred
+                elif self.gradient_source == "real":
+                    output_tensor, gradient_real = self.compute_gradient(input_tensor, j)
+                    gradient_real, _ = self.split_gradient(gradient_real)
+                    self.gradient_reals.append(gradient_real.ravel().tolist())
+                    input_gradient = gradient_real
 
                 if i < self.P - 1:
                     output_jacobian[i, : i + 1] = input_gradient[
@@ -416,15 +433,9 @@ class MPC:
         self.wfs.append(u_opt)
         return u_opt, y_forecast, last_cost
 
-    def predict_gradient(self,gradient_input):
-        gradient_pred = self.gradient_model(gradient_input).numpy().ravel()
-        # Descaling
-        if self.gradient_output_scaling == 'mean-std':
-            gradient_pred = gradient_pred * self.gradient_y_std + self.gradient_y_mean
-        elif self.gradient_output_scaling == 'min-max':
-            gradient_pred = gradient_pred * (self.gradient_y_max - self.gradient_y_min) + self.gradient_y_min
-
-        return gradient_pred.reshape((-1, 1))
+    def export_gradient(self):
+        np.savetxt(self.results_dir + "predictions/gradient/gradient_reals.csv", np.array(self.gradient_reals))
+        np.savetxt(self.results_dir + "predictions/gradient/gradient_preds.csv", np.array(self.gradient_preds))
     
 # Create an instance of the MPC class
 mpc = MPC()
@@ -446,5 +457,7 @@ while not rospy.is_shutdown():
         mpc.lr = mpc.lr * (1.0 - mpc.alpha_time)
     else:
         pass
+
+mpc.export_gradient()
 
 rospy.spin()
