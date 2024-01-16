@@ -50,7 +50,7 @@ opt = Adam(learning_rate=best_params["lr"])
 process_model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Create input data
-N = 10_000
+N = 50_000
 num_features_input = P + Q
 num_features_output = 1
 X_process = np.random.rand(N, num_features_input).round(3)
@@ -72,7 +72,7 @@ for i in tqdm(range(X_process.shape[0]), desc='Processing', unit='iteration'):
 input_train, input_test, output_train, output_test = build_gradient_dataset(X_process, 
                                                          Y_process, 
                                                          gradient_process,
-                                                         test_split=0.3)
+                                                         test_split=0.2)
 
 np.savetxt(data_dir + 'input_train.csv', input_train)
 np.savetxt(data_dir + 'input_test.csv', input_test)

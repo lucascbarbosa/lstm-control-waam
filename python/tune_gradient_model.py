@@ -36,12 +36,17 @@ def run_training(
 ):
     from python.gradient_model import create_model, train_model, predict_data
 
-    def compute_metrics(Y_pred, Y_real):
-        mses = []
-        error = Y_pred - Y_real
-        sq_error = error**2
-        mses = np.mean(sq_error, axis=0)
-        return mses.mean()
+    def gradient_angle(Y_real, Y_pred):
+        angles = np.zeros(Y_real.shape[0])
+        for i in range(Y_real.shape[0]):
+            vec_real = Y_real[i, :]
+            vec_pred = Y_pred[i, :]
+            dot_product = np.dot(vec_real, vec_pred)
+            norm_vec_real = np.linalg.norm(vec_real)
+            norm_vec_pred = np.linalg.norm(vec_pred)
+            angle = np.degrees(np.arccos(dot_product / (norm_vec_real * norm_vec_pred)))
+            angles[i] = angle
+        return angles.mean()
 
     # Define model
     model = create_model(
@@ -70,17 +75,9 @@ def run_training(
             Y_pred, train_y_mean, train_y_std
         )  # Destandardize
 
-        Y_test = destandardize_data(
-            Y_test, test_y_mean, test_y_std
-        )  # Destandardize
-        
     elif output_scaling == "min-max":
         Y_pred = denormalize_data(
             Y_pred, train_y_min, train_y_max
-        )  # Denormalize
-
-        Y_test = denormalize_data(
-            Y_test, test_y_min, test_y_max
         )  # Denormalize
 
     model.save(
@@ -90,12 +87,13 @@ def run_training(
     
     train_loss = history.history['loss'][-1]
     val_loss = history.history['val_loss'][-1]
-    test_loss = compute_metrics(Y_test, Y_pred)
+    test_loss = gradient_angle(Y_test, Y_pred)
     print(f"Run: {run_params['run_id']}. " +
-          f"Epochs: {run_params['num_epochs']} " +
+        #   f"Epochs: {run_params['num_epochs']} " +
+        #   f"Batch size: {run_params['batch_size']} " +
           f"train_loss: {train_loss:.6f} " +
           f"val_loss {val_loss:.6f} " +
-          f"test_loss: {test_loss:.6f}")
+          f"test_loss: {test_loss:.2f}")
     
     metrics = run_params
     metrics["train_loss"] = train_loss
@@ -119,18 +117,10 @@ input_scaling = "min-max"
 output_scaling = "min-max"
 
 if input_scaling == "mean-std":
-    train_x_mean = np.mean(X_train, axis=0)
-    train_x_std = np.std(X_train, axis=0)
-    test_x_mean = np.mean(X_test, axis=0)
-    test_x_std = np.std(X_test, axis=0)
     X_train = standardize_data(X_train)
     X_test = standardize_data(X_test)
 
 elif input_scaling == "min-max":
-    train_x_min = np.min(X_train, axis=0)
-    train_x_max = np.max(X_train, axis=0)
-    test_x_min = np.min(X_test, axis=0)
-    test_x_max = np.max(X_test, axis=0)
     X_train = normalize_data(X_train)
     X_test = normalize_data(X_test)
 
@@ -140,7 +130,6 @@ if output_scaling == "mean-std":
     test_y_mean = np.mean(Y_test, axis=0)
     test_y_std = np.std(Y_test, axis=0)
     Y_train = standardize_data(Y_train)
-    Y_test = standardize_data(Y_test)
 
 elif output_scaling == "min-max":
     train_y_min = np.min(Y_train, axis=0)
@@ -148,7 +137,6 @@ elif output_scaling == "min-max":
     test_y_min = np.min(Y_test, axis=0)
     test_y_max = np.max(Y_test, axis=0)
     Y_train = normalize_data(Y_train)
-    Y_test = normalize_data(Y_test)
 
 # Reshape to fit model input
 X_train = X_train.reshape((X_train.shape[0], X_train.shape[1], 1)) 
@@ -172,9 +160,11 @@ delete_models(results_dir + "models/gradient/hyperparams/")
 # set search space for hp's
 hp_search_space = {
     "batch_size": [16, 32, 64],
-    "num_epochs": [200, 300, 400, 500],
-    "validation_split": [0.1, 0.2, 0.3],
-    "lr": [1e-4, 1e-3, 1e-2],
+    "num_epochs": [2000],
+    # "validation_split": [0.1, 0.2, 0.3],
+    "validation_split": [0.1],
+    # "lr": [1e-4, 1e-3, 1e-2],
+    "lr": [1e-3],
 }
 
 hp_combinations = list(itertools.product(*hp_search_space.values()))

@@ -107,7 +107,7 @@ class MPC:
         
         # Load gradient model metrics
         self.metrics_gradient = pd.read_csv(self.results_dir + f"models/gradient/hp_metrics.csv")
-        gradient_best_model_id = 71
+        gradient_best_model_id = 1
         gradient_best_model_filename = f"run_{gradient_best_model_id:03d}.keras"
         self.gradient_best_params = self.metrics_gradient[self.metrics_gradient["run_id"] == int(gradient_best_model_id)]
         # Load gradient model
@@ -127,7 +127,7 @@ class MPC:
 
         # Define MPC parameters
         self.M = self.P  # control horizon
-        self.N = 5  # prediction horizon
+        self.N = self.Q  # prediction horizon
         self.weight_control = 1.0
         self.weight_output = 1.0
 
@@ -318,7 +318,6 @@ class MPC:
             gradient = t.gradient(
                 output_tensor[:, j], input_tensor
             ).numpy()[0, :, 0]
-
         return output_tensor, gradient
     
     def compute_step(self, u_hist, y_hist, u_forecast):
@@ -335,19 +334,20 @@ class MPC:
             for j in range(1): 
                 if self.gradient_source in ["both", "pred"]:
                     output_tensor = self.process_model(input_tensor)
-                    gradient_input = tf.convert_to_tensor(
+                    gradient_input = (
                         np.concatenate([seq_input.ravel(), output_tensor.numpy()[0]])
                         .reshape(1, self.P + self.Q + 1)
-                        )
-                    
+                    )
                     if self.gradient_input_scaling == 'min-max':
                         gradient_input = (gradient_input - self.gradient_x_min) /  \
                         (self.gradient_x_max - self.gradient_x_min)
                     if self.gradient_input_scaling == 'mean-std':
                         gradient_input = (gradient_input - self.gradient_x_mean) / self.gradient_x_std
                     
-                    # Split gradients
+                    gradient_input = tf.convert_to_tensor(gradient_input)
                     gradient_pred = self.predict_gradient(gradient_input)
+
+                    # Split gradients
                     self.gradient_preds.append(gradient_pred.ravel().tolist())
                     input_gradient = gradient_pred
                 
