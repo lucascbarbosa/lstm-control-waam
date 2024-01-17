@@ -142,7 +142,8 @@ class MPC:
         self.u_hist = np.zeros((self.P, 1))
         self.y_hist = np.zeros((self.Q, 1))
 
-        self.u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(self.M, 1)) #
+        # self.u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(self.M, 1)) #
+        self.u_forecast = np.random.uniform(size=(self.M, 1)) #
 
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)

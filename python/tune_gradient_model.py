@@ -106,7 +106,7 @@ X_train, Y_train, X_test, Y_test = load_gradient(
     data_dir + "gradient/"
 )
 
-N = 10_000
+N = len(X_train)
 X_train = X_train[: N]
 X_test = X_test[: N]
 Y_train = Y_train[: N]
@@ -115,7 +115,6 @@ Y_test = Y_test[: N]
 # Scaling
 input_scaling = "min-max"
 output_scaling = "min-max"
-
 if input_scaling == "mean-std":
     X_train = standardize_data(X_train)
     X_test = standardize_data(X_test)
@@ -159,7 +158,8 @@ delete_models(results_dir + "models/gradient/hyperparams/")
 
 # set search space for hp's
 hp_search_space = {
-    "batch_size": [16, 32, 64],
+    # "batch_size": [16, 32, 64],
+    "batch_size": [16],
     "num_epochs": [2000],
     # "validation_split": [0.1, 0.2, 0.3],
     "validation_split": [0.1],
@@ -171,7 +171,7 @@ hp_combinations = list(itertools.product(*hp_search_space.values()))
 
 # iterate every combination
 list_run_params = []
-verbose_level = 0
+verbose_level = 1
 i = 1
 for hp_comb in hp_combinations:
     run_params = {
