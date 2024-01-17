@@ -249,7 +249,7 @@ elif source == "gradient":
         data_dir + "gradient/"
     )
 
-    N = 10_000
+    N = len(X_train)
     X_train = X_train[: N]
     X_test = X_test[: N]
     Y_train = Y_train[: N]

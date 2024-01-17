@@ -34,13 +34,8 @@ class MPC:
         (self.process_input_train, 
          self.process_output_train, 
          self.process_input_test, 
-         self.process_output_test) = self.load_experiment_igor([1, 2, 3, 4, 5, 6], [7])
+         self.process_output_test) = self.load_experiment([1, 2, 3, 4, 5, 6], [7])
         
-        # (self.process_input_train, 
-        #  self.process_output_train, 
-        #  self.process_input_test, 
-        #  self.process_output_test) = self.load_experiment()
-
         self.process_input_scaling = "min-max"
         self.process_output_scaling = "min-max"
         if self.process_input_scaling == "mean-std":
@@ -182,16 +177,8 @@ class MPC:
         output_test = np.loadtxt(self.data_dir + "gradient/output_test.csv")
         return input_train, output_train, input_test, output_test
 
-    # Load experiment method
-    def load_experiment(self):
-        input_train = pd.read_csv(self.data_dir + "experiment/input_train.csv").to_numpy()
-        output_train = pd.read_csv(self.data_dir + "experiment/output_train.csv").to_numpy()
-        input_test = pd.read_csv(self.data_dir + "experiment/input_test.csv").to_numpy()
-        output_test = pd.read_csv(self.data_dir + "experiment/output_test.csv").to_numpy()
-        return input_train, output_train, input_test, output_test
-        
     # Load experiment_igor method
-    def load_experiment_igor(self, idxs_train, idxs_test):
+    def load_experiment(self, idxs_train, idxs_test):
         inputs_train = []
         outputs_train = []
         inputs_test = []
