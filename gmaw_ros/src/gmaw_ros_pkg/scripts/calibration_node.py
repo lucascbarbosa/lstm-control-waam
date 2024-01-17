@@ -7,19 +7,17 @@ from std_msgs.msg import Float32, Bool
 import time
 
 class Experiment(object):
-    def __init__(self, pub_freq, split):
+    def __init__(self, pub_freq, bead_idx):
         # Filepaths
-        self.data_dir = f"/home/lbarbosa/Documents/Github/lstm-control-waam/database/"
+        self.data_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/database/"
         self.results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
 
         # Load input data
-        self.input_data = pd.read_csv(self.data_dir + f"experiment/input_{split}.csv").to_numpy()
+        self.bead_idx = bead_idx
+        self.command_data = pd.read_csv(self.data_dir + f"experiment/commands/bead{bead_idx}.csv").to_numpy()
         
         # Output data
         self.output_data = []
-
-        self.input_scaling = "min-max"
-        self.output_scaling = "min-max"
 
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
@@ -30,7 +28,7 @@ class Experiment(object):
         self.pub_freq = pub_freq  # sampling frequency of width data
         self.step_time = 1 / self.pub_freq
         self.rate = rospy.Rate(self.pub_freq)
-        
+    
     # Callback method
     def callback_arc(self, data):
         if not self.arc_state and bool(data.data):
@@ -49,21 +47,21 @@ class Experiment(object):
     def publish_command(self):
         if self.arc_state:
             current_time = np.round(time.time() - self.arcon_time, 2)
-            idx = np.where(self.input_data[:, 0] == current_time)[0]
+            idx = np.where(self.command_data[:, 0] == current_time)[0]
             if len(idx) > 0:
                 idx = idx[0]
-                f = self.input_data[idx, 1]
+                f = self.command_data[idx, -1]
                 self.pub.publish(f)
                 rospy.loginfo("Sending command wfs: %f", f)
 
     def export_output(self):
         self.output_data = pd.DataFrame(self.output_data)
         self.output_data = self.output_data[self.output_data['w'] > 0]
-        self.output_data.to_csv(self.data_dir + f"experiment/output_{split}.csv", index=False) 
+        self.output_data.to_csv(self.data_dir + f"experiment/series/output_{self.bead_idx}.csv", index=False) 
 
-pub_freq = 30
-split = 'test'
-exp = Experiment(pub_freq, split)
+pub_freq = 10
+bead_idx = 1
+exp = Experiment(pub_freq, bead_idx)
 start_time = time.time()
 while not rospy.is_shutdown():
     if exp.arc_state:

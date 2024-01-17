@@ -12,7 +12,7 @@ from tensorflow.keras.optimizers import Adam
 
 class Cell(object):
     def __init__(self):
-        self.data_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/database/experiment_igor/"
+        self.data_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/database/experiment_igor/series/"
         self.results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
         self.input_train, self.output_train, _, _ = self.load_experiment([1, 2, 3, 4, 5, 6], [7])
         self.input_scaling = "min-max"
