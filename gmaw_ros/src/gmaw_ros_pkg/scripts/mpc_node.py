@@ -139,9 +139,6 @@ class MPC:
         self.u_hist = np.zeros((self.P, 1))
         self.y_hist = np.zeros((self.Q, 1))
 
-        # self.u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(self.M, 1)) #
-        self.u_forecast = np.random.uniform(size=(self.M, 1)) #
-
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
         rospy.Subscriber("arc_state", Bool, self.callback_arc)
@@ -335,6 +332,9 @@ class MPC:
                     if self.gradient_input_scaling == 'mean-std':
                         gradient_input = (gradient_input - self.gradient_x_mean) / self.gradient_x_std
                     
+                    # print(f'u_H: {u_hist}')
+                    # print(f'u_F: {u_forecast}')
+                    # print(f'g: {gradient_input}')
                     gradient_input = tf.convert_to_tensor(gradient_input)
                     gradient_pred = self.predict_gradient(gradient_input)
 
@@ -389,7 +389,8 @@ class MPC:
     def optimization_function(self, u_hist, y_hist, lr, u_forecast=None, verbose=False):
         opt_time = time.time()
         if u_forecast is None:
-            u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(self.M, 1)) #
+            # u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(self.M, 1)) #
+            u_forecast = np.random.uniform(size=(self.M, 1)) #
         opt_step = 0
         cost = np.inf
         last_cost = cost
@@ -417,7 +418,6 @@ class MPC:
                 converged = False
                 break
         u_opt = u_forecast[0, :]
-        self.u_forecast[:-1 ] = u_forecast[1:]
         u_opt = u_opt[0]
         self.u_hist = self.update_hist(self.u_hist, u_opt.reshape((1, 1)))    
         if self.process_output_scaling == 'min-max':
@@ -430,7 +430,7 @@ class MPC:
         opt_time = time.time() - opt_time
         print(f"Steps: {opt_step} Time: {opt_time:.2f}")
         self.list_performance_opt.append({'Steps': opt_step, 'Time': opt_time, 'Cost': last_cost, 'Converged': converged})
-        return u_opt, y_forecast 
+        return u_opt, u_forecast, y_forecast 
 
     def export_gradient(self):
         np.savetxt(self.results_dir + "predictions/gradient/gradient_reals.csv", np.array(self.gradient_reals))
@@ -443,6 +443,8 @@ class MPC:
 # Create an instance of the MPC class
 bead_idx = 1
 mpc = MPC(bead_idx)
+# u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(M, 1)) #
+# u_forecast = np.random.uniform(size=(mpc.M, 1)) #
 
 # MPC loop
 exp_time = 0
@@ -452,7 +454,13 @@ rospy.wait_for_message("xiris/bead/filtered", Float32)
 while not rospy.is_shutdown():
     if mpc.arc_state:
         print(f"Time step: {exp_step}")
-        u_opt, y_forecast = mpc.optimization_function(mpc.u_hist, mpc.y_hist, mpc.lr, mpc.u_forecast, True)
+        u_opt, u_forecast, y_forecast = mpc.optimization_function(
+            mpc.u_hist, 
+            mpc.y_hist, 
+            mpc.lr, 
+            u_forecast=None,
+            verbose=True)
+        u_forecast[:-1] = u_forecast[1:]
         # Send the "u_row" variable
         mpc.rate.sleep()
         exp_step += 1

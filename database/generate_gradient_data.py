@@ -53,7 +53,8 @@ process_model.compile(optimizer=opt, loss=mean_squared_error)
 N = 10_000
 num_features_input = P + Q
 num_features_output = 1
-X_process = np.random.uniform(size=(N, num_features_input)).round(3)
+# X_process = np.random.uniform(size=(N, num_features_input)).round(3)
+X_process = np.random.randint(2, size=(N, num_features_input))
 Y_process = np.zeros((N, num_features_output))
 gradient_process = np.zeros((N, P))
 for i in tqdm(range(X_process.shape[0]), desc='Processing', unit='iteration'):
