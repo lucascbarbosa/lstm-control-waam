@@ -61,6 +61,9 @@ class Cell(object):
         fs = 10
         self.rate = rospy.Rate(fs)
 
+        # Arc state
+        self.arc_state = False
+
     def callback(self, data):
         u = data.data
         rospy.loginfo("Received command wfs: %f", u)
@@ -157,6 +160,10 @@ class Cell(object):
         arc_state = t > self.arc_idxs[0] and t < self.arc_idxs[1]
         self.pub_arc.publish(arc_state)
         rospy.loginfo("Sending arc_state: %s", arc_state)
+        if self.arc_state and not arc_state:
+            rospy.signal_shutdown("Shutting down...")
+        else:
+            self.arc_state = arc_state
         
 cell = Cell()
 t = 0
@@ -168,6 +175,5 @@ try:
         cell.rate.sleep()
 except rospy.ROSInterruptException:
     pass
-
 
 rospy.spin()

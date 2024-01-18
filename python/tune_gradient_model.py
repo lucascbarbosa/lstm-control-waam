@@ -106,11 +106,11 @@ X_train, Y_train, X_test, Y_test = load_gradient(
     data_dir + "gradient/"
 )
 
-N = len(X_train)
-X_train = X_train[: N]
-X_test = X_test[: N]
-Y_train = Y_train[: N]
-Y_test = Y_test[: N]
+# N = len(X_train)
+# X_train = X_train[: N]
+# X_test = X_test[: N]
+# Y_train = Y_train[: N]
+# Y_test = Y_test[: N]
 
 # Scaling
 input_scaling = "min-max"
@@ -160,7 +160,7 @@ delete_models(results_dir + "models/gradient/hyperparams/")
 hp_search_space = {
     # "batch_size": [16, 32, 64],
     "batch_size": [16],
-    "num_epochs": [2000],
+    "num_epochs": [20],
     # "validation_split": [0.1, 0.2, 0.3],
     "validation_split": [0.1],
     # "lr": [1e-4, 1e-3, 1e-2],

@@ -44,7 +44,7 @@ def gradient_angle(Y_pred, Y_real):
             norm_vec_pred = np.linalg.norm(vec_pred)
             angle = np.degrees(np.arccos(dot_product / (norm_vec_real * norm_vec_pred)))
             angles[i] = angle
-        return angles.mean()
+        return angles
 
 source = "gradient"
 input_scaling = "min-max"
@@ -298,6 +298,39 @@ elif source == "gradient":
         )  # Denormalize
     
     Y_real = Y_test
+    angles = gradient_angle(Y_pred, Y_real)
 
-    angle = gradient_angle(Y_pred, Y_real)
-    print(f"Angular error: {angle:.2f}")
+    # num_outputs = Y_real.shape[1]
+
+    # # Angles error
+    # angles = gradient_angle(Y_real, Y_pred)
+    # fig  = plt.figure(figsize=(20, 9))
+    # avg = np.mean(angles)
+    # plt.title('Angular error between real and predicted gradients')
+    # sns.histplot(angles, bins=64)
+    # plt.axvline(90, linestyle='--', color='black', label= '90 deg')
+    # plt.axvline(avg, linestyle='--', color='red', label=f'Mean: {avg:.2f}')
+    # plt.legend()
+    # plt.tight_layout()
+
+    # # Dimensions error
+    # error = Y_pred - Y_real
+    # fig, axs = plt.subplots(num_outputs)
+    # fig.set_size_inches(20, 9)
+    # for i in range(num_outputs):
+    #     sns.histplot(error[:, i], bins=64, ax=axs[i])
+    #     avg = np.mean(error[:, i])
+    #     axs[i].axvline(
+    #         avg,
+    #         color="red",
+    #         linestyle="dashed",
+    #         linewidth=2,
+    #         label=f"Mean: {avg*1e3:.1f}e-3",
+    #     )
+    #     axs[i].set_title(r"Gradient error histogram w.r.t. u[t-%s]"%(num_outputs - i))
+    #     axs[i].legend()
+    
+    # plt.tight_layout()
+    # plt.show()
+
+    print(f"Angular error: {angles.mean():.2f}")

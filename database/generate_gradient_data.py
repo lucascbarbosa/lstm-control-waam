@@ -50,10 +50,10 @@ opt = Adam(learning_rate=best_params["lr"])
 process_model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Create input data
-N = 50_000
+N = 10_000
 num_features_input = P + Q
 num_features_output = 1
-X_process = np.random.rand(N, num_features_input).round(3)
+X_process = np.random.uniform(size=(N, num_features_input)).round(3)
 Y_process = np.zeros((N, num_features_output))
 gradient_process = np.zeros((N, P))
 for i in tqdm(range(X_process.shape[0]), desc='Processing', unit='iteration'):

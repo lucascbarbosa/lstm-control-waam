@@ -161,15 +161,16 @@ class MPC:
         self.arc_state = bool(data.data)
 
     def callback_width(self, data):
-        current_time = time.time() - start_time
-        y_row = data.data * int(self.arc_state)
-        rospy.loginfo("Received output w: %f", y_row)
-        self.w.append({'t': current_time, 'w': y_row})
-        if self.process_input_scaling == 'min-max':
-            y_row_scaled = (y_row - self.process_y_min) / (self.process_y_max - self.process_y_min)
-        elif self.process_input_scaling == 'mean-std':
-            y_row_scaled = (y_row - self.process_y_mean) / self.process_y_std
-        self.y_hist = self.update_hist(self.y_hist, y_row_scaled.reshape((1, 1)))
+        if self.arc_state:
+            current_time = time.time() - start_time
+            y_row = data.data
+            rospy.loginfo("Received output w: %f", y_row)
+            self.w.append({'t': current_time, 'w': y_row})
+            if self.process_input_scaling == 'min-max':
+                y_row_scaled = (y_row - self.process_y_min) / (self.process_y_max - self.process_y_min)
+            elif self.process_input_scaling == 'mean-std':
+                y_row_scaled = (y_row - self.process_y_mean) / self.process_y_std
+            self.y_hist = self.update_hist(self.y_hist, y_row_scaled.reshape((1, 1)))
 
     # Load experiment method
     def load_gradient(self):
@@ -187,7 +188,7 @@ class MPC:
         outputs_test = []
         
         for idx_train in idxs_train:
-            filename_train = f"experiment_igor/bead{idx_train}"
+            filename_train = f"experiment_igor/series/bead{idx_train}"
             input_train = pd.read_csv(self.data_dir + filename_train + "_wfs.csv").to_numpy()
             output_train = pd.read_csv(
                 self.data_dir + filename_train + "_w.csv"
@@ -203,7 +204,7 @@ class MPC:
         outputs_train = np.concatenate(outputs_train, axis=0)
         
         for idx_test in idxs_test:
-            filename_test = f"experiment_igor/bead{idx_test}"
+            filename_test = f"experiment_igor/series/bead{idx_test}"
             input_test = pd.read_csv(self.data_dir + filename_test + "_wfs.csv").to_numpy()
             output_test = pd.read_csv(self.data_dir + filename_test + "_w.csv").to_numpy()
 
