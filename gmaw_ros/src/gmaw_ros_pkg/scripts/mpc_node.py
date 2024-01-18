@@ -15,7 +15,9 @@ from std_msgs.msg import Float32, Bool, Float64MultiArray
 import time
 
 class MPC:
-    def __init__(self):
+    def __init__(self, bead_idx):
+
+        self.bead_idx = bead_idx
         # Filepaths
         self.data_dir = f"/home/lbarbosa/Documents/Github/lstm-control-waam/database/"
         self.results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
@@ -438,7 +440,8 @@ class MPC:
         performance_df.to_csv(self.results_dir + f'mpc_performance/gradient_{self.gradient_source}.csv', index=False)
 
 # Create an instance of the MPC class
-mpc = MPC()
+bead_idx = 1
+mpc = MPC(bead_idx)
 
 # MPC loop
 exp_time = 0
