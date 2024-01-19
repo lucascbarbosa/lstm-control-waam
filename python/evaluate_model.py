@@ -257,8 +257,6 @@ elif source == "gradient":
 
     # Scaling
     input_scaling = "min-max"
-    output_scaling = "min-max"
-
     if input_scaling == "mean-std":
         X_train = standardize_data(X_train)
         X_test = standardize_data(X_test)
@@ -267,6 +265,7 @@ elif source == "gradient":
         X_train = normalize_data(X_train)
         X_test = normalize_data(X_test)
 
+    output_scaling = "min-max"
     if output_scaling == "mean-std":
         train_y_mean = np.mean(Y_train, axis=0)
         train_y_std = np.std(Y_train, axis=0)

@@ -106,15 +106,8 @@ X_train, Y_train, X_test, Y_test = load_gradient(
     data_dir + "gradient/"
 )
 
-# N = len(X_train)
-# X_train = X_train[: N]
-# X_test = X_test[: N]
-# Y_train = Y_train[: N]
-# Y_test = Y_test[: N]
-
 # Scaling
 input_scaling = "min-max"
-output_scaling = "min-max"
 if input_scaling == "mean-std":
     X_train = standardize_data(X_train)
     X_test = standardize_data(X_test)
@@ -123,6 +116,7 @@ elif input_scaling == "min-max":
     X_train = normalize_data(X_train)
     X_test = normalize_data(X_test)
 
+output_scaling = "min-max"
 if output_scaling == "mean-std":
     train_y_mean = np.mean(Y_train, axis=0)
     train_y_std = np.std(Y_train, axis=0)
@@ -150,7 +144,7 @@ P = best_params.iloc[0, 1]
 Q = best_params.iloc[0, 2]
 
 # Num features
-num_features_input = P + 1
+num_features_input = P + Q
 num_features_output = P
 
 # Remove previous models
@@ -158,11 +152,11 @@ delete_models(results_dir + "models/gradient/hyperparams/")
 
 # set search space for hp's
 hp_search_space = {
-    "batch_size": [16, 32, 64],
-    # "batch_size": [16],
-    "num_epochs": [200],
-    "validation_split": [0.1, 0.2, 0.3],
-    # "validation_split": [0.1],
+    # "batch_size": [16, 32, 64],
+    "batch_size": [16],
+    "num_epochs": [100],
+    # "validation_split": [0.1, 0.2, 0.3],
+    "validation_split": [0.1],
     "lr": [1e-3],
 }
 
