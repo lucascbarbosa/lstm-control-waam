@@ -68,7 +68,7 @@ opt = Adam(learning_rate=best_params["lr"])
 process_model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Create input data
-N = 10_000
+N = 20_000
 process_inputs = 1
 process_outputs = 1
 u_process = np.random.uniform(size=(N, process_inputs))

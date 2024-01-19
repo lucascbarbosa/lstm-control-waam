@@ -39,53 +39,6 @@ def create_model(
     )
     model.add(Dense(units=num_features_output, activation='relu'))
 
-    # model.add(
-    #     Conv1D(filters=8, 
-    #            kernel_size=2, 
-    #            activation='relu', 
-    #            input_shape=(num_features_input, 1))
-    # )
-    # model.add(
-    #     Conv1D(filters=4, 
-    #            kernel_size=2, 
-    #            activation='relu', 
-    #            input_shape=(num_features_input, 1))
-    # )
-    # # model.add(MaxPooling1D(pool_size=2))
-    # model.add(Flatten())
-    # model.add(Dense(units=8, activation='relu'))
-    # model.add(
-    #     Dense(units=num_features_output, 
-    #           activation='linear')
-    # )
-
-    # model.add(
-    #     Dense(
-    #         units=16,
-    #         activation='relu',
-    #         input_shape=(num_features_input, )
-    #     )
-    # )
-    # model.add(Dense(units=32, activation='relu'))
-    # model.add(BatchNormalization())
-    # # model.add(Dropout(0.5))
-    # model.add(Dense(units=64, activation='relu'))
-    # model.add(BatchNormalization())
-    # # model.add(Dropout(0.5))
-    # model.add(Dense(units=128, activation='relu'))
-    # model.add(BatchNormalization())
-    # # model.add(Dropout(0.5))
-    # model.add(Dense(units=64, activation='relu'))
-    # model.add(BatchNormalization())
-    # # model.add(Dropout(0.5))
-    # model.add(Dense(units=32, activation='relu'))
-    # model.add(BatchNormalization())
-    # # model.add(Dropout(0.5))
-    # model.add(Dense(units=16, activation='relu'))
-    # model.add(BatchNormalization())
-    # # model.add(Dropout(0.5))
-    # model.add(Dense(units=num_features_output, activation='relu'))
-
     # Compile the model
     model.compile(optimizer=Adam(learning_rate=lr), loss=mean_squared_error)
     # Display model summary
