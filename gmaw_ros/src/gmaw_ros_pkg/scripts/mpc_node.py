@@ -124,7 +124,7 @@ class MPC:
 
         # Define MPC parameters
         self.M = self.P  # control horizon
-        self.N = self.Q # prediction horizon
+        self.N = self.M # prediction horizon
         self.weight_control = 1.0
         self.weight_output = 1.0
 
