@@ -4,11 +4,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import (Dense, 
-                                     Dropout, 
-                                     BatchNormalization, 
-                                     Conv1D, 
-                                     MaxPooling1D, 
-                                     Flatten,
                                      LSTM,
                                      )
 from tensorflow.keras.losses import mean_squared_error
