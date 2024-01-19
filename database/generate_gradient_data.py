@@ -19,7 +19,7 @@ def build_sequence(u, y):
     return np.hstack((u, y)).reshape((1, P + Q, 1))
 
 def build_gradient_dataset(X_process, Y_process, gradient_process, test_split):
-    input_gradient = np.hstack([X_process, Y_process])
+    input_gradient = np.hstack([X_process[:, :P], Y_process])
     output_gradient = gradient_process
     idx_split = int(N * (1-test_split))
     input_train = input_gradient[:idx_split, :]
@@ -50,11 +50,11 @@ opt = Adam(learning_rate=best_params["lr"])
 process_model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Create input data
-N = 10_000
+N = 50_000
 num_features_input = P + Q
 num_features_output = 1
-# X_process = np.random.uniform(size=(N, num_features_input)).round(3)
-X_process = np.random.randint(2, size=(N, num_features_input))
+# X_process = np.random.randint(2, size=(N, num_features_input))
+X_process = np.random.uniform(size=(N, num_features_input))
 Y_process = np.zeros((N, num_features_output))
 gradient_process = np.zeros((N, P))
 for i in tqdm(range(X_process.shape[0]), desc='Processing', unit='iteration'):

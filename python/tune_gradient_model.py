@@ -150,7 +150,7 @@ P = best_params.iloc[0, 1]
 Q = best_params.iloc[0, 2]
 
 # Num features
-num_features_input = P + Q + 1
+num_features_input = P + 1
 num_features_output = P
 
 # Remove previous models
@@ -158,12 +158,11 @@ delete_models(results_dir + "models/gradient/hyperparams/")
 
 # set search space for hp's
 hp_search_space = {
-    # "batch_size": [16, 32, 64],
-    "batch_size": [16],
-    "num_epochs": [20],
-    # "validation_split": [0.1, 0.2, 0.3],
-    "validation_split": [0.1],
-    # "lr": [1e-4, 1e-3, 1e-2],
+    "batch_size": [16, 32, 64],
+    # "batch_size": [16],
+    "num_epochs": [200],
+    "validation_split": [0.1, 0.2, 0.3],
+    # "validation_split": [0.1],
     "lr": [1e-3],
 }
 

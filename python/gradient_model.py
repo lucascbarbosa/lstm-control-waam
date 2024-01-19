@@ -22,26 +22,36 @@ def create_model(
     if random_seed:
         tf.random.set_seed(random_seed)
     model = Sequential()
+    # model.add(
+    #     Conv1D(filters=32, 
+    #            kernel_size=3, 
+    #            activation='relu', 
+    #            input_shape=(num_features_input, 1))
+    # )
+    # model.add(MaxPooling1D(pool_size=2))
+    # model.add(Flatten())
+    # model.add(Dense(units=64, activation='relu'))
+    # model.add(
+    #     Dense(units=num_features_output, 
+    #           activation='linear')
+    # )
+
     model.add(
-        Conv1D(filters=32, 
-               kernel_size=3, 
-               activation='relu', 
-               input_shape=(num_features_input, 1))
+        Dense(
+            units=16,
+            activation='relu',
+            input_shape=(num_features_input, )
+        )
     )
-
-    model.add(MaxPooling1D(pool_size=2))
-
-    # Flatten layer
-    model.add(Flatten())
-
-    # Dense layers for regression
+    model.add(Dense(units=32, activation='relu'))
     model.add(Dense(units=64, activation='relu'))
-    model.add(
-        Dense(units=num_features_output, 
-              activation='linear')
-    )  # Output layer with 30 neurons for regression
-
-
+    model.add(Dense(units=128, activation='relu'))
+    model.add(Dense(units=128, activation='relu'))
+    model.add(Dense(units=64, activation='relu'))
+    model.add(Dense(units=32, activation='relu'))
+    model.add(Dense(units=16, activation='relu'))
+    model.add(Dense(units=num_features_output, activation='relu'))
+    
     # Compile the model
     model.compile(optimizer=Adam(learning_rate=lr), loss=mean_squared_error)
     # Display model summary
