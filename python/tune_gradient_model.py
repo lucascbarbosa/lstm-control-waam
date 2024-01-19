@@ -144,8 +144,8 @@ P = best_params.iloc[0, 1]
 Q = best_params.iloc[0, 2]
 
 # Num features
-num_features_input = P + Q
-num_features_output = P
+num_features_input = X_train.shape[1]
+num_features_output = Y_train.shape[1]
 
 # Remove previous models
 delete_models(results_dir + "models/gradient/hyperparams/")

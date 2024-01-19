@@ -83,6 +83,8 @@ class MPC:
          _, 
          _) = self.load_gradient()
         
+        self.gradient_inputs = self.gradient_input_train.shape[1]
+        self.gradient_outputs = self.gradient_output_train.shape[1]
         self.gradient_source = "both"
         self.gradient_input_scaling = "min-max"
         self.gradient_output_scaling = "min-max"
@@ -124,7 +126,7 @@ class MPC:
 
         # Define MPC parameters
         self.M = self.P  # control horizon
-        self.N = self.M # prediction horizon
+        self.N = self.Q # prediction horizon
         self.weight_control = 1.0
         self.weight_output = 1.0
 
@@ -322,10 +324,9 @@ class MPC:
             for j in range(1): 
                 if self.gradient_source in ["both", "pred"]:
                     output_tensor = self.process_model(input_tensor)
-                    gradient_input = seq_input.reshape(1, 
-                                    self.gradient_model.input.shape[1]
-                                    )
-                    
+                    gradient_input = (
+                        seq_input.ravel()[:self.gradient_inputs]
+                        ).reshape(1, self.gradient_inputs)
                     if self.gradient_input_scaling == 'min-max':
                         gradient_input = (gradient_input - self.gradient_x_min) /  \
                         (self.gradient_x_max - self.gradient_x_min)

@@ -19,8 +19,8 @@ def build_sequence(u, y):
     y = y.ravel()
     return np.hstack((u, y)).reshape((1, P + Q, 1))
 
-def build_gradient_dataset(X_process, gradient_process, test_split):
-    input_gradient = X_process[:, :, 0]
+def build_gradient_dataset(X_process, gradient_process, gradient_inputs, test_split):
+    input_gradient = X_process[:, :gradient_inputs, 0]
     output_gradient = gradient_process
     idx_split = int(N * (1-test_split))
     input_train = input_gradient[:idx_split, :]
@@ -69,12 +69,13 @@ process_model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Create input data
 N = 10_000
-num_features_input = 1
-num_features_outputs = 1
-u_process = np.random.uniform(size=(N, num_features_input))
-y_process = np.random.uniform(size=(N, num_features_outputs))
+process_inputs = 1
+process_outputs = 1
+u_process = np.random.uniform(size=(N, process_inputs))
+y_process = np.random.uniform(size=(N, process_outputs))
 X_process, Y_process = sequence_data(u_process, y_process, P, Q, 1)
 N = X_process.shape[0]
+gradient_inputs = P
 gradient_process = np.zeros((N, P))
 for i in tqdm(range(X_process.shape[0]), desc='Processing', unit='iteration'):
     input_tensor = tf.convert_to_tensor(
@@ -95,6 +96,7 @@ for i in tqdm(range(X_process.shape[0]), desc='Processing', unit='iteration'):
 input_train, input_test, output_train, output_test = build_gradient_dataset(
                                                         X_process, 
                                                         gradient_process,
+                                                        gradient_inputs,
                                                         test_split=0.2
                                                         )
 
