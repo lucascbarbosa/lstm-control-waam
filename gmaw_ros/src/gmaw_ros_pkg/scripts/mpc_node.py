@@ -78,6 +78,7 @@ class MPC:
         self.process_model.compile(optimizer=self.opt, loss=mean_squared_error)
         
         # Gradient data
+        self.gradient_source = "experiment"
         (self.gradient_input_train,
          self.gradient_output_train,
          _, 
@@ -173,10 +174,18 @@ class MPC:
 
     # Load experiment method
     def load_gradient(self):
-        input_train = np.loadtxt(self.data_dir + "gradient/input_train.csv")
-        output_train = np.loadtxt(self.data_dir + "gradient/output_train.csv")
-        input_test = np.loadtxt(self.data_dir + "gradient/input_test.csv")
-        output_test = np.loadtxt(self.data_dir + "gradient/output_test.csv")
+        input_train = np.loadtxt(
+            self.data_dir + f"gradient/{self.gradient_source}/input_train.csv"
+            )
+        output_train = np.loadtxt(
+            self.data_dir + f"gradient/{self.gradient_source}/output_train.csv"
+            )
+        input_test = np.loadtxt(
+            self.data_dir + f"gradient/{self.gradient_source}/input_test.csv"
+            )
+        output_test = np.loadtxt(
+            self.data_dir + f"gradient/{self.gradient_source}/output_test.csv"
+            )
         return input_train, output_train, input_test, output_test
 
     # Load experiment_igor method

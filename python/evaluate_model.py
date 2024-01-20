@@ -1,6 +1,5 @@
 from python.process_data import (
     load_simulation,
-    load_experiment_igor,
     load_experiment,
     load_gradient,
     sequence_data,
@@ -108,7 +107,7 @@ if source == "simulation":
 
 elif source == "experiment_igor":
     for idx_test in range(7,8):
-        input_train, output_train, input_test, output_test = load_experiment_igor(
+        input_train, output_train, input_test, output_test = load_experiment(
             data_dir + f"{source}/", [1, 2, 3, 4, 5, 6], [idx_test]
         )
         num_features_input = 1
@@ -245,8 +244,9 @@ elif source == "experiment":
 
 elif source == "gradient":
     # Load database
+    source = "experiment"
     X_train, Y_train, X_test, Y_test = load_gradient(
-        data_dir + "gradient/"
+        data_dir + f"gradient/{source}/"
     )
 
     N = len(X_train)
@@ -306,7 +306,7 @@ elif source == "gradient":
     fig  = plt.figure(figsize=(20, 9))
     avg = np.mean(angles)
     plt.title('Angular error between real and predicted gradients')
-    sns.histplot(angles, bins=64)
+    sns.histplot(angles, bins=128)
     plt.axvline(90, linestyle='--', color='black', label= '90 deg')
     plt.axvline(avg, linestyle='--', color='red', label=f'Mean: {avg:.2f}')
     plt.legend()
@@ -317,7 +317,7 @@ elif source == "gradient":
     fig, axs = plt.subplots(num_outputs)
     fig.set_size_inches(20, 9)
     for i in range(num_outputs):
-        sns.histplot(error[:, i], bins=64, ax=axs[i])
+        sns.histplot(error[:, i], bins=128, ax=axs[i])
         avg = np.mean(error[:, i])
         axs[i].axvline(
             avg,

@@ -1,17 +1,19 @@
 import numpy as np
 import pandas as pd
-from itertools import product
 from tqdm import tqdm
 
 import tensorflow as tf
 from keras.models import load_model
 from tensorflow.keras.losses import mean_squared_error
 from tensorflow.keras.optimizers import Adam
-from python.process_data import sequence_data
+from python.process_data import (sequence_data, 
+                                 normalize_data, 
+                                 standardize_data,
+                                 load_experiment)
 
 # Data paths
-data_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/database/gradient/"
-results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
+data_dir = "database/"
+results_dir = "results/"
 
 # Functions
 def build_sequence(u, y):
@@ -20,7 +22,7 @@ def build_sequence(u, y):
     return np.hstack((u, y)).reshape((1, P + Q, 1))
 
 def build_gradient_dataset(X_process, gradient_process, gradient_inputs, test_split):
-    input_gradient = X_process[:, :gradient_inputs, 0]
+    input_gradient = X_process[:, :gradient_inputs]
     output_gradient = gradient_process
     idx_split = int(N * (1-test_split))
     input_train = input_gradient[:idx_split, :]
@@ -34,23 +36,6 @@ def split_gradient(seq):
     seq = seq.ravel()
     input_gradient = seq[: 1 * P]
     return input_gradient
-
-def cartesian2spherical(grad):
-    grad_spherical = np.zeros(P, )
-    grad_spherical[0] = np.sqrt(np.sum(grad **2))
-    for i in range(1, P):
-        grad_spherical[i] = np.arccos(grad[i-1]/grad_spherical[0])
-    return grad_spherical
-
-def spherical2cartesian(grad_spherical):
-    grad = np.zeros(P, )
-    for i in range(P-1):
-        grad[i] = grad_spherical[0] * np.cos(grad_spherical[i+1])
-
-    grad[-1] = np.sqrt(
-        grad_spherical[0] ** 2 * (1- np.sum(np.cos(grad_spherical[1:])**2))
-        )
-    return grad
 
 # Process model parameters
 metrics_process = pd.read_csv(results_dir + f"models/experiment_igor/hp_metrics.csv")
@@ -67,17 +52,44 @@ process_model = load_model(
 opt = Adam(learning_rate=best_params["lr"])
 process_model.compile(optimizer=opt, loss=mean_squared_error)
 
-# Create input data
-N = 20_000
-process_inputs = 1
-process_outputs = 1
-u_process = np.random.uniform(size=(N, process_inputs))
-y_process = np.random.uniform(size=(N, process_outputs))
-X_process, Y_process = sequence_data(u_process, y_process, P, Q, 1)
+# Build input data
+source = "experiment"
+if source == "random":
+    N = 20_000
+    process_inputs = 1
+    process_outputs = 1
+    u_process = np.random.uniform(size=(N, process_inputs))
+    y_process = np.random.uniform(size=(N, process_outputs))
+    X_process, Y_process = sequence_data(u_process, y_process, P, Q, 1)
+    X_process = X_process.reshape((X_process.shape[:2]))
+    Y_process = Y_process.reshape((Y_process.shape[:2]))
+
+elif source == "experiment":
+    u_process, y_process, _, _ = load_experiment(
+        data_dir + 'experiment_igor/series/', [1,2,3,4,5,6,7], [7]
+        )
+    X_process, Y_process = sequence_data(u_process, y_process, P, Q, 1)
+    
+    X_process = X_process.reshape((X_process.shape[:2]))
+    Y_process = Y_process.reshape((Y_process.shape[:2]))
+
+    X_process = normalize_data(X_process)
+    Y_process = normalize_data(Y_process)
+    input_scaling = "min-max"
+    if input_scaling == "mean-std":
+        X_process = standardize_data(X_process)
+
+    output_scaling = "min-max"
+    if output_scaling == "mean-std":
+        Y_process = standardize_data(Y_process)
+
+    elif output_scaling == "min-max":
+        Y_process = normalize_data(Y_process)
+
 N = X_process.shape[0]
 gradient_inputs = P
 gradient_process = np.zeros((N, P))
-for i in tqdm(range(X_process.shape[0]), desc='Processing', unit='iteration'):
+for i in tqdm(range(N), desc='Processing', unit='iteration'):
     input_tensor = tf.convert_to_tensor(
         X_process[i, :].reshape((1, P + Q, 1)), 
         dtype=tf.float32
@@ -90,7 +102,6 @@ for i in tqdm(range(X_process.shape[0]), desc='Processing', unit='iteration'):
                 output_tensor[:, j], input_tensor
             ).numpy()[0, :, 0]
             gradient = split_gradient(gradient)
-#             # gradient = cartesian2spherical(gradient)
             gradient_process[i, :] = gradient
 
 input_train, input_test, output_train, output_test = build_gradient_dataset(
@@ -100,7 +111,7 @@ input_train, input_test, output_train, output_test = build_gradient_dataset(
                                                         test_split=0.2
                                                         )
 
-np.savetxt(data_dir + 'input_train.csv', input_train)
-np.savetxt(data_dir + 'input_test.csv', input_test)
-np.savetxt(data_dir + 'output_train.csv', output_train)
-np.savetxt(data_dir + 'output_test.csv', output_test)
+np.savetxt(data_dir + f'gradient/{source}/input_train.csv', input_train)
+np.savetxt(data_dir + f'gradient/{source}/input_test.csv', input_test)
+np.savetxt(data_dir + f'gradient/{source}/output_train.csv', output_train)
+np.savetxt(data_dir + f'gradient/{source}/output_test.csv', output_test)

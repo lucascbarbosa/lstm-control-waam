@@ -22,6 +22,23 @@ results_dir = "results/"
 
 ############
 # Function #
+def cartesian2spherical(grads):
+    grads_spherical = np.zeros(grads.shape)
+    grads_spherical[:, 0] = np.sqrt(np.sum(grads ** 2, axis=1))
+    for i in range(1, P):
+        grads_spherical[:, i] = np.arccos(grads[:, i-1]/grads_spherical[:, 0])
+    return grads_spherical
+
+def spherical2cartesian(grads_spherical):
+    grads = np.zeros(grads_spherical.shape)
+    for i in range(P-1):
+        grads[:, i] = grads_spherical[:, 0] * np.cos(grads_spherical[:, i+1])
+
+    grads[:, -1] = np.sqrt(
+        grads_spherical[:, 0] ** 2 * (1- np.sum(np.cos(grads_spherical[:, 1:])**2, axis=1))
+        )
+    return grads
+
 def delete_models(models_path):
     for item in os.listdir(models_path):
         item_path = os.path.join(models_path, item)
@@ -70,6 +87,8 @@ def run_training(
 
     # Prediction
     Y_pred = predict_data(model, X_test)
+
+
     if output_scaling == "mean-std":
         Y_pred = destandardize_data(
             Y_pred, train_y_mean, train_y_std
@@ -85,6 +104,11 @@ def run_training(
         + f"models/gradient/hyperparams/run_{run_params['run_id']}.keras"
     )
     
+    # Convert to cartesian coordinates
+    # Y_pred = spherical2cartesian(Y_pred)
+    # Y_test = spherical2cartesian(Y_test)
+    
+    # Losses
     train_loss = history.history['loss'][-1]
     val_loss = history.history['val_loss'][-1]
     test_loss = gradient_angle(Y_test, Y_pred)
@@ -95,16 +119,30 @@ def run_training(
           f"val_loss {val_loss:.6f} " +
           f"test_loss: {test_loss:.2f}")
     
+    # Metrics
     metrics = run_params
     metrics["train_loss"] = train_loss
     metrics["val_loss"] = val_loss
     metrics["test_loss"] = test_loss
     return metrics
 
+# Get process model parameters
+metrics_process = pd.read_csv(results_dir + f"models/experiment_igor/hp_metrics.csv")
+best_model_id = 121
+best_model_filename = f"run_{best_model_id:03d}.keras"
+best_params = metrics_process[metrics_process["run_id"] == int(best_model_id)]
+P = best_params.iloc[0, 1]
+Q = best_params.iloc[0, 2]
+
 # Load database
+source = "experiment"
 X_train, Y_train, X_test, Y_test = load_gradient(
-    data_dir + "gradient/"
+    data_dir + f"gradient/{source}/"
 )
+
+# Convert to spherical coordinates
+# Y_train = cartesian2spherical(Y_train)
+# Y_test = cartesian2spherical(Y_test)
 
 # Scaling
 input_scaling = "min-max"
@@ -135,14 +173,6 @@ elif output_scaling == "min-max":
 X_train = X_train.reshape((X_train.shape[0], X_train.shape[1], 1)) 
 X_test = X_test.reshape((X_test.shape[0], X_test.shape[1], 1)) 
 
-# Get process model parameters
-metrics_process = pd.read_csv(results_dir + f"models/experiment_igor/hp_metrics.csv")
-best_model_id = 121
-best_model_filename = f"run_{best_model_id:03d}.keras"
-best_params = metrics_process[metrics_process["run_id"] == int(best_model_id)]
-P = best_params.iloc[0, 1]
-Q = best_params.iloc[0, 2]
-
 # Num features
 num_features_input = X_train.shape[1]
 num_features_output = Y_train.shape[1]
@@ -154,7 +184,7 @@ delete_models(results_dir + "models/gradient/hyperparams/")
 hp_search_space = {
     # "batch_size": [16, 32, 64],
     "batch_size": [16],
-    "num_epochs": [35],
+    "num_epochs": [50],
     # "validation_split": [0.1, 0.2, 0.3],
     "validation_split": [0.1],
     "lr": [1e-3],

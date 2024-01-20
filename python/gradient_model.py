@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import (Dense, 
+                                     Dropout,
                                      LSTM,
                                      )
 from tensorflow.keras.losses import mean_squared_error
@@ -32,6 +33,8 @@ def create_model(
             input_shape=(num_features_input, 1),
         )
     )
+    model.add(Dense(units=8, activation='relu'))
+    model.add(Dropout(0.2))
     model.add(Dense(units=num_features_output, activation='relu'))
 
     # Compile the model
