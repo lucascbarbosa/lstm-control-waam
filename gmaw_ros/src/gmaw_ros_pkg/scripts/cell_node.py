@@ -56,7 +56,7 @@ class Cell(object):
         rospy.init_node("cell_node", anonymous=True)
         rospy.Subscriber("fronius_remote_command", Float32, self.callback)
         self.pub_arc = rospy.Publisher("arc_state", Bool, queue_size=10)
-        self.arc_idxs = [10, 350]
+        self.arc_idxs = [10, 500]
         self.pub_width = rospy.Publisher("xiris/bead/filtered", Float32, queue_size=10)
         fs = 10
         self.rate = rospy.Rate(fs)

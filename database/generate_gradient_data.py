@@ -21,6 +21,13 @@ def build_sequence(u, y):
     y = y.ravel()
     return np.hstack((u, y)).reshape((1, P + Q, 1))
 
+def update_hist(current_hist, new_states):
+    new_hist = current_hist.copy()
+    len_new = new_states.shape[0]
+    new_hist[:-len_new, :] = current_hist[len_new:, :]
+    new_hist[-len_new:, :] = new_states
+    return new_hist
+
 def build_gradient_dataset(X_process, gradient_process, gradient_inputs, test_split):
     input_gradient = X_process[:, :gradient_inputs]
     output_gradient = gradient_process
@@ -53,14 +60,48 @@ opt = Adam(learning_rate=best_params["lr"])
 process_model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Build input data
-source = "experiment"
+source = "random"
 if source == "random":
-    N = 20_000
+    N = 10_000
     process_inputs = 1
     process_outputs = 1
-    u_process = np.random.uniform(size=(N, process_inputs))
-    y_process = np.random.uniform(size=(N, process_outputs))
-    X_process, Y_process = sequence_data(u_process, y_process, P, Q, 1)
+    u_process = normalize_data(
+        np.cumsum(
+            np.random.normal(loc=0.0, scale=0.01, size=(N, process_inputs)
+                             )
+            ).reshape((N, process_inputs))
+        )
+    y_process = np.zeros((N, process_inputs))
+    gradient_inputs = P + 3
+    gradient_process = np.zeros((N, P))
+    u_hist = np.zeros((P, process_inputs))
+    y_hist = np.zeros((Q, process_outputs))
+    for i in tqdm(range(N), desc='Processing', unit='iteration'):
+        u_row = u_process[i]
+        u_hist = update_hist(u_hist, u_row.reshape((1, 1)))
+        seq_input = build_sequence(u_hist, y_hist)
+        input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
+        for j in range(1):
+            with tf.GradientTape() as t:
+                t.watch(input_tensor)
+                output_tensor = process_model(input_tensor)
+                gradient = t.gradient(
+                    output_tensor[:, j], input_tensor
+                ).numpy()[0, :, 0]
+                gradient = split_gradient(gradient)
+                gradient_process[i, :] = gradient
+
+        y_row = output_tensor.numpy()
+        y_process[i] = y_row
+        y_hist = update_hist(y_hist, y_row.reshape((1, 1)))
+
+    X_process, Y_process = sequence_data(u_process, 
+                                         y_process, 
+                                         P, 
+                                         Q, 
+                                         1)
+    N = X_process.shape[0]
+    gradient_process = gradient_process[-N: , :]
     X_process = X_process.reshape((X_process.shape[:2]))
     Y_process = Y_process.reshape((Y_process.shape[:2]))
 
@@ -86,23 +127,23 @@ elif source == "experiment":
     elif output_scaling == "min-max":
         Y_process = normalize_data(Y_process)
 
-N = X_process.shape[0]
-gradient_inputs = P
-gradient_process = np.zeros((N, P))
-for i in tqdm(range(N), desc='Processing', unit='iteration'):
-    input_tensor = tf.convert_to_tensor(
-        X_process[i, :].reshape((1, P + Q, 1)), 
-        dtype=tf.float32
-    )
-    for j in range(1):
-        with tf.GradientTape() as t:
-            t.watch(input_tensor)
-            output_tensor = process_model(input_tensor)
-            gradient = t.gradient(
-                output_tensor[:, j], input_tensor
-            ).numpy()[0, :, 0]
-            gradient = split_gradient(gradient)
-            gradient_process[i, :] = gradient
+    N = X_process.shape[0]
+    gradient_inputs = P + 3
+    gradient_process = np.zeros((N, P))
+    for i in tqdm(range(N), desc='Processing', unit='iteration'):
+        input_tensor = tf.convert_to_tensor(
+            X_process[i, :].reshape((1, P + Q, 1)), 
+            dtype=tf.float32
+        )
+        for j in range(1):
+            with tf.GradientTape() as t:
+                t.watch(input_tensor)
+                output_tensor = process_model(input_tensor)
+                gradient = t.gradient(
+                    output_tensor[:, j], input_tensor
+                ).numpy()[0, :, 0]
+                gradient = split_gradient(gradient)
+                gradient_process[i, :] = gradient
 
 input_train, input_test, output_train, output_test = build_gradient_dataset(
                                                         X_process, 

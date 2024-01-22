@@ -45,6 +45,20 @@ def gradient_angle(Y_pred, Y_real):
             angles[i] = angle
         return angles
 
+def update_hist(current_hist, new_states):
+    new_hist = current_hist.copy()
+    len_new = new_states.shape[0]
+    new_hist[:-len_new, :] = current_hist[len_new:, :]
+    new_hist[-len_new:, :] = new_states
+    return new_hist
+
+def build_sequence(u_hist, y_hist):
+    u = u_hist.ravel()
+    y = y_hist.ravel()
+    P = u_hist.shape[0]
+    Q = y_hist.shape[0]
+    return np.hstack((u, y)).reshape((1, 1 * (P + Q), 1))
+
 source = "gradient"
 input_scaling = "min-max"
 output_scaling = "min-max"
@@ -244,9 +258,9 @@ elif source == "experiment":
 
 elif source == "gradient":
     # Load database
-    source = "experiment"
+    gradient_source = "random"
     X_train, Y_train, X_test, Y_test = load_gradient(
-        data_dir + f"gradient/{source}/"
+        data_dir + f"gradient/{gradient_source}/"
     )
 
     N = len(X_train)

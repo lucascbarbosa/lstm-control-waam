@@ -22,23 +22,6 @@ results_dir = "results/"
 
 ############
 # Function #
-def cartesian2spherical(grads):
-    grads_spherical = np.zeros(grads.shape)
-    grads_spherical[:, 0] = np.sqrt(np.sum(grads ** 2, axis=1))
-    for i in range(1, P):
-        grads_spherical[:, i] = np.arccos(grads[:, i-1]/grads_spherical[:, 0])
-    return grads_spherical
-
-def spherical2cartesian(grads_spherical):
-    grads = np.zeros(grads_spherical.shape)
-    for i in range(P-1):
-        grads[:, i] = grads_spherical[:, 0] * np.cos(grads_spherical[:, i+1])
-
-    grads[:, -1] = np.sqrt(
-        grads_spherical[:, 0] ** 2 * (1- np.sum(np.cos(grads_spherical[:, 1:])**2, axis=1))
-        )
-    return grads
-
 def delete_models(models_path):
     for item in os.listdir(models_path):
         item_path = os.path.join(models_path, item)
@@ -87,8 +70,6 @@ def run_training(
 
     # Prediction
     Y_pred = predict_data(model, X_test)
-
-
     if output_scaling == "mean-std":
         Y_pred = destandardize_data(
             Y_pred, train_y_mean, train_y_std
@@ -103,10 +84,6 @@ def run_training(
         results_dir
         + f"models/gradient/hyperparams/run_{run_params['run_id']}.keras"
     )
-    
-    # Convert to cartesian coordinates
-    # Y_pred = spherical2cartesian(Y_pred)
-    # Y_test = spherical2cartesian(Y_test)
     
     # Losses
     train_loss = history.history['loss'][-1]
@@ -135,14 +112,10 @@ P = best_params.iloc[0, 1]
 Q = best_params.iloc[0, 2]
 
 # Load database
-source = "experiment"
+source = "random"
 X_train, Y_train, X_test, Y_test = load_gradient(
     data_dir + f"gradient/{source}/"
 )
-
-# Convert to spherical coordinates
-# Y_train = cartesian2spherical(Y_train)
-# Y_test = cartesian2spherical(Y_test)
 
 # Scaling
 input_scaling = "min-max"
