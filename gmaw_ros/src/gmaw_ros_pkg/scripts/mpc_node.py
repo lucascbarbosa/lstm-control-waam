@@ -10,8 +10,7 @@ import pandas as pd
 from scipy.interpolate import interp1d
 
 import rospy
-from std_msgs.msg import Float32, Bool, Float64MultiArray
-
+from std_msgs.msg import Float32, Bool
 import time
 
 class MPC:
@@ -460,7 +459,7 @@ mpc = MPC(bead_idx)
 exp_time = 0
 exp_step = 1
 start_time = time.time()
-rospy.wait_for_message("xiris/bead/filtered", Float32)
+# rospy.wait_for_message("xiris/bead/filtered", Float32)
 while not rospy.is_shutdown():
     if mpc.arc_state:
         print(f"Time step: {exp_step}")

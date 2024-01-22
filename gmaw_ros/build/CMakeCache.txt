@@ -397,6 +397,12 @@ _gtest_SOURCES:FILEPATH=/usr/src/gtest/src/gtest.cc
 //The directory containing a CMake configuration file for catkin.
 catkin_DIR:PATH=/opt/ros/noetic/share/catkin/cmake
 
+//Value Computed by CMake
+cmt_ros_pkg_BINARY_DIR:STATIC=/home/lbarbosa/Documents/Github/lstm-control-waam/gmaw_ros/build/cmt_ros_pkg
+
+//Value Computed by CMake
+cmt_ros_pkg_SOURCE_DIR:STATIC=/home/lbarbosa/Documents/Github/lstm-control-waam/gmaw_ros/src/cmt_ros_pkg
+
 //The directory containing a CMake configuration file for cpp_common.
 cpp_common_DIR:PATH=/opt/ros/noetic/share/cpp_common/cmake
 
@@ -451,6 +457,9 @@ gtest_hide_internal_symbols:BOOL=OFF
 
 //Dependencies for the target
 gtest_main_LIB_DEPENDS:STATIC=general;gtest;
+
+//The directory containing a CMake configuration file for kuka_rsi_msgs.
+kuka_rsi_msgs_DIR:PATH=kuka_rsi_msgs_DIR-NOTFOUND
 
 //Path to a library.
 lib:FILEPATH=/opt/ros/noetic/lib/librostime.so

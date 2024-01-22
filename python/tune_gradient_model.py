@@ -112,7 +112,7 @@ P = best_params.iloc[0, 1]
 Q = best_params.iloc[0, 2]
 
 # Load database
-source = "random"
+source = "experiment"
 X_train, Y_train, X_test, Y_test = load_gradient(
     data_dir + f"gradient/{source}/"
 )

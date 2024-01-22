@@ -10,12 +10,14 @@ import pandas as pd
 from scipy.interpolate import interp1d
 
 import rospy
-from std_msgs.msg import Float32, Bool, Float64MultiArray
+from std_msgs.msg import Float32, Bool
 
 import time
 
 class MPC:
-    def __init__(self):
+    def __init__(self, bead_idx):
+
+        self.bead_idx = bead_idx
         # Filepaths
         self.data_dir = f"/home/lbarbosa/Documents/Github/lstm-control-waam/database/"
         self.results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
@@ -76,11 +78,14 @@ class MPC:
         self.process_model.compile(optimizer=self.opt, loss=mean_squared_error)
         
         # Gradient data
+        self.gradient_source = "experiment"
         (self.gradient_input_train,
          self.gradient_output_train,
          _, 
          _) = self.load_gradient()
         
+        self.gradient_inputs = self.gradient_input_train.shape[1]
+        self.gradient_outputs = self.gradient_output_train.shape[1]
         self.gradient_source = "both"
         self.gradient_input_scaling = "min-max"
         self.gradient_output_scaling = "min-max"
@@ -122,7 +127,7 @@ class MPC:
 
         # Define MPC parameters
         self.M = self.P  # control horizon
-        self.N = self.Q  # prediction horizon
+        self.N = self.Q # prediction horizon
         self.weight_control = 1.0
         self.weight_output = 1.0
 
@@ -137,15 +142,13 @@ class MPC:
         self.u_hist = np.zeros((self.P, 1))
         self.y_hist = np.zeros((self.Q, 1))
 
-        # self.u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(self.M, 1)) #
-        self.u_forecast = np.random.uniform(size=(self.M, 1)) #
-
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
         rospy.Subscriber("arc_state", Bool, self.callback_arc)
         self.arc_state = False
         rospy.Subscriber("xiris/bead/filtered", Float32, self.callback_width)
-        self.pub = rospy.Publisher("fronius_remote_command", Float32, queue_size=10)
+        # self.pub = rospy.Publisher("fronius_remote_command", Float32, queue_size=10)
+        self.pub = rospy.Publisher("powersource_command", Float32, queue_size=10)
         self.pub_freq = 10  # sampling frequency of published data
         self.step_time = 1 / self.pub_freq
         self.total_steps = 10
@@ -159,22 +162,31 @@ class MPC:
         self.arc_state = bool(data.data)
 
     def callback_width(self, data):
-        current_time = time.time() - start_time
-        y_row = data.data * int(self.arc_state)
-        rospy.loginfo("Received output w: %f", y_row)
-        self.w.append({'t': current_time, 'w': y_row})
-        if self.process_input_scaling == 'min-max':
-            y_row_scaled = (y_row - self.process_y_min) / (self.process_y_max - self.process_y_min)
-        elif self.process_input_scaling == 'mean-std':
-            y_row_scaled = (y_row - self.process_y_mean) / self.process_y_std
-        self.y_hist = self.update_hist(self.y_hist, y_row_scaled.reshape((1, 1)))
+        if self.arc_state:
+            current_time = time.time() - start_time
+            y_row = data.data
+            rospy.loginfo("Received output w: %f", y_row)
+            self.w.append({'t': current_time, 'w': y_row})
+            if self.process_input_scaling == 'min-max':
+                y_row_scaled = (y_row - self.process_y_min) / (self.process_y_max - self.process_y_min)
+            elif self.process_input_scaling == 'mean-std':
+                y_row_scaled = (y_row - self.process_y_mean) / self.process_y_std
+            self.y_hist = self.update_hist(self.y_hist, y_row_scaled.reshape((1, 1)))
 
     # Load experiment method
     def load_gradient(self):
-        input_train = np.loadtxt(self.data_dir + "gradient/input_train.csv")
-        output_train = np.loadtxt(self.data_dir + "gradient/output_train.csv")
-        input_test = np.loadtxt(self.data_dir + "gradient/input_test.csv")
-        output_test = np.loadtxt(self.data_dir + "gradient/output_test.csv")
+        input_train = np.loadtxt(
+            self.data_dir + f"gradient/{self.gradient_source}/input_train.csv"
+            )
+        output_train = np.loadtxt(
+            self.data_dir + f"gradient/{self.gradient_source}/output_train.csv"
+            )
+        input_test = np.loadtxt(
+            self.data_dir + f"gradient/{self.gradient_source}/input_test.csv"
+            )
+        output_test = np.loadtxt(
+            self.data_dir + f"gradient/{self.gradient_source}/output_test.csv"
+            )
         return input_train, output_train, input_test, output_test
 
     # Load experiment_igor method
@@ -185,7 +197,7 @@ class MPC:
         outputs_test = []
         
         for idx_train in idxs_train:
-            filename_train = f"experiment_igor/bead{idx_train}"
+            filename_train = f"experiment_igor/series/bead{idx_train}"
             input_train = pd.read_csv(self.data_dir + filename_train + "_wfs.csv").to_numpy()
             output_train = pd.read_csv(
                 self.data_dir + filename_train + "_w.csv"
@@ -201,7 +213,7 @@ class MPC:
         outputs_train = np.concatenate(outputs_train, axis=0)
         
         for idx_test in idxs_test:
-            filename_test = f"experiment_igor/bead{idx_test}"
+            filename_test = f"experiment_igor/series/bead{idx_test}"
             input_test = pd.read_csv(self.data_dir + filename_test + "_wfs.csv").to_numpy()
             output_test = pd.read_csv(self.data_dir + filename_test + "_w.csv").to_numpy()
 
@@ -323,15 +335,17 @@ class MPC:
                 if self.gradient_source in ["both", "pred"]:
                     output_tensor = self.process_model(input_tensor)
                     gradient_input = (
-                        np.concatenate([seq_input.ravel(), output_tensor.numpy()[0]])
-                        .reshape(1, self.P + self.Q + 1)
-                    )
+                        seq_input.ravel()[:self.gradient_inputs]
+                        ).reshape(1, self.gradient_inputs)
                     if self.gradient_input_scaling == 'min-max':
                         gradient_input = (gradient_input - self.gradient_x_min) /  \
                         (self.gradient_x_max - self.gradient_x_min)
                     if self.gradient_input_scaling == 'mean-std':
                         gradient_input = (gradient_input - self.gradient_x_mean) / self.gradient_x_std
                     
+                    # print(f'u_H: {u_hist}')
+                    # print(f'u_F: {u_forecast}')
+                    # print(f'g: {gradient_input}')
                     gradient_input = tf.convert_to_tensor(gradient_input)
                     gradient_pred = self.predict_gradient(gradient_input)
 
@@ -386,7 +400,8 @@ class MPC:
     def optimization_function(self, u_hist, y_hist, lr, u_forecast=None, verbose=False):
         opt_time = time.time()
         if u_forecast is None:
-            u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(self.M, 1)) #
+            # u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(self.M, 1)) #
+            u_forecast = np.random.uniform(size=(self.M, 1)) #
         opt_step = 0
         cost = np.inf
         last_cost = cost
@@ -414,7 +429,6 @@ class MPC:
                 converged = False
                 break
         u_opt = u_forecast[0, :]
-        self.u_forecast[:-1 ] = u_forecast[1:]
         u_opt = u_opt[0]
         self.u_hist = self.update_hist(self.u_hist, u_opt.reshape((1, 1)))    
         if self.process_output_scaling == 'min-max':
@@ -427,7 +441,7 @@ class MPC:
         opt_time = time.time() - opt_time
         print(f"Steps: {opt_step} Time: {opt_time:.2f}")
         self.list_performance_opt.append({'Steps': opt_step, 'Time': opt_time, 'Cost': last_cost, 'Converged': converged})
-        return u_opt, y_forecast 
+        return u_opt, u_forecast, y_forecast 
 
     def export_gradient(self):
         np.savetxt(self.results_dir + "predictions/gradient/gradient_reals.csv", np.array(self.gradient_reals))
@@ -438,7 +452,10 @@ class MPC:
         performance_df.to_csv(self.results_dir + f'mpc_performance/gradient_{self.gradient_source}.csv', index=False)
 
 # Create an instance of the MPC class
-mpc = MPC()
+bead_idx = 1
+mpc = MPC(bead_idx)
+# u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(M, 1)) #
+# u_forecast = np.random.uniform(size=(mpc.M, 1)) #
 
 # MPC loop
 exp_time = 0
@@ -448,7 +465,13 @@ rospy.wait_for_message("xiris/bead/filtered", Float32)
 while not rospy.is_shutdown():
     if mpc.arc_state:
         print(f"Time step: {exp_step}")
-        u_opt, y_forecast = mpc.optimization_function(mpc.u_hist, mpc.y_hist, mpc.lr, mpc.u_forecast, True)
+        u_opt, u_forecast, y_forecast = mpc.optimization_function(
+            mpc.u_hist, 
+            mpc.y_hist, 
+            mpc.lr, 
+            u_forecast=None,
+            verbose=True)
+        u_forecast[:-1] = u_forecast[1:]
         # Send the "u_row" variable
         mpc.rate.sleep()
         exp_step += 1

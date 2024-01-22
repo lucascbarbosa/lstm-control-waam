@@ -16,9 +16,6 @@ class Experiment(object):
         self.bead_idx = bead_idx
         self.command_data = pd.read_csv(self.data_dir + f"experiment/commands/bead{bead_idx}.csv").to_numpy()
         
-        # Output data
-        self.output_data = []
-
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
         rospy.Subscriber("arc_state", Bool, self.callback_arc)
@@ -34,15 +31,13 @@ class Experiment(object):
         if not self.arc_state and bool(data.data):
             self.arcon_time = time.time()
         elif self.arc_state and not bool(data.data):
-            self.export_output()
             rospy.signal_shutdown("Shutting down")
         self.arc_state = bool(data.data)
 
     def callback_width(self, data):
-        current_time = time.time() - start_time
-        y_row = data.data * int(self.arc_state)
-        rospy.loginfo("Received output w: %f", y_row)
-        self.output_data.append({'t': current_time, 'w': y_row})
+        y_row = data.data
+        if self.arc_state:
+            rospy.loginfo("Received output w: %f", y_row)
 
     def publish_command(self):
         if self.arc_state:
@@ -53,11 +48,6 @@ class Experiment(object):
                 f = self.command_data[idx, -1]
                 self.pub.publish(f)
                 rospy.loginfo("Sending command wfs: %f", f)
-
-    def export_output(self):
-        self.output_data = pd.DataFrame(self.output_data)
-        self.output_data = self.output_data[self.output_data['w'] > 0]
-        self.output_data.to_csv(self.data_dir + f"experiment/series/output_{self.bead_idx}.csv", index=False) 
 
 pub_freq = 10
 bead_idx = 1
