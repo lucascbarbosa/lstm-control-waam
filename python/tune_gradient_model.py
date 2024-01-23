@@ -112,7 +112,7 @@ P = best_params.iloc[0, 1]
 Q = best_params.iloc[0, 2]
 
 # Load database
-source = "experiment"
+source = "random"
 X_train, Y_train, X_test, Y_test = load_gradient(
     data_dir + f"gradient/{source}/"
 )
@@ -157,7 +157,7 @@ delete_models(results_dir + "models/gradient/hyperparams/")
 hp_search_space = {
     # "batch_size": [16, 32, 64],
     "batch_size": [16],
-    "num_epochs": [50],
+    "num_epochs": [100],
     # "validation_split": [0.1, 0.2, 0.3],
     "validation_split": [0.1],
     "lr": [1e-3],

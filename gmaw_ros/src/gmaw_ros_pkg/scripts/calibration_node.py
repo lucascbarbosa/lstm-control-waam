@@ -53,7 +53,7 @@ pub_freq = 10
 bead_idx = 1
 exp = Experiment(pub_freq, bead_idx)
 start_time = time.time()
-rospy.wait_for_message("xiris/bead/filtered", Float32)
+# rospy.wait_for_message("xiris/bead/filtered", Float32)
 while not rospy.is_shutdown():
     if exp.arc_state:
         exp.rate.sleep()

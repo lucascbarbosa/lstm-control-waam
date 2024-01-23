@@ -59,3 +59,8 @@ for i in range(input_data.shape[0]):
     y = model(input_tensor).numpy()
     y_hist = update_hist(y_hist, y)
     output_data.append(y[0,0])
+
+import matplotlib.pyplot as plt
+
+plt.plot(output_data)
+plt.show()

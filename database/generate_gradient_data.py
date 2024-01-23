@@ -60,17 +60,25 @@ opt = Adam(learning_rate=best_params["lr"])
 process_model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Build input data
-source = "random"
+source = "random" ##
 if source == "random":
-    N = 10_000
     process_inputs = 1
     process_outputs = 1
-    u_process = normalize_data(
-        np.cumsum(
-            np.random.normal(loc=0.0, scale=0.01, size=(N, process_inputs)
-                             )
-            ).reshape((N, process_inputs))
-        )
+    input_type = "step" # or step
+    N = 10_000
+    if input_type == "cont":
+        u_process = normalize_data(
+            np.cumsum(
+                np.random.normal(loc=0.0, scale=0.01, size=(N, process_inputs)
+                                )
+                ).reshape((N, process_inputs))
+            )
+    elif input_type == "step":
+        num_steps = 51
+        step_period = 25 # @ 10 Hz
+        u_process = np.random.randint(0, num_steps, 
+                                      size=(int(N/step_period), process_inputs)) / (num_steps - 1)
+        u_process = np.repeat(u_process, step_period, axis=0)
     y_process = np.zeros((N, process_inputs))
     gradient_inputs = P + 3
     gradient_process = np.zeros((N, P))
@@ -156,3 +164,9 @@ np.savetxt(data_dir + f'gradient/{source}/input_train.csv', input_train)
 np.savetxt(data_dir + f'gradient/{source}/input_test.csv', input_test)
 np.savetxt(data_dir + f'gradient/{source}/output_train.csv', output_train)
 np.savetxt(data_dir + f'gradient/{source}/output_test.csv', output_test)
+
+import matplotlib.pyplot as plt
+plt.plot(u_process, label='u')
+plt.plot(y_process, label='y')
+plt.legend()
+plt.show()

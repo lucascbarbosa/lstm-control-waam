@@ -10,7 +10,7 @@ import pandas as pd
 from scipy.interpolate import interp1d
 
 import rospy
-from std_msgs.msg import Float32, Bool
+from std_msgs.msg import Float32, Bool, Float64MultiArray
 import time
 
 class MPC:
@@ -77,7 +77,7 @@ class MPC:
         self.process_model.compile(optimizer=self.opt, loss=mean_squared_error)
         
         # Gradient data
-        self.gradient_source = "experiment"
+        self.gradient_source = "random" ##
         (self.gradient_input_train,
          self.gradient_output_train,
          _, 
@@ -85,7 +85,7 @@ class MPC:
         
         self.gradient_inputs = self.gradient_input_train.shape[1]
         self.gradient_outputs = self.gradient_output_train.shape[1]
-        self.gradient_source = "both"
+        self.gradient_source = "both" ##
         self.gradient_input_scaling = "min-max"
         self.gradient_output_scaling = "min-max"
         if self.gradient_input_scaling == "mean-std":
@@ -125,8 +125,8 @@ class MPC:
         self.list_performance_opt = []
 
         # Define MPC parameters
-        self.M = self.P  # control horizon
-        self.N = self.Q # prediction horizon
+        self.M = self.P  # control horizon ##
+        self.N = self.Q # prediction horizon ##
         self.weight_control = 1.0
         self.weight_output = 1.0
 
@@ -459,7 +459,7 @@ mpc = MPC(bead_idx)
 exp_time = 0
 exp_step = 1
 start_time = time.time()
-# rospy.wait_for_message("xiris/bead/filtered", Float32)
+rospy.wait_for_message("xiris/bead/filtered", Float32)
 while not rospy.is_shutdown():
     if mpc.arc_state:
         print(f"Time step: {exp_step}")
