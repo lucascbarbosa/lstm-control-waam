@@ -55,14 +55,21 @@ for bead_idx, travel_speed in beads_ts.items():
     f_uv = 8.7 # 80% (m/min)
     input_bounds = (f_lv, f_uv)
 
-    def generate_wfs(N, input_bounds, n_classes):
+    def generate_wfs(N, input_bounds, n_amps, min_diff=3):
         f_lv, f_uv = input_bounds
-        f_binary_signal = np.random.randint(0, n_classes+1, size=N) / n_classes
-        f_signal = f_lv + (f_uv - f_lv) * f_binary_signal
+        amps = np.arange(n_amps)
+        f_step_signal = np.zeros(N, )
+        f_step_signal[0] = amps[len(amps) // 2]
+        for i in range(1, N):
+            current_step = f_step_signal[i-1]
+            valid_amps = amps[np.where((amps >= current_step + min_diff) | (amps <= current_step - min_diff))]
+            f_step_signal[i] = np.random.choice(valid_amps)
+
+        f_signal = f_lv + (f_uv - f_lv) * f_step_signal / (n_amps - 1)
         return np.round(f_signal, 2).tolist()
 
     # Build input data
-    commands = generate_wfs(N, input_bounds, 10)
+    commands = generate_wfs(N, input_bounds, 11, min_diff=4)
     commands = pd.DataFrame({'ti (s)': time_i,
                              'tf (s)': time_f, 
                              'xi (mm)': traj_xi, 
@@ -101,4 +108,4 @@ exp_matrix = exp_matrix[['bead',
             'pre flow',
             'pos flow']]
 
-exp_matrix.to_excel(data_dir + 'commands/experiment_matrix.xlsx', index=False)
+exp_matrix.to_excel(data_dir + 'experiment_matrix.xlsx', index=False)
