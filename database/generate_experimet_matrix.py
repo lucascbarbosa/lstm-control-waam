@@ -108,4 +108,4 @@ exp_matrix = exp_matrix[['bead',
             'pre flow',
             'pos flow']]
 
-exp_matrix.to_excel(data_dir + 'experiment_matrix.xlsx', index=False)
+exp_matrix.to_excel(data_dir + 'experiment_matrix.xlsx', index=False)   
