@@ -14,10 +14,12 @@ with rosbag.Bag(bag_file_path, 'r') as bag:
     for topic, msg, t in bag.read_messages():
         # Process the messages as needed
         if topic == "/xiris/image_raw":
+            
             # Extract image
             image = bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
+
             # Show Image    
-            if show:
-                # cv2.imshow("Image", image)
-                # cv2.waitKey(0)
-                # cv2.destroyAllWindows()
+            # if show:
+            #     cv2.imshow("Image", image)
+            #     cv2.waitKey(0)
+            #     cv2.destroyAllWindows()
