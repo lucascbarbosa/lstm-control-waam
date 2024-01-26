@@ -140,7 +140,6 @@ if output_scaling == "mean-std":
     train_y_means = output_train.mean(axis=0)
     test_y_stds = output_test.std(axis=0)
     test_y_means = output_test.mean(axis=0)
-    
     output_train = standardize_data(output_train)
 
 elif output_scaling == "min-max":
@@ -148,7 +147,6 @@ elif output_scaling == "min-max":
     train_y_maxs = output_train.max(axis=0)
     test_y_mins = output_test.min(axis=0)
     test_y_maxs = output_test.max(axis=0)
-    
     output_train = normalize_data(output_train)
 
 # Remove previous models
@@ -160,9 +158,9 @@ hp_search_space = {
     "Q": np.arange(5, 51, 5),
     "H": [1],
     "batch_size": [16, 32, 64],
-    "num_epochs": [100],
+    "num_epochs": [10],
     "validation_split": [0.1],
-    "lr": [1e-4],
+    "lr": [1e-3],
 }
 
 hp_combinations = list(itertools.product(*hp_search_space.values()))

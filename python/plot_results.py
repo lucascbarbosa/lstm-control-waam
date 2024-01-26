@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from python.process_data import load_simulation, load_experiment
 from scipy.stats import shapiro
 
 # Load data
@@ -32,8 +31,8 @@ def plot_prediction(source="simulation", save=False):
         fig = plt.figure(figsize=(12, 6))
         fig.suptitle("Output prediction")
         plt.title(r"$w_e\;(mm)$")
-        plt.plot(Y_real, color="k", label="Measured")
-        plt.plot(Y_pred, color="r", label="Predicted")
+        plt.plot(Y_real * 1000, color="k", label="Measured")
+        plt.plot(Y_pred * 1000, color="r", label="Predicted")
         plt.legend()
     
     elif source == "mpc":
@@ -180,7 +179,7 @@ def gradient_angle(Y_real, Y_pred):
         angles[i] = angle
     return angles
 
-source = "gradient"
+source = "experiment"
 data_filename = data_dir + f"{source}/"
 
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
@@ -209,8 +208,8 @@ if source == "simulation":
     
     # plot_mpc(mpc_u, mpc_y, y_means,save=False)
 
-elif source == "experiment_igor":
-    for idx_test in range(7,8):
+elif source == "experiment":
+    for idx_test in range(1,2):
         Y_real = np.loadtxt(
             results_dir + f"predictions/{source}/bead{idx_test}_y_real.csv", dtype=np.float64
         )
@@ -228,26 +227,6 @@ elif source == "experiment_igor":
         #     plot_heatmap(batch_size, source=source, save=True)
 
         # plot_mpc(mpc_u, mpc_y, y_means,save=False)
-
-elif source == "experiment":
-    Y_real = np.loadtxt(
-        results_dir + f"predictions/{source}/y_real.csv", dtype=np.float64
-    )
-    Y_pred = np.loadtxt(
-        results_dir + f"predictions/{source}/y_pred.csv", dtype=np.float64
-    )
-    
-    plot_prediction(source=source, save=True)
-    
-    bins = 32
-    # histogram_error(bins, source=source, save=True)
-
-    # batch_sizes = [16, 32, 64]
-    # for batch_size in batch_sizes:
-    #     plot_heatmap(batch_size, source=source, save=True)
-
-    # plot_mpc(mpc_u, mpc_y, y_means,save=False)
-
 
 elif source == "gradient":
     Y_real = np.loadtxt(

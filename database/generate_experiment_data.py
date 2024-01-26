@@ -1,23 +1,10 @@
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
-
+from python.process_data import resample_data
 # File paths
 data_dir = "database/experiment/"
 
-# Functions
-def resample_data(original_data, original_time, new_time):
-    interp_func = interp1d(
-        original_time,
-        original_data,
-        kind="linear",
-        fill_value="extrapolate",
-    )
-
-    resampled_data = np.zeros((new_time.shape[0], 2))
-    resampled_data[:, 0] = new_time
-    resampled_data[:, 1] = interp_func(new_time)
-    return resampled_data
 
 # Select train and test beads
 beads_train = [1]

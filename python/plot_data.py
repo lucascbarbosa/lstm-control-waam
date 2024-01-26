@@ -71,7 +71,7 @@ def plot_experiment(
              command_data[:, 1], 
              where='post', 
              linestyle='--', 
-             color='b', 
+             color='#6B66EC', 
              label='wfs_command')
     ax1.set_xlabel('t')
     ax1.set_ylabel('WFS (m/min)')
@@ -95,7 +95,7 @@ def plot_experiment(
 
 N = None  # Horizon plotted
 source = "experiment"
-scale = False
+scale = True
 save = True
 data_path = data_dir + f"{source}/" 
 if source == "simulation":

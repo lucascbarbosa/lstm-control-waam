@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from scipy.interpolate import  interp1d
 
 def load_train_data(data_dir):
     input_train = pd.read_csv(data_dir + "inputs_train.csv").to_numpy()
@@ -29,6 +30,18 @@ def destandardize_data(x, mean, std):
 def denormalize_data(x, min_val, max_val):
     return x * (max_val - min_val) + min_val
 
+def resample_data(original_data, original_time, new_time):
+    interp_func = interp1d(
+        original_time,
+        original_data,
+        kind="linear",
+        fill_value="extrapolate",
+    )
+
+    resampled_data = np.zeros((new_time.shape[0], 2))
+    resampled_data[:, 0] = new_time
+    resampled_data[:, 1] = interp_func(new_time)
+    return resampled_data
 
 def sequence_data(X, Y, P, Q, H):
     """
