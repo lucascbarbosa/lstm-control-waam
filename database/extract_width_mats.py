@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 
 data_dir = "database/"
-
-train_data = loadmat(data_dir + f'experiment/bags/bead{bead_idx}.mat')
+bead_idx = 1
+train_data = loadmat(data_dir + f'experiment_igor/mats/bead{bead_idx}.mat')
 wfs_df = pd.DataFrame()
 wfs_df['t'] = train_data['powersource_state_time'].ravel()
 wfs_df['wfs'] = train_data['wfs'].ravel()
