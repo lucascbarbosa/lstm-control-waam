@@ -160,10 +160,10 @@ input_train, input_test, output_train, output_test = build_gradient_dataset(
                                                         test_split=0.2
                                                         )
 
-np.savetxt(data_dir + f'gradient/{source}/input_train.csv', input_train)
-np.savetxt(data_dir + f'gradient/{source}/input_test.csv', input_test)
-np.savetxt(data_dir + f'gradient/{source}/output_train.csv', output_train)
-np.savetxt(data_dir + f'gradient/{source}/output_test.csv', output_test)
+np.savetxt(data_dir + f'gradient/{source}/inputs_train.csv', input_train)
+np.savetxt(data_dir + f'gradient/{source}/inputs_test.csv', input_test)
+np.savetxt(data_dir + f'gradient/{source}/outputs_train.csv', output_train)
+np.savetxt(data_dir + f'gradient/{source}/outputs_test.csv', output_test)
 
 import matplotlib.pyplot as plt
 plt.plot(u_process, label='u')

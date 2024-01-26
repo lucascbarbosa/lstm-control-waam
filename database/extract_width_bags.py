@@ -124,19 +124,3 @@ for bead_idx in bead_idxs:
     
     w_df = pd.DataFrame({'t': w_time, 'w': w_data})
     w_df.to_csv(series_path % f'bead{bead_idx}_w.csv', index=False)
-    import matplotlib.pyplot as plt
-
-    fig, ax1 = plt.subplots()
-    fig.set_size_inches((10, 6))
-    ax1.step(power_time, pow2wfs(power_data), where='post', linestyle='--', color='#2ecc71', label='wfs_command')
-    ax1.plot(wfs_time, wfs_data, color='#006400', label='wfs_state')
-    ax1.set_xlabel('t')
-    ax1.set_ylabel('WFS (m/min)')
-
-    ax2 = ax1.twinx()
-    ax2.plot(w_time, w_data * 1000, color='#1f78b4', label='w')
-    ax2.set_ylabel('W (mm)')
-
-    fig.tight_layout()
-    fig.legend(bbox_to_anchor=(0.95, 0.95))
-    fig.show()
