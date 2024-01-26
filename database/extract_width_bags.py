@@ -115,6 +115,9 @@ for bead_idx in bead_idxs:
     power_time = np.concatenate([power_time, w_time[-1:]])
     power_data = np.concatenate([power_data, power_data[-1:]])
 
+    # Remove initial outliers of wfs
+    wfs_data[:np.where(wfs_data > wfs_data.mean())[0][0]] = wfs_data.mean()
+    
     # save data
     wfs_df = pd.DataFrame({'t': wfs_time, 'wfs_state': wfs_data})
     wfs_df.to_csv(series_path % f'bead{bead_idx}_wfs.csv', index=False)

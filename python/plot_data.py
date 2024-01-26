@@ -68,7 +68,7 @@ def plot_experiment(
              color='#000080', 
              label='wfs_state')
     ax1.step(command_data[:, 0], 
-             pow2wfs(command_data[:, 1]), 
+             command_data[:, 1], 
              where='post', 
              linestyle='--', 
              color='b', 
@@ -77,7 +77,10 @@ def plot_experiment(
     ax1.set_ylabel('WFS (m/min)')
 
     ax2 = ax1.twinx()
-    ax2.plot(w_data[:, 0], w_data[:, 1] * 1000, color='#006400', label='w')
+    if scale:
+        ax2.plot(w_data[:, 0], w_data[:, 1], color='#006400', label='w')
+    else:
+        ax2.plot(w_data[:, 0], w_data[:, 1] * 1000, color='#006400', label='w')
     ax2.set_ylabel('W (mm)')
 
     fig.tight_layout()
@@ -93,7 +96,7 @@ def plot_experiment(
 N = None  # Horizon plotted
 source = "experiment"
 scale = False
-save = False
+save = True
 data_path = data_dir + f"{source}/" 
 if source == "simulation":
     inputs_train, outputs_train, inputs_test, outputs_test = load_train_data(data_dir + "simulation/")
@@ -148,7 +151,12 @@ if source == "experiment":
     for bead_idx in bead_idxs:
         bead_filename = data_path + f"series/bead{bead_idx}"
         command_data =  pd.read_csv(bead_filename + "_command.csv").to_numpy()
+        command_data[:, 1:] = pow2wfs(command_data[:, 1:])
         wfs_data =  pd.read_csv(bead_filename + "_wfs.csv").to_numpy()
         w_data =  pd.read_csv(bead_filename + "_w.csv").to_numpy()
-        fig_filename = results_dir + f"plots/experiment_bead{bead_idx}_prediction.png"
+        fig_filename = f"bead{bead_idx}"
+        if scale:
+            wfs_data[:, 1:] = normalize_data(wfs_data[:, 1::])
+            command_data[:, 1:] = normalize_data(command_data[:, 1:])
+            w_data[:, 1:] = normalize_data(w_data[:, 1:])
         plot_experiment(wfs_data, command_data, w_data, fig_filename, save, scale, N)

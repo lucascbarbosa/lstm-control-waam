@@ -1,5 +1,5 @@
 from python.process_data import (
-    load_experiment,
+    load_train_data,
     normalize_data,
     standardize_data,
 )
@@ -91,18 +91,11 @@ def run_training(
                 Y_pred[:, i], train_y_means[i], train_y_stds[i]
             )  # Destandardize
 
-            Y_test[:, i] = destandardize_data(
-                Y_test[:, i], test_y_means[i], test_y_stds[i]
-            )  # Destandardize
         elif output_scaling == "min-max":
             Y_pred[:, i] = denormalize_data(
                 Y_pred[:, i], train_y_mins[i], train_y_maxs[i]
             )  # Denormalize
 
-            Y_test[:, i] = denormalize_data(
-                Y_test[:, i], test_y_mins[i], test_y_maxs[i]
-            )  # Denormalize
-    
     model.save(
         results_dir
         + f"models/experiment/hyperparams/run_{run_params['run_id']}.keras"
@@ -121,9 +114,14 @@ def run_training(
 
 
 # Load database
-input_train, output_train, input_test, output_test = load_experiment(
+input_train, output_train, input_test, output_test = load_train_data(
     data_dir + "experiment/"
     )
+
+input_train = input_train[:, 1:]
+input_test = input_test[:, 1:]
+output_train = output_train[:, 1:]
+output_test = output_test[:, 1:]
 
 num_features_input = num_features_output = 1
 
@@ -144,7 +142,6 @@ if output_scaling == "mean-std":
     test_y_means = output_test.mean(axis=0)
     
     output_train = standardize_data(output_train)
-    output_test = standardize_data(output_test)
 
 elif output_scaling == "min-max":
     train_y_mins = output_train.min(axis=0)
@@ -153,7 +150,6 @@ elif output_scaling == "min-max":
     test_y_maxs = output_test.max(axis=0)
     
     output_train = normalize_data(output_train)
-    output_test = normalize_data(output_test)
 
 # Remove previous models
 delete_models(results_dir + "models/experiment/hyperparams/")
