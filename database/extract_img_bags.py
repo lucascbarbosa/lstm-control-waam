@@ -30,9 +30,3 @@ with rosbag.Bag(bag_file_path, 'r') as bag:
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
 
-
-out = cv2.VideoWriter(video_file_path,cv2.VideoWriter_fourcc(*'XVID'), 30, size)
- 
-for i in range(len(list_images)):
-    out.write(list_images[i])
-out.release()

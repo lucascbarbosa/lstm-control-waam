@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-
+import sys
 import rospy
 from std_msgs.msg import Float32, Bool, Float64MultiArray, MultiArrayDimension
 
@@ -55,10 +55,10 @@ class Experiment(object):
         return (f - 1.5)*100/9
     
 pub_freq = 10
-bead_idx = 1
+args = rospy.myargv(argv=sys.argv)
+bead_idx = int(args[1])
 exp = Experiment(pub_freq, bead_idx)
 start_time = time.time()
-# rospy.wait_for_message("xiris/bead/filtered", Float32)
 while not rospy.is_shutdown():
     if exp.arc_state:
         exp.publish_command()
