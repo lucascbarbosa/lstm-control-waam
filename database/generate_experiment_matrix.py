@@ -70,8 +70,8 @@ for bead_idx, travel_speed in beads_ts.items():
 
     # Build input data
     commands = generate_wfs(N, input_bounds, 11, min_diff=4)
-    commands = pd.DataFrame({'ti (s)': time_i,
-                             'tf (s)': time_f, 
+    commands = pd.DataFrame({'ti (s)': np.round(time_i, 2),
+                             'tf (s)': np.round(time_f, 2), 
                              'xi (mm)': traj_xi, 
                              'yi (mm)': traj_yi,
                              'xf (mm)': traj_xf, 
