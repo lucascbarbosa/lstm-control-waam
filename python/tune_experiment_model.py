@@ -1,4 +1,5 @@
 from python.process_data import (
+    build_train_data,
     load_train_data,
     normalize_data,
     standardize_data,
@@ -25,7 +26,6 @@ def delete_models(models_path):
     for item in os.listdir(models_path):
         item_path = os.path.join(models_path, item)
         os.remove(item_path)
-
 
 def run_training(
     input_train,
@@ -114,6 +114,10 @@ def run_training(
 
 
 # Load database
+beads_train = [1]
+beads_test = [1]
+
+build_train_data(data_dir + "experiment/", beads_train, beads_test)
 input_train, output_train, input_test, output_test = load_train_data(
     data_dir + "experiment/"
     )

@@ -49,6 +49,7 @@ def plot_simulation(
             fig.savefig(results_dir + f"plots/{source}_{fig_filename}_raw.png")
 
 def plot_experiment(
+        bead_idx,
         wfs_data,
         command_data,
         w_data,
@@ -74,17 +75,21 @@ def plot_experiment(
              color='#6B66EC', 
              label='wfs_command')
     ax1.set_xlabel('t')
-    ax1.set_ylabel('WFS (m/min)')
 
     ax2 = ax1.twinx()
+
     if scale:
+        ax1.set_ylabel('WFS')
         ax2.plot(w_data[:, 0], w_data[:, 1], color='#006400', label='w')
+        ax2.set_ylabel('W')
     else:
         ax2.plot(w_data[:, 0], w_data[:, 1] * 1000, color='#006400', label='w')
-    ax2.set_ylabel('W (mm)')
+        ax2.set_ylabel('W (mm)')
+        ax1.set_ylabel('WFS (m/min)')
 
+    fig.suptitle(f'Process parameters of Bead {bead_idx}')
     fig.tight_layout()
-    fig.legend(bbox_to_anchor=(0.95, 0.95))
+    fig.legend(bbox_to_anchor=(0.94, 0.92))
     fig.show()
 
     if save:
@@ -95,8 +100,8 @@ def plot_experiment(
 
 N = None  # Horizon plotted
 source = "experiment"
-scale = True
-save = True
+scale = False
+save = False
 data_path = data_dir + f"{source}/" 
 if source == "simulation":
     inputs_train, outputs_train, inputs_test, outputs_test = load_train_data(data_dir + "simulation/")
@@ -159,4 +164,4 @@ if source == "experiment":
             wfs_data[:, 1:] = normalize_data(wfs_data[:, 1::])
             command_data[:, 1:] = normalize_data(command_data[:, 1:])
             w_data[:, 1:] = normalize_data(w_data[:, 1:])
-        plot_experiment(wfs_data, command_data, w_data, fig_filename, save, scale, N)
+        plot_experiment(bead_idx, wfs_data, command_data, w_data, fig_filename, save, scale, N)

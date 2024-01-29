@@ -41,6 +41,24 @@ def slice_data(power_time, power_data, wfs_time, wfs_data, w_time, w_data, arc_t
 def pow2wfs(power_data):
     return (power_data*9/100) + 1.5
 
+def filter_start(power_time, power_data, wfs_time, wfs_data, w_time, w_data):
+    start_time = 4.0
+    
+    w_start = np.where(w_time >= start_time)[0][0]
+    w_time = w_time[w_start:]
+    w_data = w_data[w_start:]
+
+    # Remove initial outliers of wfs
+    wfs_start = np.where(wfs_time >= start_time)[0][0]
+    wfs_time = wfs_time[wfs_start:]
+    wfs_data = wfs_data[wfs_start:]
+
+    # Remove initial outliers of power command
+    power_start = np.where(power_time >= start_time)[0][0]
+    power_time = power_time[power_start-1:]
+    power_data = power_data[power_start-1:]
+    power_time[0] = start_time
+    return power_time, power_data, wfs_time, wfs_data, w_time, w_data
 
 bead_idxs = list(range(1,2))
 for bead_idx in bead_idxs:
@@ -101,13 +119,18 @@ for bead_idx in bead_idxs:
     arc_times = get_arc_times(arc_time, arc_state)
 
     # Remove arc_offs
-    power_time, power_data, wfs_time, wfs_data, w_time, w_data = slice_data(power_time, 
-                                                        power_data, 
-                                                        wfs_time, 
-                                                        wfs_data, 
-                                                        w_time, 
-                                                        w_data, 
-                                                        arc_times)
+    (power_time, 
+     power_data, 
+     wfs_time, 
+     wfs_data, 
+     w_time, 
+     w_data) = slice_data(power_time, 
+                          power_data, 
+                          wfs_time, 
+                          wfs_data, 
+                          w_time, 
+                          w_data, 
+                          arc_times)
     arc_time = arc_time - arc_times[0]
     power_time = power_time - arc_times[0]
     wfs_time = wfs_time - arc_times[0]
@@ -115,8 +138,18 @@ for bead_idx in bead_idxs:
     power_time = np.concatenate([power_time, w_time[-1:]])
     power_data = np.concatenate([power_data, power_data[-1:]])
 
-    # Remove initial outliers of wfs
-    wfs_data[:np.where(wfs_data > wfs_data.mean())[0][0]] = wfs_data.mean()
+    # Remove initial dynamics
+    (power_time, 
+     power_data, 
+     wfs_time, 
+     wfs_data, 
+     w_time, 
+     w_data)  = filter_start(power_time, 
+                             power_data, 
+                             wfs_time, 
+                             wfs_data, 
+                             w_time, 
+                             w_data)
     
     # save data
     wfs_df = pd.DataFrame({'t': wfs_time, 'wfs_state': wfs_data})
