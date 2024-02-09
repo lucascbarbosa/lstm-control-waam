@@ -20,12 +20,14 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 data_dir = "database/"
 results_dir = "results/"
 
+
 ############
 # Function #
 def delete_models(models_path):
     for item in os.listdir(models_path):
         item_path = os.path.join(models_path, item)
         os.remove(item_path)
+
 
 def run_training(
     input_train,
@@ -34,7 +36,11 @@ def run_training(
     output_test,
     run_params,
 ):
-    from python.process_data import sequence_data, destandardize_data, denormalize_data
+    from python.process_data import (
+        sequence_data,
+        destandardize_data,
+        denormalize_data,
+    )
     from python.process_model import create_model, train_model, predict_data
 
     def compute_metrics(Y_pred, Y_real):
@@ -64,7 +70,7 @@ def run_training(
     # Define model
     model = create_model(
         sequence_length,
-        num_features_input, 
+        num_features_input,
         num_features_output,
         run_params["lr"],
         random_seed=42,
@@ -82,7 +88,6 @@ def run_training(
         verbose=verbose_level,
     )
 
-    
     # Prediction
     Y_pred = predict_data(model, X_test)
     for i in range(num_features_output):
@@ -100,12 +105,12 @@ def run_training(
         results_dir
         + f"models/experiment/hyperparams/run_{run_params['run_id']}.keras"
     )
-    
-    training_loss = history.history['loss'][-1]
-    validation_loss = history.history['val_loss'][-1]
+
+    training_loss = history.history["loss"][-1]
+    validation_loss = history.history["val_loss"][-1]
     test_loss = compute_metrics(Y_test, Y_pred)
     print(f"Run: {run_params['run_id']}. Loss: {test_loss:.4f}.")
-    
+
     metrics = run_params
     metrics["train_loss"] = training_loss
     metrics["val_loss"] = validation_loss
@@ -120,7 +125,7 @@ beads_test = [1]
 build_train_data(data_dir + "experiment/", beads_train, beads_test)
 input_train, output_train, input_test, output_test = load_train_data(
     data_dir + "experiment/"
-    )
+)
 
 input_train = input_train[:, 1:]
 input_test = input_test[:, 1:]
@@ -207,7 +212,7 @@ metrics_df = (
 metrics_df.to_csv(results_dir + "models/experiment/hp_metrics.csv")
 print(metrics_df)
 
-best_model_id = input('Best model id: ')
+best_model_id = input("Best model id: ")
 best_model = load_model(
     results_dir + f"models/experiment/hyperparams/run_{best_model_id}.keras"
 )
