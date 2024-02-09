@@ -54,6 +54,18 @@ for bead_idx, travel_speed in beads_ts.items():
     input_bounds = (f_lv, f_uv)
 
     def generate_wfs(N, input_bounds, n_amps, min_diff=3):
+        """
+        Compute wfs commands
+
+        Args:
+            N (int): number of commands
+            input_bounds (tuple): lower and upper bounds of command
+            n_amps (int): number of possible amplitudes for command
+            min_diff (int): number of minimal change in amplitude of command
+
+        Returns:
+            np.array: wfs commands
+        """
         f_lv, f_uv = input_bounds
         amps = np.arange(n_amps)
         f_step_signal = np.zeros(

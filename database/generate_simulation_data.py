@@ -28,6 +28,19 @@ input_bounds = (f_lv, f_uv, Ir_lv, Ir_uv)
 
 
 def generate_dataset(N, input_bounds, n_classes, x0):
+    """
+    Generate simulation data
+
+    Args:
+        N (int): number of elements of dataset
+        input_bounds (tuple): bounds of input dataset
+        n_classes (int): number of possible amplitudes for input
+        x0 (list): initial state
+
+    Returns:
+        inputs (np.array): input data
+        outputs (np.array): output data
+    """
     inputs = np.zeros((N, n_inputs))
     outputs = np.zeros((N, n_outputs))
 

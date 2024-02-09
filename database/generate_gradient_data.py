@@ -20,12 +20,32 @@ results_dir = "results/"
 
 # Functions
 def build_sequence(u, y):
+    """
+    Build sequence input from history arrays
+
+    Args:
+        u (np.array): historical inputs
+        y (np.array): historical outputs
+
+    Returns:
+        np.array: sequence input
+    """
     u = u.ravel()
     y = y.ravel()
     return np.hstack((u, y)).reshape((1, P + Q, 1))
 
 
 def update_hist(current_hist, new_states):
+    """
+    Updates history array
+
+    Args:
+        current_hist (np.array): current history array
+        new_states (np.array): new elements to be added in the file
+
+    Returns
+        new_hist (np.array): updated history array
+    """
     new_hist = current_hist.copy()
     len_new = new_states.shape[0]
     new_hist[:-len_new, :] = current_hist[len_new:, :]
@@ -36,6 +56,21 @@ def update_hist(current_hist, new_states):
 def build_gradient_dataset(
     X_process, gradient_process, gradient_inputs, test_split
 ):
+    """
+    Builds gradient dataset
+
+    Args:
+        X_process (np.array): sequenced input from process data
+        gradient_process (np.array): gradients of each input-output pair of process data
+        gradient_inputs (np.array): pair input-output used to gradient dataset input
+        test_split (float): percentage of dataset used to test
+
+    Returns:
+        input_train (np.array): inputs of train dataset
+        output_train (np.array): outputs of train dataset
+        input_test (np.array): inputs of test dataset
+        output_test (np.array): outputs of test dataset
+    """
     input_gradient = X_process[:, :gradient_inputs]
     output_gradient = gradient_process
     idx_split = int(N * (1 - test_split))
@@ -48,9 +83,19 @@ def build_gradient_dataset(
 
 
 def split_gradient(seq):
+    """Split gradient in the portion w.r.t. the inputs and outputs
+
+    Args:
+        seq (np.array): sequence input model
+
+    Returns:
+        input_gradient (np.array): gradient w.r.t. the inputs
+        output_gradient (np.array): gradient w.r.t. the outputs
+    """
     seq = seq.ravel()
     input_gradient = seq[: 1 * P]
-    return input_gradient
+    output_gradient = seq[1 * P :]
+    return input_gradient, output_gradient
 
 
 # Process model parameters
@@ -107,7 +152,7 @@ if source == "random":
                 gradient = t.gradient(
                     output_tensor[:, j], input_tensor
                 ).numpy()[0, :, 0]
-                gradient = split_gradient(gradient)
+                gradient, _ = split_gradient(gradient)
                 gradient_process[i, :] = gradient
 
         y_row = output_tensor.numpy()
@@ -156,7 +201,7 @@ elif source == "experiment":
                 gradient = t.gradient(
                     output_tensor[:, j], input_tensor
                 ).numpy()[0, :, 0]
-                gradient = split_gradient(gradient)
+                gradient, _ = split_gradient(gradient)
                 gradient_process[i, :] = gradient
 
 input_train, input_test, output_train, output_test = build_gradient_dataset(
