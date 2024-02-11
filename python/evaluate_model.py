@@ -25,6 +25,7 @@ import os
 data_dir = "database/"
 results_dir = "results/"
 
+
 # Functions
 def compute_metrics(Y_pred, Y_real):
     mses = []
@@ -33,17 +34,21 @@ def compute_metrics(Y_pred, Y_real):
     mses = np.mean(sq_error, axis=0)
     return mses
 
+
 def gradient_angle(Y_pred, Y_real):
-        angles = np.zeros(Y_real.shape[0])
-        for i in range(Y_real.shape[0]):
-            vec_real = Y_real[i, :]
-            vec_pred = Y_pred[i, :]
-            dot_product = np.dot(vec_real, vec_pred)
-            norm_vec_real = np.linalg.norm(vec_real)
-            norm_vec_pred = np.linalg.norm(vec_pred)
-            angle = np.degrees(np.arccos(dot_product / (norm_vec_real * norm_vec_pred)))
-            angles[i] = angle
-        return angles
+    angles = np.zeros(Y_real.shape[0])
+    for i in range(Y_real.shape[0]):
+        vec_real = Y_real[i, :]
+        vec_pred = Y_pred[i, :]
+        dot_product = np.dot(vec_real, vec_pred)
+        norm_vec_real = np.linalg.norm(vec_real)
+        norm_vec_pred = np.linalg.norm(vec_pred)
+        angle = np.degrees(
+            np.arccos(dot_product / (norm_vec_real * norm_vec_pred))
+        )
+        angles[i] = angle
+    return angles
+
 
 def update_hist(current_hist, new_states):
     new_hist = current_hist.copy()
@@ -52,6 +57,7 @@ def update_hist(current_hist, new_states):
     new_hist[-len_new:, :] = new_states
     return new_hist
 
+
 def build_sequence(u_hist, y_hist):
     u = u_hist.ravel()
     y = y_hist.ravel()
@@ -59,8 +65,10 @@ def build_sequence(u_hist, y_hist):
     Q = y_hist.shape[0]
     return np.hstack((u, y)).reshape((1, 1 * (P + Q), 1))
 
+
 def pow2wfs(power_data):
-    return (power_data*9/100) + 1.5
+    return (power_data * 9 / 100) + 1.5
+
 
 source = "experiment"
 input_scaling = "min-max"
@@ -80,9 +88,7 @@ model.compile(
 
 # Load and sequence data accordingly
 if source == "simulation":
-    _, _, inputs_test, outputs_test = load_simulation(
-        data_dir + f"{source}/"
-    )
+    _, _, inputs_test, outputs_test = load_simulation(data_dir + f"{source}/")
     y_means = outputs_test.mean(axis=0)
     y_stds = outputs_test.std(axis=0)
 
@@ -131,16 +137,18 @@ elif source == "experiment":
 
     for bead_idx in range(1, 2):
         bead_filename = data_dir + f"{source}/series/bead{bead_idx}"
-        input_test =  pd.read_csv(bead_filename + "_wfs.csv").to_numpy()
-        output_test =  pd.read_csv(bead_filename + "_w.csv").to_numpy() 
+        input_test = pd.read_csv(bead_filename + "_wfs.csv").to_numpy()
+        output_test = pd.read_csv(bead_filename + "_w.csv").to_numpy()
 
         # Resample
-        input_test = resample_data(input_test[:, 1], input_test[:, 0], output_test[:, 0])
+        input_test = resample_data(
+            input_test[:, 1], input_test[:, 0], output_test[:, 0]
+        )
 
         # Remove time
         input_test = input_test[:, 1:]
         output_test = output_test[:, 1:]
-        
+
         num_features_input = 1
         num_features_output = 1
 
@@ -196,8 +204,14 @@ elif source == "experiment":
                     Y_real[:, i], test_y_mins[i], test_y_maxs[i]
                 )  # Denormalize
         # Save real and predicted data
-        np.savetxt(results_dir + f"predictions/experiment/bead{bead_idx}_y_real.csv", Y_real)
-        np.savetxt(results_dir + f"predictions/experiment/bead{bead_idx}_y_pred.csv", Y_pred)
+        np.savetxt(
+            results_dir + f"predictions/experiment/bead{bead_idx}_y_real.csv",
+            Y_real,
+        )
+        np.savetxt(
+            results_dir + f"predictions/experiment/bead{bead_idx}_y_pred.csv",
+            Y_pred,
+        )
 
         mse = compute_metrics(Y_pred, Y_real)
         print(f"MSE for bead {bead_idx}: we={mse[0]}")
@@ -210,10 +224,10 @@ elif source == "gradient":
     )
 
     N = len(X_train)
-    X_train = X_train[: N]
-    X_test = X_test[: N]
-    Y_train = Y_train[: N]
-    Y_test = Y_test[: N]
+    X_train = X_train[:N]
+    X_test = X_test[:N]
+    Y_train = Y_train[:N]
+    Y_test = Y_test[:N]
 
     # Scaling
     input_scaling = "min-max"
@@ -241,8 +255,8 @@ elif source == "gradient":
         Y_train = normalize_data(Y_train)
 
     # Reshape to fit model input
-    X_train = X_train.reshape((X_train.shape[0], X_train.shape[1], 1)) 
-    X_test = X_test.reshape((X_test.shape[0], X_test.shape[1], 1)) 
+    X_train = X_train.reshape((X_train.shape[0], X_train.shape[1], 1))
+    X_test = X_test.reshape((X_test.shape[0], X_test.shape[1], 1))
 
     # Predict data
     Y_pred = predict_data(model, X_test)
@@ -255,7 +269,7 @@ elif source == "gradient":
         Y_pred = denormalize_data(
             Y_pred, train_y_min, train_y_max
         )  # Denormalize
-    
+
     Y_real = Y_test
     angles = gradient_angle(Y_pred, Y_real)
 
@@ -263,12 +277,12 @@ elif source == "gradient":
 
     # Angles error
     angles = gradient_angle(Y_real, Y_pred)
-    fig  = plt.figure(figsize=(20, 9))
+    fig = plt.figure(figsize=(20, 9))
     avg = np.mean(angles)
-    plt.title('Angular error between real and predicted gradients')
+    plt.title("Angular error between real and predicted gradients")
     sns.histplot(angles, bins=128)
-    plt.axvline(90, linestyle='--', color='black', label= '90 deg')
-    plt.axvline(avg, linestyle='--', color='red', label=f'Mean: {avg:.2f}')
+    plt.axvline(90, linestyle="--", color="black", label="90 deg")
+    plt.axvline(avg, linestyle="--", color="red", label=f"Mean: {avg:.2f}")
     plt.legend()
     plt.tight_layout()
 
@@ -286,9 +300,11 @@ elif source == "gradient":
             linewidth=2,
             label=f"Mean: {avg*1e3:.1f}e-3",
         )
-        axs[i].set_title(r"Gradient error histogram w.r.t. u[t-%s]"%(num_outputs - i))
+        axs[i].set_title(
+            r"Gradient error histogram w.r.t. u[t-%s]" % (num_outputs - i)
+        )
         axs[i].legend()
-    
+
     plt.tight_layout()
     plt.show()
 

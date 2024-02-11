@@ -11,9 +11,11 @@ import matplotlib.pyplot as plt
 data_dir = "database/"
 results_dir = "results/"
 
+
 # Functions
 def pow2wfs(power_data):
-    return (power_data*9/100) + 1.5
+    return (power_data * 9 / 100) + 1.5
+
 
 def plot_simulation(
     data,
@@ -40,7 +42,7 @@ def plot_simulation(
     else:
         for i in range(data.shape[1]):
             axs[i].plot(range(N), data[:N, i] * 1000)
-    
+
     plt.tight_layout()
     if save:
         if scale:
@@ -48,46 +50,51 @@ def plot_simulation(
         else:
             fig.savefig(results_dir + f"plots/{source}_{fig_filename}_raw.png")
 
+
 def plot_experiment(
-        bead_idx,
-        wfs_data,
-        command_data,
-        w_data,
-        fig_filename, 
-        save=True,
-        scale=True,
-        N = None
+    bead_idx,
+    wfs_data,
+    command_data,
+    w_data,
+    fig_filename,
+    save=True,
+    scale=True,
+    N=None,
 ):
     if N == None:
         N = w_data.shape[0]
-    
+
     fig, ax1 = plt.subplots()
     fig.set_size_inches((10, 6))
-    ax1.step(wfs_data[:, 0], 
-             wfs_data[:, 1], 
-             where='post', 
-             color='#000080', 
-             label='wfs_state')
-    ax1.step(command_data[:, 0], 
-             command_data[:, 1], 
-             where='post', 
-             linestyle='--', 
-             color='#6B66EC', 
-             label='wfs_command')
-    ax1.set_xlabel('t')
+    ax1.step(
+        wfs_data[:, 0],
+        wfs_data[:, 1],
+        where="post",
+        color="#000080",
+        label="wfs_state",
+    )
+    ax1.step(
+        command_data[:, 0],
+        command_data[:, 1],
+        where="post",
+        linestyle="--",
+        color="#6B66EC",
+        label="wfs_command",
+    )
+    ax1.set_xlabel("t")
 
     ax2 = ax1.twinx()
 
     if scale:
-        ax1.set_ylabel('WFS')
-        ax2.plot(w_data[:, 0], w_data[:, 1], color='#006400', label='w')
-        ax2.set_ylabel('W')
+        ax1.set_ylabel("WFS")
+        ax2.plot(w_data[:, 0], w_data[:, 1], color="#006400", label="w")
+        ax2.set_ylabel("W")
     else:
-        ax2.plot(w_data[:, 0], w_data[:, 1] * 1000, color='#006400', label='w')
-        ax2.set_ylabel('W (mm)')
-        ax1.set_ylabel('WFS (m/min)')
+        ax2.plot(w_data[:, 0], w_data[:, 1] * 1000, color="#006400", label="w")
+        ax2.set_ylabel("W (mm)")
+        ax1.set_ylabel("WFS (m/min)")
 
-    fig.suptitle(f'Process parameters of Bead {bead_idx}')
+    fig.suptitle(f"Process parameters of Bead {bead_idx}")
     fig.tight_layout()
     fig.legend(bbox_to_anchor=(0.94, 0.92))
     fig.show()
@@ -98,24 +105,29 @@ def plot_experiment(
         else:
             fig.savefig(results_dir + f"plots/{source}_{fig_filename}_raw.png")
 
+
 N = None  # Horizon plotted
 source = "experiment"
 scale = False
 save = False
-data_path = data_dir + f"{source}/" 
+data_path = data_dir + f"{source}/"
 if source == "simulation":
-    inputs_train, outputs_train, inputs_test, outputs_test = load_train_data(data_dir + "simulation/")
+    inputs_train, outputs_train, inputs_test, outputs_test = load_train_data(
+        data_dir + "simulation/"
+    )
     database = [inputs_train, outputs_train, inputs_test, outputs_test]
     data_labels = [
         ["f\;(mm/min)", "I_r\;(A)"],
         ["w_e\;(mm)", "h\;(mm)"],
         ["f\;(mm/min)", "I_r\;(A)"],
-        ["w_e\;(mm)", "h\;(mm)"]]
+        ["w_e\;(mm)", "h\;(mm)"],
+    ]
     data_labels_scaled = [
         ["f", "I_r"],
         ["w_e", "h"],
         ["f", "I_r"],
-        ["w_e", "h"]]
+        ["w_e", "h"],
+    ]
 
     if scale:
         data_labels = data_labels_scaled
@@ -155,13 +167,22 @@ if source == "experiment":
     bead_idxs = [1]
     for bead_idx in bead_idxs:
         bead_filename = data_path + f"series/bead{bead_idx}"
-        command_data =  pd.read_csv(bead_filename + "_command.csv").to_numpy()
+        command_data = pd.read_csv(bead_filename + "_command.csv").to_numpy()
         command_data[:, 1:] = pow2wfs(command_data[:, 1:])
-        wfs_data =  pd.read_csv(bead_filename + "_wfs.csv").to_numpy()
-        w_data =  pd.read_csv(bead_filename + "_w.csv").to_numpy()
+        wfs_data = pd.read_csv(bead_filename + "_wfs.csv").to_numpy()
+        w_data = pd.read_csv(bead_filename + "_w.csv").to_numpy()
         fig_filename = f"bead{bead_idx}"
         if scale:
             wfs_data[:, 1:] = normalize_data(wfs_data[:, 1::])
             command_data[:, 1:] = normalize_data(command_data[:, 1:])
             w_data[:, 1:] = normalize_data(w_data[:, 1:])
-        plot_experiment(bead_idx, wfs_data, command_data, w_data, fig_filename, save, scale, N)
+        plot_experiment(
+            bead_idx,
+            wfs_data,
+            command_data,
+            w_data,
+            fig_filename,
+            save,
+            scale,
+            N,
+        )

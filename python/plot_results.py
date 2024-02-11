@@ -8,6 +8,7 @@ from scipy.stats import shapiro
 data_dir = "database/"
 results_dir = "results/"
 
+
 # Plot prediction
 def plot_prediction(source="simulation", save=False):
     if source == "simulation":
@@ -34,7 +35,7 @@ def plot_prediction(source="simulation", save=False):
         plt.plot(Y_real * 1000, color="k", label="Measured")
         plt.plot(Y_pred * 1000, color="r", label="Predicted")
         plt.legend()
-    
+
     elif source == "mpc":
         fig = plt.figure(figsize=(12, 6))
         fig.suptitle("MPC control prediction")
@@ -42,13 +43,16 @@ def plot_prediction(source="simulation", save=False):
         plt.step(x=range(len(Y_real)), y=Y_real, color="k", label="Measured")
         plt.step(x=range(len(Y_pred)), y=Y_pred, color="r", label="Predicted")
         plt.legend()
-    
+
     fig.tight_layout()
     if save:
         if source == "simulation":
             plt.savefig(results_dir + f"plots/{source}_lstm_prediction.png")
         elif source == "experiment":
-            plt.savefig(results_dir + f"plots/{source}_bead{idx_test}_lstm_prediction.png")
+            plt.savefig(
+                results_dir
+                + f"plots/{source}_bead{idx_test}_lstm_prediction.png"
+            )
         elif source == "mpc":
             plt.savefig(results_dir + f"plots/{source}_lstm_prediction.png")
     plt.show()
@@ -116,7 +120,10 @@ def histogram_error(bins, source="simulation", save=False):
 
         plt.subplots_adjust(hspace=0.5)
         if save:
-            plt.savefig(results_dir + f"plots/{source}_bead{idx_test}_error_histogram.png")
+            plt.savefig(
+                results_dir
+                + f"plots/{source}_bead{idx_test}_error_histogram.png"
+            )
 
     plt.show()
 
@@ -158,14 +165,15 @@ def plot_mpc(u, y, y_ref, save=True):
     for i in range(2):
         axs[i].plot(y[:, i] * 1000, color="red")
         axs[i].set_xlabel("t")
-        axs[i].set_ylabel(y_labels[i] + ' (mm)')
-        axs[i].axhline(y_ref[i]* 1000, color="black", linestyle="--")
+        axs[i].set_ylabel(y_labels[i] + " (mm)")
+        axs[i].axhline(y_ref[i] * 1000, color="black", linestyle="--")
 
     plt.tight_layout()
 
     if save:
         plt.savefig(results_dir + f"plots/{source}_mpc_outputs.png")
     plt.show()
+
 
 def gradient_angle(Y_real, Y_pred):
     angles = np.zeros(Y_real.shape[0])
@@ -175,15 +183,20 @@ def gradient_angle(Y_real, Y_pred):
         dot_product = np.dot(vec_real, vec_pred)
         norm_vec_real = np.linalg.norm(vec_real)
         norm_vec_pred = np.linalg.norm(vec_pred)
-        angle = np.degrees(np.arccos(dot_product / (norm_vec_real * norm_vec_pred)))
+        angle = np.degrees(
+            np.arccos(dot_product / (norm_vec_real * norm_vec_pred))
+        )
         angles[i] = angle
     return angles
+
 
 source = "experiment"
 data_filename = data_dir + f"{source}/"
 
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
-metrics_df["test_loss"] = metrics_df["test_loss"].apply(lambda x: np.nan if x > 1 else x)
+metrics_df["test_loss"] = metrics_df["test_loss"].apply(
+    lambda x: np.nan if x > 1 else x
+)
 
 # mpc_u = pd.read_csv(results_dir + f"mpc/{source}/u.csv")
 # mpc_u = mpc_u.iloc[:-1, :]
@@ -205,20 +218,22 @@ if source == "simulation":
     # batch_sizes = [16, 32, 64]
     # for batch_size in batch_sizes:
     #     plot_heatmap(batch_size, source=source, save=True)
-    
+
     # plot_mpc(mpc_u, mpc_y, y_means,save=False)
 
 elif source == "experiment":
-    for idx_test in range(1,2):
+    for idx_test in range(1, 2):
         Y_real = np.loadtxt(
-            results_dir + f"predictions/{source}/bead{idx_test}_y_real.csv", dtype=np.float64
+            results_dir + f"predictions/{source}/bead{idx_test}_y_real.csv",
+            dtype=np.float64,
         )
         Y_pred = np.loadtxt(
-            results_dir + f"predictions/{source}/bead{idx_test}_y_pred.csv", dtype=np.float64
+            results_dir + f"predictions/{source}/bead{idx_test}_y_pred.csv",
+            dtype=np.float64,
         )
-        
+
         plot_prediction(source=source, save=True)
-        
+
         bins = 32
         # histogram_error(bins, source=source, save=True)
 
@@ -230,22 +245,24 @@ elif source == "experiment":
 
 elif source == "gradient":
     Y_real = np.loadtxt(
-        results_dir + f"predictions/{source}/gradient_reals.csv", dtype=np.float64
+        results_dir + f"predictions/{source}/gradient_reals.csv",
+        dtype=np.float64,
     )
     Y_pred = np.loadtxt(
-        results_dir + f"predictions/{source}/gradient_preds.csv", dtype=np.float64
+        results_dir + f"predictions/{source}/gradient_preds.csv",
+        dtype=np.float64,
     )
-    
+
     num_outputs = Y_pred.shape[1]
 
     # Angles error
     angles = gradient_angle(Y_real, Y_pred)
-    fig  = plt.figure(figsize=(20, 9))
+    fig = plt.figure(figsize=(20, 9))
     avg = np.mean(angles)
-    plt.title('Angular error between real and predicted gradients')
+    plt.title("Angular error between real and predicted gradients")
     sns.histplot(angles, bins=64)
-    plt.axvline(90, linestyle='--', color='black', label= '90 deg')
-    plt.axvline(avg, linestyle='--', color='red', label=f'Mean: {avg:.2f}')
+    plt.axvline(90, linestyle="--", color="black", label="90 deg")
+    plt.axvline(avg, linestyle="--", color="red", label=f"Mean: {avg:.2f}")
     plt.legend()
     plt.tight_layout()
     plt.savefig(results_dir + "plots/gradient_angles.png")
@@ -264,9 +281,11 @@ elif source == "gradient":
             linewidth=2,
             label=f"Mean: {avg*1e3:.1f}e-3",
         )
-        axs[i].set_title(r"Gradient error histogram w.r.t. u[t-%s]"%(num_outputs - i))
+        axs[i].set_title(
+            r"Gradient error histogram w.r.t. u[t-%s]" % (num_outputs - i)
+        )
         axs[i].legend()
-    
+
     plt.tight_layout()
     plt.savefig(results_dir + "plots/gradient_dimensions.png")
     plt.show()
