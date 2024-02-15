@@ -28,6 +28,16 @@ results_dir = "results/"
 
 # Functions
 def compute_metrics(Y_pred, Y_real):
+    """
+    Compute prediction metrics
+
+    Args:
+        Y_pred (np.array): predicted output
+        Y_real (np.array): measured output
+
+    Returns:
+        mses (np.array): mean squared error for each predicted output
+    """
     mses = []
     error = Y_pred - Y_real
     sq_error = error**2
@@ -36,6 +46,16 @@ def compute_metrics(Y_pred, Y_real):
 
 
 def gradient_angle(Y_pred, Y_real):
+    """
+    Compute angle between predicted and real gradients
+    Args:
+        Y_pred (np.array): predicted gradient
+        Y_real (np.array): real gradient
+
+    Returns:
+        angles (np.array): array of angles between each pair of real and predicted gradient
+    """
+
     angles = np.zeros(Y_real.shape[0])
     for i in range(Y_real.shape[0]):
         vec_real = Y_real[i, :]
@@ -51,6 +71,16 @@ def gradient_angle(Y_pred, Y_real):
 
 
 def update_hist(current_hist, new_states):
+    """
+    Updates history array
+
+    Args:
+        current_hist (np.array): current history array
+        new_states (np.array): new elements to be added in the file
+
+    Returns
+        new_hist (np.array): updated history array
+    """
     new_hist = current_hist.copy()
     len_new = new_states.shape[0]
     new_hist[:-len_new, :] = current_hist[len_new:, :]
@@ -59,6 +89,16 @@ def update_hist(current_hist, new_states):
 
 
 def build_sequence(u_hist, y_hist):
+    """
+    Build sequence input from history arrays
+
+    Args:
+        u (np.array): historical inputs
+        y (np.array): historical outputs
+
+    Returns:
+        np.array: sequence input
+    """
     u = u_hist.ravel()
     y = y_hist.ravel()
     P = u_hist.shape[0]
@@ -67,6 +107,15 @@ def build_sequence(u_hist, y_hist):
 
 
 def pow2wfs(power_data):
+    """
+    Covert power to wfs
+
+    Args:
+        power_data (float): power command
+
+    Returns:
+        float: wfs command
+    """
     return (power_data * 9 / 100) + 1.5
 
 

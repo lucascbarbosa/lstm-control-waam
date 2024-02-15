@@ -24,6 +24,13 @@ results_dir = "results/"
 ############
 # Function #
 def delete_models(models_path):
+    """
+    Delete all saved models
+
+    Args:
+        models_path (str): Path of saved models directory
+
+    """
     for item in os.listdir(models_path):
         item_path = os.path.join(models_path, item)
         os.remove(item_path)
@@ -36,6 +43,21 @@ def run_training(
     output_test,
     run_params,
 ):
+    """
+    Train a model with a specific set of parameters
+
+    Args:
+        input_train (np.array): train input data
+        output_train (np.array): train output data
+        input_test (np.array): test input data
+        output_test (np.array): test output data
+        run_params (dict): training parameters
+
+    Returns:
+        model (tf.Sequential): trained model
+        history (dict): history of training
+
+    """
     from python.process_data import (
         sequence_data,
         destandardize_data,

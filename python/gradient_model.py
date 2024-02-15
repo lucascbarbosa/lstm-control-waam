@@ -3,9 +3,10 @@ import numpy as np
 
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import (Dense, 
-                                     LSTM,
-                                     )
+from tensorflow.keras.layers import (
+    Dense,
+    LSTM,
+)
 from tensorflow.keras.losses import mean_squared_error
 from tensorflow.keras.optimizers import Adam
 
@@ -14,6 +15,7 @@ import os
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
+
 def create_model(
     num_features_input,
     num_features_output,
@@ -21,6 +23,20 @@ def create_model(
     random_seed=None,
     summary=True,
 ):
+    """
+    Create gradient model
+
+    Args:
+        num_features_input (int): input dimension
+        num_features_output (int): output dimension
+        lr (float): learning rate
+        random_seed (int): random seed for initialization of model weights
+        summary (float): wheather or not print model summary
+
+    Returns:
+        model (Sequential): gradient model
+
+    """
     if random_seed:
         tf.random.set_seed(random_seed)
     model = Sequential()
@@ -32,7 +48,7 @@ def create_model(
             input_shape=(num_features_input, 1),
         )
     )
-    model.add(Dense(units=num_features_output, activation='relu'))
+    model.add(Dense(units=num_features_output, activation="relu"))
 
     # Compile the model
     model.compile(optimizer=Adam(learning_rate=lr), loss=mean_squared_error)
@@ -40,6 +56,7 @@ def create_model(
     if summary:
         model.summary()
     return model
+
 
 def train_model(
     model,
@@ -50,6 +67,20 @@ def train_model(
     validation_split,
     verbose=0,
 ):
+    """
+    Train gradient model
+
+    Args:
+        model (Sequential): tf model to be trained
+        batch_size (int): size of batch of training
+        epochs (int): number of epochs of training
+        validation_split (float): percentage of train dataset used for validation during training
+        verbose (int): verbosity level of training
+
+    Returns:
+        model (Sequential): trained model
+        history (dict): history of training metrics
+    """
     history = model.fit(
         X_train,
         Y_train,
@@ -62,11 +93,32 @@ def train_model(
 
 
 def predict_data(model, X_test, verbose=0):
+    """
+    Predict database using trained model
+
+    Args:
+        model (Sequential): trained model
+        X_test_seq (np.array): inputs of test dataset
+        verbose (int): verbosity level of prediction
+
+    Returns:
+        Y_pred_seq (np.array): predicted outputs
+    """
     # Predict with model
     Y_pred = model.predict(X_test, verbose=verbose)
     return Y_pred
 
+
 def plot_loss(history):
+    """
+    Plot loss of training
+
+    Args:
+        history (dict): history of training metrics
+
+    Returns:
+
+    """
     fig, axs = plt.subplots(2, 1, figsize=(8, 6))
     keys = list(history.history.keys())
     titles = ["Treino", "Validação"]

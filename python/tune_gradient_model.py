@@ -1,9 +1,10 @@
 from python.process_data import (
-    load_gradient, 
+    load_gradient,
     normalize_data,
     denormalize_data,
     standardize_data,
-    destandardize_data)
+    destandardize_data,
+)
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 import itertools
@@ -20,12 +21,21 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 data_dir = "database/"
 results_dir = "results/"
 
+
 ############
 # Function #
 def delete_models(models_path):
+    """
+    Delete all saved models
+
+    Args:
+        models_path (str): Path of saved models directory
+
+    """
     for item in os.listdir(models_path):
         item_path = os.path.join(models_path, item)
         os.remove(item_path)
+
 
 def run_training(
     X_train,
@@ -34,6 +44,21 @@ def run_training(
     Y_test,
     run_params,
 ):
+    """
+    Train a model with a specific set of parameters
+
+    Args:
+        input_train (np.array): train input data
+        output_train (np.array): train output data
+        input_test (np.array): test input data
+        output_test (np.array): test output data
+        run_params (dict): training parameters
+
+    Returns:
+        model (tf.Sequential): trained model
+        history (dict): history of training
+
+    """
     from python.gradient_model import create_model, train_model, predict_data
 
     def gradient_angle(Y_real, Y_pred):
@@ -44,13 +69,15 @@ def run_training(
             dot_product = np.dot(vec_real, vec_pred)
             norm_vec_real = np.linalg.norm(vec_real)
             norm_vec_pred = np.linalg.norm(vec_pred)
-            angle = np.degrees(np.arccos(dot_product / (norm_vec_real * norm_vec_pred)))
+            angle = np.degrees(
+                np.arccos(dot_product / (norm_vec_real * norm_vec_pred))
+            )
             angles[i] = angle
         return angles.mean()
 
     # Define model
     model = create_model(
-        num_features_input, 
+        num_features_input,
         num_features_output,
         run_params["lr"],
         random_seed=42,
@@ -84,18 +111,21 @@ def run_training(
         results_dir
         + f"models/gradient/hyperparams/run_{run_params['run_id']}.keras"
     )
-    
+
     # Losses
-    train_loss = history.history['loss'][-1]
-    val_loss = history.history['val_loss'][-1]
+    train_loss = history.history["loss"][-1]
+    val_loss = history.history["val_loss"][-1]
     test_loss = gradient_angle(Y_test, Y_pred)
-    print(f"Run: {run_params['run_id']}. " +
+    print(
+        f"Run: {run_params['run_id']}. "
+        +
         #   f"Epochs: {run_params['num_epochs']} " +
         #   f"Batch size: {run_params['batch_size']} " +
-          f"train_loss: {train_loss:.6f} " +
-          f"val_loss {val_loss:.6f} " +
-          f"test_loss: {test_loss:.2f}")
-    
+        f"train_loss: {train_loss:.6f} "
+        + f"val_loss {val_loss:.6f} "
+        + f"test_loss: {test_loss:.2f}"
+    )
+
     # Metrics
     metrics = run_params
     metrics["train_loss"] = train_loss
@@ -103,8 +133,11 @@ def run_training(
     metrics["test_loss"] = test_loss
     return metrics
 
+
 # Get process model parameters
-metrics_process = pd.read_csv(results_dir + f"models/experiment_igor/hp_metrics.csv")
+metrics_process = pd.read_csv(
+    results_dir + f"models/experiment_igor/hp_metrics.csv"
+)
 best_model_id = 121
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics_process[metrics_process["run_id"] == int(best_model_id)]
@@ -143,8 +176,8 @@ elif output_scaling == "min-max":
     Y_train = normalize_data(Y_train)
 
 # Reshape to fit model input
-X_train = X_train.reshape((X_train.shape[0], X_train.shape[1], 1)) 
-X_test = X_test.reshape((X_test.shape[0], X_test.shape[1], 1)) 
+X_train = X_train.reshape((X_train.shape[0], X_train.shape[1], 1))
+X_test = X_test.reshape((X_test.shape[0], X_test.shape[1], 1))
 
 # Num features
 num_features_input = X_train.shape[1]
@@ -204,7 +237,7 @@ metrics_df = (
 metrics_df.to_csv(results_dir + "models/gradient/hp_metrics.csv")
 print(metrics_df)
 
-best_model_id = input('Best model id: ')
+best_model_id = input("Best model id: ")
 best_model = load_model(
     results_dir + f"models/gradient/hyperparams/run_{best_model_id}.keras"
 )

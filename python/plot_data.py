@@ -14,6 +14,15 @@ results_dir = "results/"
 
 # Functions
 def pow2wfs(power_data):
+    """
+    Covert power to wfs
+
+    Args:
+        power_data (float): power command
+
+    Returns:
+        float: wfs command
+    """
     return (power_data * 9 / 100) + 1.5
 
 
@@ -26,6 +35,19 @@ def plot_simulation(
     save=False,
     N=None,
 ):
+    """
+    Plot simulation data
+
+    Args:
+        data (np.array): inputs and outputs of simulation
+        data_label (str): figure label
+        fig_filename (str): figure file name
+        var_type (str): type of variable (input or output)
+        scale (bool): whether to scale data
+        save (bool): whether to save data
+        N (int): number of samples of data array
+
+    """
     if N == None:
         N = data.shape[0]
 
@@ -61,6 +83,20 @@ def plot_experiment(
     scale=True,
     N=None,
 ):
+    """
+    Plot experiment data of specific welded bead
+
+    Args:
+        bead_idx (int): index of welded bead
+        wfs_data(np.array): wfs data
+        command_data(np.array): wfs command data
+        w_data(np.array): width data
+        fig_filename (str): figure file name
+        scale (bool): whether to scale data
+        save (bool): whether to save data
+        N (int): number of samples of data array
+
+    """
     if N == None:
         N = w_data.shape[0]
 

@@ -33,7 +33,7 @@ def create_model(
         summary (float): wheather or not print model summary
 
     Returns:
-        model (Sequential): tf model
+        model (Sequential): process model
 
     """
     if random_seed:
@@ -66,7 +66,7 @@ def train_model(
     verbose=0,
 ):
     """
-    Train tf model
+    Train process model
 
     Args:
         model (Sequential): tf model to be trained
