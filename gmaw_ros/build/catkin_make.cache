@@ -1,2 +1,2 @@
-cmt_ros_pkg:gmaw_ros_pkg
+gmaw_ros_pkg
 -DCATKIN_DEVEL_PREFIX=/home/lbarbosa/Documents/Github/lstm-control-waam/gmaw_ros/devel -DCMAKE_INSTALL_PREFIX=/home/lbarbosa/Documents/Github/lstm-control-waam/gmaw_ros/install -G Unix Makefiles

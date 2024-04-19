@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from python.process_data import (
+from models.process_data import (
     load_train_data,
     normalize_data,
 )
@@ -109,14 +109,14 @@ def plot_experiment(
         color="#000080",
         label="wfs_state",
     )
-    ax1.step(
-        command_data[:, 0],
-        command_data[:, 1],
-        where="post",
-        linestyle="--",
-        color="#6B66EC",
-        label="wfs_command",
-    )
+    # ax1.step(
+    #     command_data[:, 0],
+    #     command_data[:, 1],
+    #     where="post",
+    #     linestyle="--",
+    #     color="#6B66EC",
+    #     label="wfs_command",
+    # )
     ax1.set_xlabel("t")
 
     ax2 = ax1.twinx()
@@ -144,8 +144,8 @@ def plot_experiment(
 
 N = None  # Horizon plotted
 source = "experiment"
-scale = False
-save = False
+scale = True
+save = True
 data_path = data_dir + f"{source}/"
 if source == "simulation":
     inputs_train, outputs_train, inputs_test, outputs_test = load_train_data(

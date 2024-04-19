@@ -5,13 +5,50 @@ from scipy.interpolate import interp1d
 # Paths
 data_dir = "database/experiment/"
 
+# Functions
+
+
+def generate_wfs(N, input_bounds, n_amps, min_diff=3):
+    """
+    Compute wfs commands.
+
+    Args:
+        N (int): number of commands
+        input_bounds (tuple): lower and upper bounds of command
+        n_amps (int): number of possible amplitudes for command
+        min_diff (int): number of minimal change in amplitude of command
+
+    Returns:
+        np.array: wfs commands
+    """
+    f_lv, f_uv = input_bounds
+    amps = np.arange(n_amps)
+    f_step_signal = np.zeros(
+        N,
+    )
+    f_step_signal[0] = amps[len(amps) // 2]
+    for i in range(1, N):
+        current_step = f_step_signal[i - 1]
+        valid_amps = amps[
+            np.where(
+                (amps >= current_step + min_diff)
+                | (amps <= current_step - min_diff)
+            )
+        ]
+        f_step_signal[i] = np.random.choice(valid_amps)
+
+    f_signal = f_lv + (f_uv - f_lv) * f_step_signal / (n_amps - 1)
+    return np.round(f_signal, 2).tolist()
+
+
 # Experiment parameters
-step_time = 3.0  # Period between wfs steps
+step_time = 5.0  # Period between wfs steps
 traj_length = 340.0  # total length (mm)
 x0, y0 = 30.0, 30.0
 bead_distance = 20.0  # Distance between consecutives beads
-travel_speeds = np.arange(6, 21, 2).tolist()  # Travel Speed (mm/s)
-beads_per_ts = [1, 1, 2, 2, 2, 3, 3, 4]
+travel_speeds = np.arange(4, 21, 4).tolist()  # Travel Speed (mm/s)
+beads_per_ts = [1, 2, 3, 4, 5]
+# pats_per_ts = [17, 9, 6, 5, 4]
 beads_ts = {}  # Dict of TS of each bead
 bead_idx = 0
 for i in range(len(travel_speeds)):
@@ -52,38 +89,6 @@ for bead_idx, travel_speed in beads_ts.items():
     f_lv = 5.1  # 40% (m/min)
     f_uv = 8.7  # 80% (m/min)
     input_bounds = (f_lv, f_uv)
-
-    def generate_wfs(N, input_bounds, n_amps, min_diff=3):
-        """
-        Compute wfs commands
-
-        Args:
-            N (int): number of commands
-            input_bounds (tuple): lower and upper bounds of command
-            n_amps (int): number of possible amplitudes for command
-            min_diff (int): number of minimal change in amplitude of command
-
-        Returns:
-            np.array: wfs commands
-        """
-        f_lv, f_uv = input_bounds
-        amps = np.arange(n_amps)
-        f_step_signal = np.zeros(
-            N,
-        )
-        f_step_signal[0] = amps[len(amps) // 2]
-        for i in range(1, N):
-            current_step = f_step_signal[i - 1]
-            valid_amps = amps[
-                np.where(
-                    (amps >= current_step + min_diff)
-                    | (amps <= current_step - min_diff)
-                )
-            ]
-            f_step_signal[i] = np.random.choice(valid_amps)
-
-        f_signal = f_lv + (f_uv - f_lv) * f_step_signal / (n_amps - 1)
-        return np.round(f_signal, 2).tolist()
 
     # Build input data
     commands = generate_wfs(N, input_bounds, 11, min_diff=4)

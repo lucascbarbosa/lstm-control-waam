@@ -10,8 +10,7 @@ import pandas as pd
 from scipy.interpolate import interp1d
 
 import rospy
-from std_msgs.msg import Float32, Bool
-
+from std_msgs.msg import Float32, Bool, Float64MultiArray
 import time
 
 class MPC:
@@ -78,7 +77,7 @@ class MPC:
         self.process_model.compile(optimizer=self.opt, loss=mean_squared_error)
         
         # Gradient data
-        self.gradient_source = "experiment"
+        self.gradient_source = "random" ##
         (self.gradient_input_train,
          self.gradient_output_train,
          _, 
@@ -86,7 +85,7 @@ class MPC:
         
         self.gradient_inputs = self.gradient_input_train.shape[1]
         self.gradient_outputs = self.gradient_output_train.shape[1]
-        self.gradient_source = "both"
+        self.gradient_source = "both" ##
         self.gradient_input_scaling = "min-max"
         self.gradient_output_scaling = "min-max"
         if self.gradient_input_scaling == "mean-std":
@@ -126,8 +125,8 @@ class MPC:
         self.list_performance_opt = []
 
         # Define MPC parameters
-        self.M = self.P  # control horizon
-        self.N = self.Q # prediction horizon
+        self.M = self.P  # control horizon ##
+        self.N = self.Q # prediction horizon ##
         self.weight_control = 1.0
         self.weight_output = 1.0
 
@@ -147,8 +146,7 @@ class MPC:
         rospy.Subscriber("arc_state", Bool, self.callback_arc)
         self.arc_state = False
         rospy.Subscriber("xiris/bead/filtered", Float32, self.callback_width)
-        # self.pub = rospy.Publisher("fronius_remote_command", Float32, queue_size=10)
-        self.pub = rospy.Publisher("powersource_command", Float32, queue_size=10)
+        self.pub = rospy.Publisher("fronius_remote_command", Float32, queue_size=10)
         self.pub_freq = 10  # sampling frequency of published data
         self.step_time = 1 / self.pub_freq
         self.total_steps = 10

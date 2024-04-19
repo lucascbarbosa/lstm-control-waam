@@ -1,4 +1,4 @@
-from python.process_data import (
+from models.process_data import (
     build_train_data,
     load_train_data,
     normalize_data,
@@ -20,9 +20,10 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 data_dir = "database/"
 results_dir = "results/"
 
-
 ############
 # Function #
+
+
 def delete_models(models_path):
     """
     Delete all saved models
