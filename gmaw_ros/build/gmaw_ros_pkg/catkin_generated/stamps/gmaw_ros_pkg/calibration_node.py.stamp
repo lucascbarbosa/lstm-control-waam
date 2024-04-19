@@ -3,8 +3,8 @@ import pandas as pd
 import sys
 import rospy
 from std_msgs.msg import Float32, Bool, Float64MultiArray, MultiArrayDimension
-
 import time
+
 
 class Experiment(object):
     def __init__(self, pub_freq, bead_idx):
@@ -14,17 +14,19 @@ class Experiment(object):
 
         # Load input data
         self.bead_idx = bead_idx
-        self.command_data = pd.read_csv(self.data_dir + f"experiment/commands/bead{bead_idx}.csv").to_numpy()
-        
+        self.command_data = pd.read_csv(
+            self.data_dir + f"experiment/commands/bead{bead_idx}.csv").to_numpy()
+
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
         rospy.Subscriber("arc_state", Bool, self.callback_arc)
         self.arc_state = False
-        self.pub = rospy.Publisher("fronius_remote_command", Float64MultiArray, queue_size=10)
+        self.pub = rospy.Publisher(
+            "fronius_remote_command", Float64MultiArray, queue_size=10)
         self.pub_freq = pub_freq  # sampling frequency of width data
         self.step_time = 1 / self.pub_freq
         self.rate = rospy.Rate(self.pub_freq)
-    
+
     # Callback method
     def callback_arc(self, data):
         # rospy.loginfo("Received arc state: %f", bool(data.data))
@@ -50,10 +52,11 @@ class Experiment(object):
                 msg.layout.dim = dim
                 self.pub.publish(msg)
                 rospy.loginfo("Sending command power: %f", p)
-        
+
     def wfs2pow(self, f):
         return (f - 1.5)*100/9
-    
+
+
 pub_freq = 10
 args = rospy.myargv(argv=sys.argv)
 bead_idx = int(args[1])

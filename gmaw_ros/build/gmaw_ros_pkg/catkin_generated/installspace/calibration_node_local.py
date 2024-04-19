@@ -22,7 +22,7 @@ class Experiment(object):
         rospy.Subscriber("arc_state", Bool, self.callback_arc)
         self.arc_state = False
         self.pub = rospy.Publisher(
-            "fronius_remote_command", Float64MultiArray, queue_size=10)
+            "fronius_remote_command", Float32, queue_size=10)
         self.pub_freq = pub_freq  # sampling frequency of width data
         self.step_time = 1 / self.pub_freq
         self.rate = rospy.Rate(self.pub_freq)
@@ -44,13 +44,7 @@ class Experiment(object):
                 idx = idx[0]
                 f = self.command_data[idx, -1]
                 p = self.wfs2pow(f)
-
-                msg = Float64MultiArray()
-                msg.data = [p]
-                dim = []
-                dim.append(MultiArrayDimension('PwrSrc', 1, 4))
-                msg.layout.dim = dim
-                self.pub.publish(msg)
+                self.pub.publish(p)
                 rospy.loginfo("Sending command power: %f", p)
 
     def wfs2pow(self, f):

@@ -108,7 +108,7 @@ catkin_package(
 #  DEPENDS system_lib
 )
 
-catkin_install_python(PROGRAMS scripts/mpc_node.py scripts/calibration_node.py scripts/cell_node.py
+catkin_install_python(PROGRAMS scripts/mpc_node.py scripts/calibration_node.py scripts/calibration_node_local.py scripts/cell_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

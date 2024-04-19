@@ -22,15 +22,15 @@ class Experiment(object):
         rospy.Subscriber("arc_state", Bool, self.callback_arc)
         self.arc_state = False
         self.pub = rospy.Publisher(
-            "fronius_remote_command", Float64MultiArray, queue_size=10)
+            "fronius_remote_command", Float32, queue_size=10)
         self.pub_freq = pub_freq  # sampling frequency of width data
         self.step_time = 1 / self.pub_freq
         self.rate = rospy.Rate(self.pub_freq)
 
     # Callback method
     def callback_arc(self, data):
-        # rospy.loginfo("Received arc state: %f", bool(data.data))
         if not self.arc_state and bool(data.data):
+            rospy.loginfo("Received arc state: %f", bool(data.data))
             self.arcon_time = time.time()
         elif self.arc_state and not bool(data.data):
             rospy.signal_shutdown("Shutting down")
@@ -43,15 +43,9 @@ class Experiment(object):
             if len(idx) > 0:
                 idx = idx[0]
                 f = self.command_data[idx, -1]
-                p = self.wfs2pow(f)
-
-                msg = Float64MultiArray()
-                msg.data = [p]
-                dim = []
-                dim.append(MultiArrayDimension('PwrSrc', 1, 4))
-                msg.layout.dim = dim
-                self.pub.publish(msg)
-                rospy.loginfo("Sending command power: %f", p)
+                # p = self.wfs2pow(f)
+                self.pub.publish(f)
+                rospy.loginfo("Sending command wfs: %f", f)
 
     def wfs2pow(self, f):
         return (f - 1.5)*100/9

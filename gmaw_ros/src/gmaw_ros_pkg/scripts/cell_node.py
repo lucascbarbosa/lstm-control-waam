@@ -3,21 +3,11 @@ from std_msgs.msg import Float32, Bool, Float64MultiArray
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
-from functools import partial
-
-import tensorflow as tf
-from keras.models import load_model
-from tensorflow.keras.losses import mean_squared_error
-from tensorflow.keras.optimizers import Adam
+import control
 
 
 class Cell(object):
     def __init__(self):
-        self.data_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/database/experiment_igor/series/"
-        self.results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
-        self.input_train, self.output_train, _, _ = self.load_experiment(
-            [1, 2, 3, 4, 5, 6], [7])
-
         # Rospy setup
         rospy.init_node("cell_node", anonymous=True)
         rospy.Subscriber("fronius_remote_command", Float32, self.callback)
@@ -25,21 +15,34 @@ class Cell(object):
         self.arc_idxs = [10, 500]
         self.pub_width = rospy.Publisher(
             "xiris/bead/filtered", Float32, queue_size=10)
-        fs = 10
-        self.rate = rospy.Rate(fs)
+        self.fs = 10
+        self.rate = rospy.Rate(self.fs)
+
+        # Define model
+        numerator = [0, 0, 0.8]
+        denominator = [0.2, 1.2, 1]
+        self.lag = 1.25
+        self.T = 1/self.fs
+        G_continuous = control.TransferFunction(numerator, denominator)
+        self.G_discrete = control.sample_system(
+            G_continuous, self.T, method='tustin')
 
         # Arc state
         self.arc_state = False
 
+        # Current values
+        self.time = 0.0
+        self.u = 0.0
+        self.y = 0.0
+
+        # Data arrays
+        self.time_array = [self.time]
+        self.u_array = [self.u]
+        self.y_array = []
+
     def callback(self, data):
-        u = data.data
-        rospy.loginfo("Received command wfs: %f", u)
-        if self.input_scaling == "min-max":
-            u_scaled = (u - self.u_min) / (self.u_max - self.u_min)
-        if self.input_scaling == "mean-std":
-            u_scaled = (u - self.u_mean) / self.u_std
-        self.u_hist = self.update_hist(self.u_hist, u_scaled)
-        self.control_mpc.append(u)
+        self.u = data.data
+        rospy.loginfo("Received command wfs: %f", self.u)
 
     def resample_data(self, original_data, original_time, new_time):
         interp_func = interp1d(
@@ -54,6 +57,15 @@ class Cell(object):
         resampled_data[:, 1] = interp_func(new_time)
         return resampled_data
 
+    def predict_output(self):
+        num_zeros = int(self.lag*self.fs) - len(self.u_array)
+        u = np.pad(self.u_array, (max(0, num_zeros), 0), 'constant')[
+            :len(self.time_array)]
+        y = control.forced_response(
+            self.G_discrete, T=self.time_array, U=u)[1][-1]
+        self.y_array.append(y)
+        rospy.loginfo("Sending y: %s", y)
+
     def set_arcstate(self, t):
         arc_state = t > self.arc_idxs[0] and t < self.arc_idxs[1]
         self.pub_arc.publish(arc_state)
@@ -65,12 +77,16 @@ class Cell(object):
 
 
 cell = Cell()
-t = 0
+k = 0
 try:
     while not rospy.is_shutdown():
+        cell.set_arcstate(k)
+        cell.time += cell.T
+        cell.time_array.append(np.round(cell.time, 2))
+        cell.u_array.append(cell.u)
         cell.predict_output()
-        cell.set_arcstate(t)
-        t += 1
+        cell.y_array.append(cell.y)
+        k += 1
         cell.rate.sleep()
 except rospy.ROSInterruptException:
     pass

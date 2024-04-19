@@ -20,6 +20,10 @@ beads_test = [1]
 # Functions #
 
 
+def pow2wfs(p):
+    return 0.09*p + 1.5
+
+
 def resample_data(original_data, original_time, new_time):
     """
     Resample dataset given the original and resampled time points
@@ -43,16 +47,23 @@ def resample_data(original_data, original_time, new_time):
     return resampled_data
 
 
-build_train_data(data_dir + "experiment/", beads_train, beads_test)
-input_train, output_train, input_test, output_test = load_train_data(
-    data_dir + "experiment/"
-)
-T = 0.02  # Sampling period in seconds]
+# Load data
+wfs = pd.read_csv(data_dir + "experiment/series/bead1_wfs.csv").to_numpy()
+command = pd.read_csv(
+    data_dir + "experiment/series/bead1_command.csv").to_numpy()
+command[:, 1] = pow2wfs(command[:, 1])
+w = pd.read_csv(data_dir + "experiment/series/bead1_w.csv").to_numpy()
+
+# Process data
+T = 0.004  # Sampling period in seconds]
 lag = 1.25
-time = np.arange(input_train[0, 0], len(input_train)*T, T)
-u_real = resample_data(input_train[:, 1], input_train[:, 0], time)
-u_real = np.concatenate((np.zeros(int(lag/T)), u_real[:-int(lag/T)]))
-y_real = resample_data(output_train[:, 1], output_train[:, 0], time)
+time = np.arange(wfs[0, 0], len(wfs)*T, T)
+wfs_real = resample_data(wfs[:, 1], wfs[:, 0], time)
+wfs_real = np.concatenate((np.zeros(int(lag/T)), wfs_real[:-int(lag/T)]))
+command_real = resample_data(command[:, 1], command[:, 0], time)
+command_real = np.concatenate(
+    (np.zeros(int(lag/T)), command_real[:-int(lag/T)]))
+w_measured = resample_data(w[:, 1], w[:, 0], time)
 
 # Create tf
 numerator = [0, 0, 0.8]
@@ -61,12 +72,32 @@ G_continuous = control.TransferFunction(numerator, denominator)
 
 # Discretize the transfer function using Tustin's method
 G_discrete = control.sample_system(G_continuous, T, method='tustin')
-y_hat = control.forced_response(G_discrete, T=time, U=u_real)[1][int(lag/T):]
+y_hat_wfs = control.forced_response(
+    G_discrete, T=time, U=wfs_real)[1][int(lag/T):]
+y_hat_command = control.forced_response(
+    G_discrete, T=time, U=command_real)[1][int(lag/T):]
 
-plt.plot(y_real*1000, label='Real Output')
-plt.plot(y_hat, label='Predicted Output')
-plt.xlabel('Time')
-plt.ylabel('Output')
-plt.title('Comparison of Real and Predicted Outputs')
-plt.legend()
+fig, axs = plt.subplots(2, 1)
+fig.set_size_inches((12, 10))
+
+axs[0].set_title('Inputs')
+axs[0].step(wfs[:, 0], wfs[:, 1], color='r', label='WFS', where='post')
+axs[0].step(command[:, 0], command[:, 1], color='b',
+            label='command', where='post')
+axs[0].legend()
+axs[0].set_xlabel('Time')
+axs[0].set_ylabel('Input')
+
+
+axs[1].set_title('Outputs')
+axs[1].plot(w_measured*1000, label='Measured width', color='k')
+axs[1].plot(y_hat_wfs, label='Predicted width with wfs',
+            color='r', linestyle='--')
+axs[1].plot(y_hat_command, label='Predicted width with command',
+            color='b', linestyle='--')
+axs[1].set_xlabel('Time')
+axs[1].set_ylabel('Output')
+axs[1].legend()
+
+plt.tight_layout()
 plt.show()

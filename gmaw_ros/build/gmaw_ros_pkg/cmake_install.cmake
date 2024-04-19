@@ -61,6 +61,10 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/gmaw_ros_pkg" TYPE PROGRAM FILES "/home/lbarbosa/Documents/Github/lstm-control-waam/gmaw_ros/build/gmaw_ros_pkg/catkin_generated/installspace/calibration_node_local.py")
+endif()
+
+if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/gmaw_ros_pkg" TYPE PROGRAM FILES "/home/lbarbosa/Documents/Github/lstm-control-waam/gmaw_ros/build/gmaw_ros_pkg/catkin_generated/installspace/cell_node.py")
 endif()
 
