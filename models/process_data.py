@@ -37,10 +37,10 @@ def build_train_data(data_dir, beads_train, beads_test):
 
     inputs_train = np.concatenate(inputs_train, axis=0)
     inputs_train = pd.DataFrame(inputs_train, columns=["t", "wfs"])
-    inputs_train.to_csv(data_dir + "inputs_train.csv", index=False)
+    inputs_train.to_csv(data_dir + "input_train.csv", index=False)
     outputs_train = np.concatenate(outputs_train, axis=0)
     outputs_train = pd.DataFrame(outputs_train, columns=["t", "w"])
-    outputs_train.to_csv(data_dir + "outputs_train.csv", index=False)
+    outputs_train.to_csv(data_dir + "output_train.csv", index=False)
 
     for bead_idx in beads_test:
         filename_test = f"series/bead{bead_idx}"
@@ -60,10 +60,10 @@ def build_train_data(data_dir, beads_train, beads_test):
 
     inputs_test = np.concatenate(inputs_test, axis=0)
     inputs_test = pd.DataFrame(inputs_test, columns=["t", "wfs"])
-    inputs_test.to_csv(data_dir + "inputs_test.csv", index=False)
+    inputs_test.to_csv(data_dir + "input_test.csv", index=False)
     outputs_test = np.concatenate(outputs_test, axis=0)
     outputs_test = pd.DataFrame(outputs_test, columns=["t", "w"])
-    outputs_test.to_csv(data_dir + "outputs_test.csv", index=False)
+    outputs_test.to_csv(data_dir + "output_test.csv", index=False)
 
 
 def load_train_data(data_dir):
@@ -79,10 +79,10 @@ def load_train_data(data_dir):
         input_test (np.array): inputs of test data
         output_test (np.array): outputs of test data
     """
-    input_train = pd.read_csv(data_dir + "inputs_train.csv").to_numpy()
-    output_train = pd.read_csv(data_dir + "outputs_train.csv").to_numpy()
-    input_test = pd.read_csv(data_dir + "inputs_test.csv").to_numpy()
-    output_test = pd.read_csv(data_dir + "outputs_test.csv").to_numpy()
+    input_train = pd.read_csv(data_dir + "input_train.csv").to_numpy()
+    output_train = pd.read_csv(data_dir + "output_train.csv").to_numpy()
+    input_test = pd.read_csv(data_dir + "input_test.csv").to_numpy()
+    output_test = pd.read_csv(data_dir + "output_test.csv").to_numpy()
     return input_train, output_train, input_test, output_test
 
 
@@ -196,8 +196,8 @@ def sequence_data(X, Y, P, Q, H):
     for i in range(0, len(X) - max(P - 1, Q) - H + 1):
         X_seq[i, :, 0] = np.hstack(
             (
-                X[i : i + P, :].ravel(),
-                Y[i : i + Q, :].ravel(),
+                X[i: i + P, :].ravel(),
+                Y[i: i + Q, :].ravel(),
             )
         )
         Y_seq[i, :] = Y[i + Q + H - 1, :]

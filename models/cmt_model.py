@@ -56,13 +56,9 @@ w = pd.read_csv(data_dir + "experiment/series/bead1_w.csv").to_numpy()
 
 # Process data
 T = 0.004  # Sampling period in seconds]
-lag = 1.25
 time = np.arange(wfs[0, 0], len(wfs)*T, T)
 wfs_real = resample_data(wfs[:, 1], wfs[:, 0], time)
-wfs_real = np.concatenate((np.zeros(int(lag/T)), wfs_real[:-int(lag/T)]))
 command_real = resample_data(command[:, 1], command[:, 0], time)
-command_real = np.concatenate(
-    (np.zeros(int(lag/T)), command_real[:-int(lag/T)]))
 w_measured = resample_data(w[:, 1], w[:, 0], time)
 
 # Create tf
@@ -72,18 +68,39 @@ G_continuous = control.TransferFunction(numerator, denominator)
 
 # Discretize the transfer function using Tustin's method
 G_discrete = control.sample_system(G_continuous, T, method='tustin')
-y_hat_wfs = control.forced_response(
-    G_discrete, T=time, U=wfs_real)[1][int(lag/T):]
-y_hat_command = control.forced_response(
-    G_discrete, T=time, U=command_real)[1][int(lag/T):]
 
+# Convert to ss
+ss_discrete = control.tf2ss(G_discrete)
+
+# Generate output prediction
+y_hat_wfs = np.zeros(w_measured.shape)
+y_hat_command = np.zeros(w_measured.shape)
+
+x_wfs_k = np.zeros((2, 1))
+x_command_k = np.zeros((2, 1))
+for i in range(1, len(y_hat_wfs)):
+    # WFS value
+    wfs_k = wfs_real[i]
+    x_wfs_k = np.dot(ss_discrete.A, x_wfs_k) + np.dot(ss_discrete.B, wfs_k)
+    y_hat_wfs[i] = np.dot(ss_discrete.C, x_wfs_k) + \
+        np.dot(ss_discrete.D, wfs_k)
+
+    # WFS command
+    command_k = command_real[i]
+    x_command_k = np.dot(ss_discrete.A, x_command_k) + \
+        np.dot(ss_discrete.B, command_k)
+    y_hat_command[i] = np.dot(ss_discrete.C, x_command_k) + \
+        np.dot(ss_discrete.D, command_k)
+
+
+# Plot results
 fig, axs = plt.subplots(2, 1)
 fig.set_size_inches((12, 10))
 
 axs[0].set_title('Inputs')
-axs[0].step(wfs[:, 0], wfs[:, 1], color='r', label='WFS', where='post')
+axs[0].step(wfs[:, 0], wfs[:, 1], color='r', label='WFS value', where='post')
 axs[0].step(command[:, 0], command[:, 1], color='b',
-            label='command', where='post')
+            label='WFS command', where='post')
 axs[0].legend()
 axs[0].set_xlabel('Time')
 axs[0].set_ylabel('Input')
@@ -91,9 +108,9 @@ axs[0].set_ylabel('Input')
 
 axs[1].set_title('Outputs')
 axs[1].plot(w_measured*1000, label='Measured width', color='k')
-axs[1].plot(y_hat_wfs, label='Predicted width with wfs',
+axs[1].plot(y_hat_wfs, label='Predicted width with WFS value',
             color='r', linestyle='--')
-axs[1].plot(y_hat_command, label='Predicted width with command',
+axs[1].plot(y_hat_command, label='Predicted width with WFS command',
             color='b', linestyle='--')
 axs[1].set_xlabel('Time')
 axs[1].set_ylabel('Output')
