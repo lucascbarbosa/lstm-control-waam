@@ -2,7 +2,6 @@ from models.process_data import (
     build_train_data,
     load_train_data,
     normalize_data,
-    standardize_data,
 )
 import tensorflow as tf
 from tensorflow.keras.models import load_model
@@ -61,7 +60,6 @@ def run_training(
     """
     from python.process_data import (
         sequence_data,
-        destandardize_data,
         denormalize_data,
     )
     from python.process_model import create_model, train_model, predict_data
@@ -114,15 +112,9 @@ def run_training(
     # Prediction
     Y_pred = predict_data(model, X_test)
     for i in range(num_features_output):
-        if output_scaling == "mean-std":
-            Y_pred[:, i] = destandardize_data(
-                Y_pred[:, i], train_y_means[i], train_y_stds[i]
-            )  # Destandardize
-
-        elif output_scaling == "min-max":
-            Y_pred[:, i] = denormalize_data(
-                Y_pred[:, i], train_y_mins[i], train_y_maxs[i]
-            )  # Denormalize
+        Y_pred[:, i] = denormalize_data(
+            Y_pred[:, i], train_y_mins[i], train_y_maxs[i]
+        )  # Denormalize
 
     model.save(
         results_dir
@@ -158,28 +150,13 @@ output_test = output_test[:, 1:]
 num_features_input = num_features_output = 1
 
 # Scale database
-input_scaling = "min-max"
-output_scaling = "min-max"
-if input_scaling == "mean-std":
-    input_train = standardize_data(input_train)
-    input_test = standardize_data(input_test)
-elif input_scaling == "min-max":
-    input_train = normalize_data(input_train)
-    input_test = normalize_data(input_test)
-
-if output_scaling == "mean-std":
-    train_y_stds = output_train.std(axis=0)
-    train_y_means = output_train.mean(axis=0)
-    test_y_stds = output_test.std(axis=0)
-    test_y_means = output_test.mean(axis=0)
-    output_train = standardize_data(output_train)
-
-elif output_scaling == "min-max":
-    train_y_mins = output_train.min(axis=0)
-    train_y_maxs = output_train.max(axis=0)
-    test_y_mins = output_test.min(axis=0)
-    test_y_maxs = output_test.max(axis=0)
-    output_train = normalize_data(output_train)
+train_y_mins = output_train.min(axis=0)
+train_y_maxs = output_train.max(axis=0)
+test_y_mins = output_test.min(axis=0)
+test_y_maxs = output_test.max(axis=0)
+input_train = normalize_data(input_train)
+input_test = normalize_data(input_test)
+output_train = normalize_data(output_train)
 
 # Remove previous models
 delete_models(results_dir + "models/experiment/hyperparams/")

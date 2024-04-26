@@ -4,7 +4,7 @@ import pandas as pd
 
 # Bag pathsd
 data_dir = "database/experiment/%s"
-bag_dir = data_dir % "bags_width/%s"
+bag_dir = data_dir % "bags/%s"
 series_path = data_dir % "series/%s"
 
 # Input and Output topics
@@ -123,8 +123,8 @@ def filter_start(power_time, power_data, wfs_time, wfs_data, w_time, w_data):
 
     # Remove initial outliers of power command
     power_start = np.where(power_time >= start_time)[0][0]
-    power_time = power_time[power_start - 1 :]
-    power_data = power_data[power_start - 1 :]
+    power_time = power_time[power_start - 1:]
+    power_data = power_data[power_start - 1:]
     power_time[0] = start_time
     return power_time, power_data, wfs_time, wfs_data, w_time, w_data
 

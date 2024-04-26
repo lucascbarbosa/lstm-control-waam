@@ -2,8 +2,6 @@ from python.process_data import (
     load_gradient,
     normalize_data,
     denormalize_data,
-    standardize_data,
-    destandardize_data,
 )
 import tensorflow as tf
 from tensorflow.keras.models import load_model
@@ -97,15 +95,9 @@ def run_training(
 
     # Prediction
     Y_pred = predict_data(model, X_test)
-    if output_scaling == "mean-std":
-        Y_pred = destandardize_data(
-            Y_pred, train_y_mean, train_y_std
-        )  # Destandardize
-
-    elif output_scaling == "min-max":
-        Y_pred = denormalize_data(
-            Y_pred, train_y_min, train_y_max
-        )  # Denormalize
+    Y_pred = denormalize_data(
+        Y_pred, train_y_min, train_y_max
+    )  # Denormalize
 
     model.save(
         results_dir
@@ -151,29 +143,13 @@ X_train, Y_train, X_test, Y_test = load_gradient(
 )
 
 # Scaling
-input_scaling = "min-max"
-if input_scaling == "mean-std":
-    X_train = standardize_data(X_train)
-    X_test = standardize_data(X_test)
-
-elif input_scaling == "min-max":
-    X_train = normalize_data(X_train)
-    X_test = normalize_data(X_test)
-
-output_scaling = "min-max"
-if output_scaling == "mean-std":
-    train_y_mean = np.mean(Y_train, axis=0)
-    train_y_std = np.std(Y_train, axis=0)
-    test_y_mean = np.mean(Y_test, axis=0)
-    test_y_std = np.std(Y_test, axis=0)
-    Y_train = standardize_data(Y_train)
-
-elif output_scaling == "min-max":
-    train_y_min = np.min(Y_train, axis=0)
-    train_y_max = np.max(Y_train, axis=0)
-    test_y_min = np.min(Y_test, axis=0)
-    test_y_max = np.max(Y_test, axis=0)
-    Y_train = normalize_data(Y_train)
+train_y_min = np.min(Y_train, axis=0)
+train_y_max = np.max(Y_train, axis=0)
+test_y_min = np.min(Y_test, axis=0)
+test_y_max = np.max(Y_test, axis=0)
+X_train = normalize_data(X_train)
+X_test = normalize_data(X_test)
+Y_train = normalize_data(Y_train)
 
 # Reshape to fit model input
 X_train = X_train.reshape((X_train.shape[0], X_train.shape[1], 1))

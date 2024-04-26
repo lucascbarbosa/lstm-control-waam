@@ -97,7 +97,8 @@ def plot_experiment(
     wfs_data,
     command_data,
     w_data,
-    fig_filename
+    fig_filename,
+    N
 ):
     """
     Plot experiment data of specific welded bead
@@ -118,31 +119,48 @@ def plot_experiment(
 
     fig, ax1 = plt.subplots()
     fig.set_size_inches((10, 6))
-    ax1.step(
-        wfs_data[:, 0],
-        wfs_data[:, 1],
-        where="post",
-        color="#000080",
-        label="wfs_state",
-    )
-    ax1.step(
-        command_data[:, 0],
-        command_data[:, 1],
-        where="post",
-        linestyle="--",
-        color="#6B66EC",
-        label="wfs_command",
-    )
     ax1.set_xlabel("t")
 
     ax2 = ax1.twinx()
 
     if scale:
+        ax1.step(
+            wfs_data[:, 0],
+            wfs_data[:, 1],
+            where="post",
+            color="#000080",
+            label="Scaled WFS value",
+        )
+        ax1.step(
+            command_data[:, 0],
+            command_data[:, 1],
+            where="post",
+            linestyle="--",
+            color="#6B66EC",
+            label="Scaled WFS command",
+        )
         ax1.set_ylabel("WFS")
-        ax2.plot(w_data[:, 0], w_data[:, 1], color="#006400", label="w")
+        ax2.plot(w_data[:, 0], w_data[:, 1],
+                 color="#006400", label="Scaled width")
         ax2.set_ylabel("W")
     else:
-        ax2.plot(w_data[:, 0], w_data[:, 1] * 1000, color="#006400", label="w")
+        ax1.step(
+            wfs_data[:, 0],
+            wfs_data[:, 1],
+            where="post",
+            color="#000080",
+            label="WFS value",
+        )
+        ax1.step(
+            command_data[:, 0],
+            command_data[:, 1],
+            where="post",
+            linestyle="--",
+            color="#6B66EC",
+            label="WFS command",
+        )
+        ax2.plot(w_data[:, 0], w_data[:, 1] * 1000,
+                 color="#006400", label="Width")
         ax2.set_ylabel("W (mm)")
         ax1.set_ylabel("WFS (m/min)")
 
@@ -158,9 +176,9 @@ def plot_experiment(
 
 
 N = None  # Horizon plotted
-scale = False
+scale = True
 save = False
-source = "simulation"
+source = "experiment"
 data_path = data_dir + f"{source}/"
 if source == "simulation":
     input_train, output_train, input_test, output_test = load_train_data(
@@ -172,25 +190,27 @@ if source == "simulation":
         fig_filename,
         N
     )
-# if source = "experiment":
-#     bead_idxs = [1]
-#     for bead_idx in bead_idxs:
-#         bead_filename = data_path + f"series/bead{bead_idx}"
-#         command_data = pd.read_csv(bead_filename + "_command.csv").to_numpy()
-#         command_data[:, 1:] = pow2wfs(command_data[:, 1:])
-#         wfs_data = pd.read_csv(bead_filename + "_wfs.csv").to_numpy()
-#         w_data = pd.read_csv(bead_filename + "_w.csv").to_numpy()
-#         fig_filename = f"bead{bead_idx}"
-#         if scale:
-#             wfs_data[:, 1:] = normalize_data(wfs_data[:, 1::])
-#             command_data[:, 1:] = normalize_data(
-#                 command_data[:, 1:])
-#             w_data[:, 1:] = normalize_data(w_data[:, 1:])
-    #
-    # plot_experiment(
-    #     bead_idx,
-    #     wfs_data,
-    #     command_data,
-    #     w_data,
-    #     fig_filename
-    # )
+
+if source == "experiment":
+    bead_idxs = [1]
+    for bead_idx in bead_idxs:
+        bead_filename = data_path + f"series/bead{bead_idx}"
+        command_data = pd.read_csv(bead_filename + "_command.csv").to_numpy()
+        command_data[:, 1:] = pow2wfs(command_data[:, 1:])
+        wfs_data = pd.read_csv(bead_filename + "_wfs.csv").to_numpy()
+        w_data = pd.read_csv(bead_filename + "_w.csv").to_numpy()
+        fig_filename = f"bead{bead_idx}"
+        if scale:
+            wfs_data[:, 1:] = normalize_data(wfs_data[:, 1::])
+            command_data[:, 1:] = normalize_data(
+                command_data[:, 1:])
+            w_data[:, 1:] = normalize_data(w_data[:, 1:])
+
+    plot_experiment(
+        bead_idx,
+        wfs_data,
+        command_data,
+        w_data,
+        fig_filename,
+        N
+    )
