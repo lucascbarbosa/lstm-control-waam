@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 # Bag pathsd
-data_dir = "database/experiment/%s"
+data_dir = "database/experiment/calibration/%s"
 bag_dir = data_dir % "bags/%s"
 series_path = data_dir % "series/%s"
 
@@ -129,9 +129,9 @@ def filter_start(power_time, power_data, wfs_time, wfs_data, w_time, w_data):
     return power_time, power_data, wfs_time, wfs_data, w_time, w_data
 
 
-bead_idxs = list(range(1, 2))
+bead_idxs = list(range(11, 16))
 for bead_idx in bead_idxs:
-    bead_file_path = bag_dir % f"bead{bead_idx}_width.bag"
+    bead_file_path = bag_dir % f"bead{bead_idx}.bag"
     # Input and output data
     w_time = []
     w_data = []

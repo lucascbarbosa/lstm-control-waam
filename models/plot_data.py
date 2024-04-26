@@ -176,7 +176,7 @@ def plot_experiment(
 
 
 N = None  # Horizon plotted
-scale = True
+scale = False
 save = False
 source = "experiment"
 data_path = data_dir + f"{source}/"
@@ -192,7 +192,7 @@ if source == "simulation":
     )
 
 if source == "experiment":
-    bead_idxs = [1]
+    bead_idxs = [11, 15]
     for bead_idx in bead_idxs:
         bead_filename = data_path + f"series/bead{bead_idx}"
         command_data = pd.read_csv(bead_filename + "_command.csv").to_numpy()
