@@ -1,22 +1,17 @@
-from python.process_data import (
+from models.process_data import (
     load_train_data,
     sequence_data,
-    standardize_data,
     resample_data,
     normalize_data,
-    destandardize_data,
     denormalize_data,
 )
-from python.process_model import predict_data
-
+from models.process_model import predict_data
 import pandas as pd
 import numpy as np
-
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import mean_squared_error
-
 import seaborn as sns
 import matplotlib.pyplot as plt
 import os
@@ -120,11 +115,9 @@ def pow2wfs(power_data):
 
 
 source = "experiment"
-input_scaling = "min-max"
-output_scaling = "min-max"
 
 # Load metrics
-best_model_id = 40
+best_model_id = 22
 best_model_filename = f"run_{best_model_id:03d}.keras"
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
@@ -178,50 +171,52 @@ if source == "simulation":
     print(f"MSE: we={mses[0]:.3f} h={mses[1]:.3f}")
 
 elif source == "experiment":
-    input_train, output_train, _, _ = load_train_data(data_dir + f"{source}/")
+    input_train, output_train, _, _ = load_train_data(
+        data_dir + f"{source}/calibration/")
 
     # Remove time
     input_train = input_train[:, 1:]
     output_train = output_train[:, 1:]
+    train_u_min = input_train.min(axis=0)
+    train_u_max = input_train.max(axis=0)
+    train_y_min = output_train.min(axis=0)
+    train_y_max = output_train.max(axis=0)
+    input_train = normalize_data(input_train)
+    output_train = normalize_data(output_train)
+    beads_test = [3, 6, 10, 15]
+    for bead_idx in beads_test:
+        bead_filename = data_dir + \
+            f"{source}/calibration/series/bead{bead_idx}"
+        wfs_test = pd.read_csv(
+            bead_filename + "_wfs.csv"
+        ).to_numpy()
+        ts_test = pd.read_csv(
+            bead_filename + "_ts.csv"
+        ).to_numpy()
+        output_test = pd.read_csv(
+            bead_filename + "_w.csv"
+        ).to_numpy()
 
-    for bead_idx in range(1, 2):
-        bead_filename = data_dir + f"{source}/series/bead{bead_idx}"
-        input_test = pd.read_csv(bead_filename + "_wfs.csv").to_numpy()
-        output_test = pd.read_csv(bead_filename + "_w.csv").to_numpy()
-
-        # Resample
-        input_test = resample_data(
-            input_test[:, 1], input_test[:, 0], output_test[:, 0]
+        wfs_test = resample_data(
+            wfs_test[:, 1], wfs_test[:, 0], output_test[:, 0]
         )
+        ts_test = resample_data(
+            ts_test[:, 1], ts_test[:, 0], output_test[:, 0]
+        )
+        input_test = np.concatenate(
+            (wfs_test, ts_test[:, 1].reshape((len(ts_test), 1))),
+            axis=1)
 
         # Remove time
         input_test = input_test[:, 1:]
         output_test = output_test[:, 1:]
 
-        num_features_input = 1
-        num_features_output = 1
+        num_features_input = input_test.shape[1]
+        num_features_output = output_test.shape[1]
 
         # Scale database
-        if input_scaling == "mean-std":
-            input_test = standardize_data(input_test)
-
-        elif input_scaling == "min-max":
-            input_test = normalize_data(input_test)
-
-        if output_scaling == "mean-std":
-            train_y_stds = output_train.std(axis=0)
-            train_y_means = output_train.mean(axis=0)
-            test_y_stds = output_test.std(axis=0)
-            test_y_means = output_test.mean(axis=0)
-            output_train = standardize_data(output_train)
-            output_test = standardize_data(output_test)
-
-        elif output_scaling == "min-max":
-            train_y_mins = output_train.min(axis=0)
-            train_y_maxs = output_train.max(axis=0)
-            test_y_mins = output_test.min(axis=0)
-            test_y_maxs = output_test.max(axis=0)
-            output_test = normalize_data(output_test)
+        input_test = normalize_data(input_test, train_u_min, train_u_max)
+        output_test = normalize_data(output_test, train_y_min, train_y_max)
 
         # Sequence data
         X_real, Y_real = sequence_data(
@@ -235,23 +230,14 @@ elif source == "experiment":
         # Prediction
         Y_pred = predict_data(model, X_real)
         for i in range(num_features_output):
-            if output_scaling == "mean-std":
-                Y_pred[:, i] = destandardize_data(
-                    Y_pred[:, i], train_y_means[i], train_y_stds[i]
-                )  # Destandardize
+            Y_pred[:, i] = denormalize_data(
+                Y_pred[:, i], train_y_min[i], train_y_max[i]
+            )  # Denormalize
 
-                Y_real[:, i] = destandardize_data(
-                    Y_real[:, i], test_y_means[i], test_y_stds[i]
-                )  # Destandardize
+            Y_real[:, i] = denormalize_data(
+                Y_real[:, i], train_y_min[i], train_y_max[i]
+            )  # Denormalize
 
-            elif output_scaling == "min-max":
-                Y_pred[:, i] = denormalize_data(
-                    Y_pred[:, i], train_y_mins[i], train_y_maxs[i]
-                )  # Denormalize
-
-                Y_real[:, i] = denormalize_data(
-                    Y_real[:, i], test_y_mins[i], test_y_maxs[i]
-                )  # Denormalize
         # Save real and predicted data
         np.savetxt(
             results_dir + f"predictions/experiment/bead{bead_idx}_y_real.csv",

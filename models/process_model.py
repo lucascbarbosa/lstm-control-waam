@@ -14,7 +14,8 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
 def create_model(
-    sequence_length,
+    P,
+    Q,
     num_features_input,
     num_features_output,
     lr,
@@ -22,7 +23,7 @@ def create_model(
     summary=True,
 ):
     """
-    Create process model
+    Create process model.
 
     Args:
         sequence_length (int): length of sequence input
@@ -36,6 +37,7 @@ def create_model(
         model (Sequential): process model
 
     """
+    input_sequence_length = P * num_features_input + Q * num_features_output
     if random_seed:
         tf.random.set_seed(random_seed)
     model = Sequential()
@@ -43,7 +45,7 @@ def create_model(
         LSTM(
             units=64,
             activation="relu",
-            input_shape=(num_features_input * sequence_length, 1),
+            input_shape=(input_sequence_length, 1),
         )
     )
     model.add(Dense(units=num_features_output))

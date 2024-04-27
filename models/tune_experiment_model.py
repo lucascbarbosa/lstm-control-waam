@@ -1,8 +1,4 @@
-from models.process_data import (
-    build_train_data,
-    load_train_data,
-    normalize_data,
-)
+from models.process_data import build_train_data, load_train_data, normalize_data
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 import itertools
@@ -21,6 +17,13 @@ results_dir = "results/"
 
 ############
 # Function #
+
+
+def split_train_test(beads, k):
+    idxs = np.random.choice(len(beads), k, replace=False)
+    beads_test = beads[idxs]
+    beads_train = np.delete(beads, idxs)
+    return beads_train, beads_test
 
 
 def delete_models(models_path):
@@ -58,11 +61,11 @@ def run_training(
         history (dict): history of training
 
     """
-    from python.process_data import (
+    from models.process_data import (
         sequence_data,
         denormalize_data,
     )
-    from python.process_model import create_model, train_model, predict_data
+    from models.process_model import create_model, train_model, predict_data
 
     def compute_metrics(Y_pred, Y_real):
         mses = []
@@ -72,7 +75,6 @@ def run_training(
         return mses.mean()
 
     # Sequencing
-    sequence_length = run_params["P"] + run_params["Q"]
     X_train, Y_train = sequence_data(
         input_train,
         output_train,
@@ -90,7 +92,8 @@ def run_training(
 
     # Define model
     model = create_model(
-        sequence_length,
+        run_params["P"],
+        run_params["Q"],
         num_features_input,
         num_features_output,
         run_params["lr"],
@@ -113,7 +116,10 @@ def run_training(
     Y_pred = predict_data(model, X_test)
     for i in range(num_features_output):
         Y_pred[:, i] = denormalize_data(
-            Y_pred[:, i], train_y_mins[i], train_y_maxs[i]
+            Y_pred[:, i], train_y_min[i], train_y_max[i]
+        )  # Denormalize
+        Y_test[:, i] = denormalize_data(
+            Y_test[:, i], train_y_min[i], train_y_max[i]
         )  # Denormalize
 
     model.save(
@@ -134,12 +140,14 @@ def run_training(
 
 
 # Load database
-beads_train = [1]
-beads_test = [1]
+# beads = np.arange(1, 16)
+# beads_train, beads_test = split_train_test(beads, 4)
+beads_test = [3, 6, 10, 15]
+beads_train = [1, 2, 4, 5, 7, 8, 9, 11, 12, 13, 14]
 
-build_train_data(data_dir + "experiment/", beads_train, beads_test)
+build_train_data(data_dir + "experiment/calibration/", beads_train, beads_test)
 input_train, output_train, input_test, output_test = load_train_data(
-    data_dir + "experiment/"
+    data_dir + "experiment/calibration/"
 )
 
 input_train = input_train[:, 1:]
@@ -147,16 +155,18 @@ input_test = input_test[:, 1:]
 output_train = output_train[:, 1:]
 output_test = output_test[:, 1:]
 
-num_features_input = num_features_output = 1
+num_features_input = input_train.shape[1]
+num_features_output = output_train.shape[1]
 
 # Scale database
-train_y_mins = output_train.min(axis=0)
-train_y_maxs = output_train.max(axis=0)
-test_y_mins = output_test.min(axis=0)
-test_y_maxs = output_test.max(axis=0)
+train_u_min = input_train.min(axis=0)
+train_u_max = input_train.max(axis=0)
+train_y_min = output_train.min(axis=0)
+train_y_max = output_train.max(axis=0)
 input_train = normalize_data(input_train)
-input_test = normalize_data(input_test)
+input_test = normalize_data(input_test, train_u_min, train_u_max)
 output_train = normalize_data(output_train)
+output_test = normalize_data(output_test, train_y_min, train_y_max)
 
 # Remove previous models
 delete_models(results_dir + "models/experiment/hyperparams/")
@@ -164,7 +174,7 @@ delete_models(results_dir + "models/experiment/hyperparams/")
 # set search space for hp's
 hp_search_space = {
     "P": np.arange(5, 51, 5),
-    "Q": np.arange(5, 51, 5),
+    "Q": np.arange(0, 51, 5),  # np.arange(0, 51, 5)
     "H": [1],
     "batch_size": [16, 32, 64],
     "num_epochs": [10],
@@ -187,8 +197,8 @@ for hp_comb in hp_combinations:
     list_run_params.append(run_params)
     i += 1
 
-num_processes = cpu_count()
 # Run all experiments
+num_processes = cpu_count()
 with Pool(processes=num_processes) as pool:
     results = pool.starmap(
         run_training,
@@ -210,7 +220,7 @@ metrics_df = (
     .sort_values(by="test_loss")
 )
 metrics_df.to_csv(results_dir + "models/experiment/hp_metrics.csv")
-print(metrics_df)
+print(metrics_df.head(10))
 
 best_model_id = input("Best model id: ")
 best_model = load_model(

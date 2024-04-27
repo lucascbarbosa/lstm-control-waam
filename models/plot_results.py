@@ -32,8 +32,8 @@ def plot_prediction(source="simulation", save=False):
         fig = plt.figure(figsize=(12, 6))
         fig.suptitle("Output prediction")
         plt.title(r"$w_e\;(mm)$")
-        plt.plot(Y_real * 1000, color="k", label="Measured")
-        plt.plot(Y_pred * 1000, color="r", label="Predicted")
+        plt.plot(Y_real, color="k", label="Measured")
+        plt.plot(Y_pred, color="r", label="Predicted")
         plt.legend()
 
     elif source == "mpc":
@@ -47,14 +47,14 @@ def plot_prediction(source="simulation", save=False):
     fig.tight_layout()
     if save:
         if source == "simulation":
-            plt.savefig(results_dir + f"plots/{source}_lstm_prediction.png")
+            plt.savefig(results_dir + f"plots/simulation_lstm_prediction.png")
         elif source == "experiment":
             plt.savefig(
                 results_dir
-                + f"plots/{source}_bead{idx_test}_lstm_prediction.png"
+                + f"plots/experiment/calibration/calibration_bead{bead_test}_lstm_prediction.png"
             )
         elif source == "mpc":
-            plt.savefig(results_dir + f"plots/{source}_lstm_prediction.png")
+            plt.savefig(results_dir + f"plots/mpc_lstm_prediction.png")
     plt.show()
 
 
@@ -191,8 +191,7 @@ def gradient_angle(Y_real, Y_pred):
 
 
 source = "experiment"
-data_filename = data_dir + f"{source}/"
-
+save = True
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 metrics_df["test_loss"] = metrics_df["test_loss"].apply(
     lambda x: np.nan if x > 1 else x
@@ -221,18 +220,19 @@ if source == "simulation":
 
     # plot_mpc(mpc_u, mpc_y, y_means,save=False)
 
-elif source == "experiment":
-    for idx_test in range(1, 2):
+elif source.split('/')[0] == "experiment":
+    beads_test = [3, 6, 10, 15]
+    for bead_test in beads_test:
         Y_real = np.loadtxt(
-            results_dir + f"predictions/{source}/bead{idx_test}_y_real.csv",
+            results_dir + f"predictions/{source}/bead{bead_test}_y_real.csv",
             dtype=np.float64,
         )
         Y_pred = np.loadtxt(
-            results_dir + f"predictions/{source}/bead{idx_test}_y_pred.csv",
+            results_dir + f"predictions/{source}/bead{bead_test}_y_pred.csv",
             dtype=np.float64,
         )
 
-        plot_prediction(source=source, save=True)
+        plot_prediction(source=source, save=save)
 
         bins = 32
         # histogram_error(bins, source=source, save=True)
