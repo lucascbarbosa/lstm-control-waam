@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -6,11 +7,11 @@ import tensorflow as tf
 from keras.models import load_model
 from tensorflow.keras.losses import mean_squared_error
 from tensorflow.keras.optimizers import Adam
-from python.process_data import (
+from models.process_data import (
+    build_train_data,
+    load_train_data,
     sequence_data,
     normalize_data,
-    standardize_data,
-    load_experiment,
 )
 
 # Data paths
@@ -30,9 +31,13 @@ def build_sequence(u, y):
     Returns:
         np.array: sequence input
     """
+    num_features_input = u.shape[1]
+    num_features_output = y.shape[1]
     u = u.ravel()
     y = y.ravel()
-    return np.hstack((u, y)).reshape((1, P + Q, 1))
+    return np.hstack((u, y)).reshape(
+        (1, P * num_features_input + Q*num_features_output, 1)
+    )
 
 
 def update_hist(current_hist, new_states):
@@ -93,16 +98,16 @@ def split_gradient(seq):
         output_gradient (np.array): gradient w.r.t. the outputs
     """
     seq = seq.ravel()
-    input_gradient = seq[: 1 * P]
-    output_gradient = seq[1 * P :]
+    input_gradient = seq[: num_features_input * P]
+    output_gradient = seq[num_features_input * P:]
     return input_gradient, output_gradient
 
 
 # Process model parameters
 metrics_process = pd.read_csv(
-    results_dir + f"models/experiment_igor/hp_metrics.csv"
+    results_dir + f"models/experiment/hp_metrics.csv"
 )
-best_model_id = 121
+best_model_id = 22
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics_process[metrics_process["run_id"] == int(best_model_id)]
 P = best_params.iloc[0, 1]
@@ -110,39 +115,41 @@ Q = best_params.iloc[0, 2]
 
 # Load model
 process_model = load_model(
-    results_dir + f"models/experiment_igor/best/{best_model_filename}"
+    results_dir + f"models/experiment/best/{best_model_filename}"
 )
 opt = Adam(learning_rate=best_params["lr"])
 process_model.compile(optimizer=opt, loss=mean_squared_error)
 
+beads_test = [3, 6, 10, 15]
+beads_train = [1, 2, 4, 5, 7, 8, 9, 11, 12, 13, 14]
+
 # Build input data
-source = "random"  ##
+source = "experiment"
 if source == "random":
-    process_inputs = 1
-    process_outputs = 1
     input_type = "step"  # or step
     N = 10_000
     if input_type == "cont":
         u_process = normalize_data(
             np.cumsum(
-                np.random.normal(loc=0.0, scale=0.01, size=(N, process_inputs))
-            ).reshape((N, process_inputs))
+                np.random.normal(loc=0.0, scale=0.01,
+                                 size=(N, num_features_input))
+            ).reshape((N, num_features_input))
         )
     elif input_type == "step":
         num_steps = 51
-        step_period = 25  # @ 10 Hz
+        step_period = 50  # @ 5 Hz
         u_process = np.random.randint(
-            0, num_steps, size=(int(N / step_period), process_inputs)
+            0, num_steps, size=(int(N / step_period), num_features_input)
         ) / (num_steps - 1)
         u_process = np.repeat(u_process, step_period, axis=0)
-    y_process = np.zeros((N, process_inputs))
-    gradient_inputs = P + 3
-    gradient_process = np.zeros((N, P))
-    u_hist = np.zeros((P, process_inputs))
-    y_hist = np.zeros((Q, process_outputs))
+    y_process = np.zeros((N, num_features_output))
+    gradient_inputs = P * num_features_input + 3
+    gradient_process = np.zeros((N, num_features_input * P))
+    u_hist = np.zeros((P, num_features_input))
+    y_hist = np.zeros((Q, num_features_output))
     for i in tqdm(range(N), desc="Processing", unit="iteration"):
         u_row = u_process[i]
-        u_hist = update_hist(u_hist, u_row.reshape((1, 1)))
+        u_hist = update_hist(u_hist, u_row.reshape((1, num_features_input)))
         seq_input = build_sequence(u_hist, y_hist)
         input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
         for j in range(1):
@@ -166,33 +173,32 @@ if source == "random":
     Y_process = Y_process.reshape((Y_process.shape[:2]))
 
 elif source == "experiment":
-    u_process, y_process, _, _ = load_experiment(
-        data_dir + "experiment_igor/series/", [1, 2, 3, 4, 5, 6, 7], [7]
+    build_train_data(data_dir + "experiment/calibration/",
+                     beads_train, beads_test)
+    input_process, output_process, _, _ = load_train_data(
+        data_dir + "experiment/calibration/"
     )
-    X_process, Y_process = sequence_data(u_process, y_process, P, Q, 1)
 
-    X_process = X_process.reshape((X_process.shape[:2]))
-    Y_process = Y_process.reshape((Y_process.shape[:2]))
+    input_process = input_process[:, 1:]
+    output_process = output_process[:, 1:]
 
-    X_process = normalize_data(X_process)
-    Y_process = normalize_data(Y_process)
-    input_scaling = "min-max"
-    if input_scaling == "mean-std":
-        X_process = standardize_data(X_process)
+    num_features_input = input_process.shape[1]
+    num_features_output = output_process.shape[1]
 
-    output_scaling = "min-max"
-    if output_scaling == "mean-std":
-        Y_process = standardize_data(Y_process)
+    # Scale database
+    input_process = normalize_data(input_process)
+    output_process = normalize_data(output_process)
 
-    elif output_scaling == "min-max":
-        Y_process = normalize_data(Y_process)
-
+    X_process, Y_process = sequence_data(
+        input_process, output_process, P, Q, 1)
     N = X_process.shape[0]
-    gradient_inputs = P + 3
-    gradient_process = np.zeros((N, P))
+    gradient_inputs = P * num_features_input + 3
+    gradient_process = np.zeros((N, num_features_input * P))
     for i in tqdm(range(N), desc="Processing", unit="iteration"):
         input_tensor = tf.convert_to_tensor(
-            X_process[i, :].reshape((1, P + Q, 1)), dtype=tf.float32
+            X_process[i, :].reshape(
+                (1, P * num_features_input + Q * num_features_output, 1)),
+            dtype=tf.float32
         )
         for j in range(1):
             with tf.GradientTape() as t:
@@ -208,14 +214,22 @@ input_train, input_test, output_train, output_test = build_gradient_dataset(
     X_process, gradient_process, gradient_inputs, test_split=0.2
 )
 
-np.savetxt(data_dir + f"gradient/{source}/inputs_train.csv", input_train)
-np.savetxt(data_dir + f"gradient/{source}/inputs_test.csv", input_test)
-np.savetxt(data_dir + f"gradient/{source}/outputs_train.csv", output_train)
-np.savetxt(data_dir + f"gradient/{source}/outputs_test.csv", output_test)
+# Reshape
+input_test = input_test[:, :, 0]
+input_train = input_train[:, :, 0]
 
-import matplotlib.pyplot as plt
+np.savetxt(
+    data_dir + f"gradient/{source}/input_train.csv", input_train, delimiter=',')
+np.savetxt(
+    data_dir + f"gradient/{source}/input_test.csv", input_test, delimiter=',')
+np.savetxt(
+    data_dir + f"gradient/{source}/output_train.csv", output_train, delimiter=',')
+np.savetxt(
+    data_dir + f"gradient/{source}/output_test.csv", output_test, delimiter=',')
 
-plt.plot(u_process, label="u")
-plt.plot(y_process, label="y")
-plt.legend()
-plt.show()
+#
+# plt.plot(u_process[:, 0], label="wfs")
+# plt.plot(u_process[:, 1], label="ts")
+# plt.plot(y_process, label="w")
+# plt.legend()
+# plt.show()

@@ -274,7 +274,7 @@ def plot_experiment(
 
 N = None  # Horizon plotted
 end_time = 16
-scale = True
+scale = False
 save = True
 source = "experiment/calibration"
 data_path = data_dir + f"{source}/"

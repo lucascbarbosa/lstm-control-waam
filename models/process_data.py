@@ -95,10 +95,14 @@ def load_train_data(data_dir):
         input_test (np.array): inputs of test data
         output_test (np.array): outputs of test data
     """
-    input_train = pd.read_csv(data_dir + "input_train.csv").to_numpy()
-    output_train = pd.read_csv(data_dir + "output_train.csv").to_numpy()
-    input_test = pd.read_csv(data_dir + "input_test.csv").to_numpy()
-    output_test = pd.read_csv(data_dir + "output_test.csv").to_numpy()
+    input_train = pd.read_csv(
+        data_dir + "input_train.csv").to_numpy().astype(np.float32)
+    output_train = pd.read_csv(
+        data_dir + "output_train.csv").to_numpy().astype(np.float32)
+    input_test = pd.read_csv(
+        data_dir + "input_test.csv").to_numpy().astype(np.float32)
+    output_test = pd.read_csv(
+        data_dir + "output_test.csv").to_numpy().astype(np.float32)
     return input_train, output_train, input_test, output_test
 
 

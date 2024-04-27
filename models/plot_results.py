@@ -190,7 +190,7 @@ def gradient_angle(Y_real, Y_pred):
     return angles
 
 
-source = "experiment"
+source = "gradient"
 save = True
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 metrics_df["test_loss"] = metrics_df["test_loss"].apply(
@@ -260,32 +260,33 @@ elif source == "gradient":
     fig = plt.figure(figsize=(20, 9))
     avg = np.mean(angles)
     plt.title("Angular error between real and predicted gradients")
-    sns.histplot(angles, bins=64)
-    plt.axvline(90, linestyle="--", color="black", label="90 deg")
+    sns.histplot(angles, bins=512)
+    # plt.axvline(90, linestyle="--", color="black", label="90 deg")
     plt.axvline(avg, linestyle="--", color="red", label=f"Mean: {avg:.2f}")
     plt.legend()
+    plt.xlim(0, 90)
     plt.tight_layout()
-    plt.savefig(results_dir + "plots/gradient_angles.png")
+    plt.savefig(results_dir + f"plots/{source}/gradient_angles.png")
+    plt.show()
 
     # Dimensions error
-    error = Y_pred - Y_real
-    fig, axs = plt.subplots(num_outputs)
-    fig.set_size_inches(20, 9)
-    for i in range(num_outputs):
-        sns.histplot(error[:, i], bins=64, ax=axs[i])
-        avg = np.mean(error[:, i])
-        axs[i].axvline(
-            avg,
-            color="red",
-            linestyle="dashed",
-            linewidth=2,
-            label=f"Mean: {avg*1e3:.1f}e-3",
-        )
-        axs[i].set_title(
-            r"Gradient error histogram w.r.t. u[t-%s]" % (num_outputs - i)
-        )
-        axs[i].legend()
-
-    plt.tight_layout()
-    plt.savefig(results_dir + "plots/gradient_dimensions.png")
-    plt.show()
+    # error = Y_pred - Y_real
+    # fig, axs = plt.subplots(num_outputs)
+    # fig.set_size_inches(20, 9)
+    # for i in range(num_outputs):
+    #     sns.histplot(error[:, i], bins=128, ax=axs[i])
+    #     avg = np.mean(error[:, i])
+    #     axs[i].axvline(
+    #         avg,
+    #         color="red",
+    #         linestyle="dashed",
+    #         linewidth=2,
+    #         label=f"Mean: {avg*1e3:.1f}e-3",
+    #     )
+    #     axs[i].set_title(
+    #         r"Gradient error histogram w.r.t. u[t-%s]" % (num_outputs - i)
+    #     )
+    #     axs[i].legend()
+    #
+    # plt.tight_layout()
+    # plt.savefig(results_dir + f"plots/gradient_dimensions.png")

@@ -114,10 +114,10 @@ def pow2wfs(power_data):
     return (power_data * 9 / 100) + 1.5
 
 
-source = "experiment"
-
+source = "gradient"
+gradient_source = "experiment"
 # Load metrics
-best_model_id = 22
+best_model_id = 7
 best_model_filename = f"run_{best_model_id:03d}.keras"
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
@@ -253,65 +253,39 @@ elif source == "experiment":
 
 elif source == "gradient":
     # Load database
-    gradient_source = "random"
     X_train, Y_train, X_test, Y_test = load_train_data(
         data_dir + f"gradient/{gradient_source}/"
     )
 
-    N = len(X_train)
-    X_train = X_train[:N]
-    X_test = X_test[:N]
-    Y_train = Y_train[:N]
-    Y_test = Y_test[:N]
-
     # Scaling
-    input_scaling = "min-max"
-    if input_scaling == "mean-std":
-        X_train = standardize_data(X_train)
-        X_test = standardize_data(X_test)
-
-    elif input_scaling == "min-max":
-        X_train = normalize_data(X_train)
-        X_test = normalize_data(X_test)
-
-    output_scaling = "min-max"
-    if output_scaling == "mean-std":
-        train_y_mean = np.mean(Y_train, axis=0)
-        train_y_std = np.std(Y_train, axis=0)
-        test_y_mean = np.mean(Y_test, axis=0)
-        test_y_std = np.std(Y_test, axis=0)
-        Y_train = standardize_data(Y_train)
-
-    elif output_scaling == "min-max":
-        train_y_min = np.min(Y_train, axis=0)
-        train_y_max = np.max(Y_train, axis=0)
-        test_y_min = np.min(Y_test, axis=0)
-        test_y_max = np.max(Y_test, axis=0)
-        Y_train = normalize_data(Y_train)
+    train_x_max = X_train.max(axis=0)
+    train_x_min = X_train.min(axis=0)
+    train_y_max = Y_train.max(axis=0)
+    train_y_min = Y_train.min(axis=0)
+    X_test = normalize_data(X_test, train_x_min, train_x_max)
 
     # Reshape to fit model input
-    X_train = X_train.reshape((X_train.shape[0], X_train.shape[1], 1))
     X_test = X_test.reshape((X_test.shape[0], X_test.shape[1], 1))
 
     # Predict data
     Y_pred = predict_data(model, X_test)
-    if output_scaling == "mean-std":
-        Y_pred = destandardize_data(
-            Y_pred, train_y_mean, train_y_std
-        )  # Destandardize
-
-    elif output_scaling == "min-max":
-        Y_pred = denormalize_data(
-            Y_pred, train_y_min, train_y_max
-        )  # Denormalize
+    Y_pred = denormalize_data(
+        Y_pred, train_y_min, train_y_max
+    )  # Denormalize
 
     Y_real = Y_test
+    np.savetxt(results_dir + f"predictions/{source}/gradient_reals.csv",
+               Y_real)
+    np.savetxt(results_dir + f"predictions/{source}/gradient_preds.csv",
+               Y_pred)
+
     angles = gradient_angle(Y_pred, Y_real)
 
     num_outputs = Y_real.shape[1]
 
     # Angles error
     angles = gradient_angle(Y_real, Y_pred)
+    print(f"Angular error: {angles.mean():.2f}")
     fig = plt.figure(figsize=(20, 9))
     avg = np.mean(angles)
     plt.title("Angular error between real and predicted gradients")
@@ -342,5 +316,3 @@ elif source == "gradient":
 
     plt.tight_layout()
     plt.show()
-
-    print(f"Angular error: {angles.mean():.2f}")

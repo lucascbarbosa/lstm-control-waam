@@ -1,5 +1,5 @@
-from python.process_data import (
-    load_gradient,
+from models.process_data import (
+    load_train_data,
     normalize_data,
     denormalize_data,
 )
@@ -57,7 +57,7 @@ def run_training(
         history (dict): history of training
 
     """
-    from python.gradient_model import create_model, train_model, predict_data
+    from models.gradient_model import create_model, train_model, predict_data
 
     def gradient_angle(Y_real, Y_pred):
         angles = np.zeros(Y_real.shape[0])
@@ -128,27 +128,27 @@ def run_training(
 
 # Get process model parameters
 metrics_process = pd.read_csv(
-    results_dir + f"models/experiment_igor/hp_metrics.csv"
+    results_dir + f"models/experiment/hp_metrics.csv"
 )
-best_model_id = 121
+best_model_id = 22
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics_process[metrics_process["run_id"] == int(best_model_id)]
 P = best_params.iloc[0, 1]
 Q = best_params.iloc[0, 2]
 
 # Load database
-source = "random"
-X_train, Y_train, X_test, Y_test = load_gradient(
+source = "experiment"
+X_train, Y_train, X_test, Y_test = load_train_data(
     data_dir + f"gradient/{source}/"
 )
 
 # Scaling
+train_x_min = np.min(X_train, axis=0)
+train_x_max = np.max(X_train, axis=0)
 train_y_min = np.min(Y_train, axis=0)
 train_y_max = np.max(Y_train, axis=0)
-test_y_min = np.min(Y_test, axis=0)
-test_y_max = np.max(Y_test, axis=0)
 X_train = normalize_data(X_train)
-X_test = normalize_data(X_test)
+X_test = normalize_data(X_test, train_x_min, train_x_max)
 Y_train = normalize_data(Y_train)
 
 # Reshape to fit model input
@@ -164,19 +164,19 @@ delete_models(results_dir + "models/gradient/hyperparams/")
 
 # set search space for hp's
 hp_search_space = {
-    # "batch_size": [16, 32, 64],
-    "batch_size": [16],
+    "batch_size": [16, 32, 64],
+    # "batch_size": [16],
     "num_epochs": [100],
-    # "validation_split": [0.1, 0.2, 0.3],
-    "validation_split": [0.1],
-    "lr": [1e-3],
+    "validation_split": [0.1, 0.2, 0.3],
+    # "validation_split": [0.1],
+    "lr": [1e-3, 1e-2],
 }
 
 hp_combinations = list(itertools.product(*hp_search_space.values()))
 
 # iterate every combination
 list_run_params = []
-verbose_level = 1
+verbose_level = 0
 i = 1
 for hp_comb in hp_combinations:
     run_params = {
