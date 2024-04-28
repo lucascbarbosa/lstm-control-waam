@@ -17,6 +17,8 @@ class MPC:
     def __init__(self, bead_idx):
 
         self.bead_idx = bead_idx
+        self.reference_data = pd.read_csv(
+            data_dir + f"experiment/control/references/bead{bead_idx}.csv").to_numpy()
 
         # Optimization parameters
         self.lr = 1e-1
@@ -53,7 +55,7 @@ class MPC:
             G_continuous, self.T, method='tustin')
         self.ss_discrete = control.tf2ss(G_discrete)
 
-        self.y_ref = 10
+        self.y_ref = 0.0
 
         # Current sort_values
         self.u = 0.0
@@ -92,6 +94,7 @@ class MPC:
         if self.arc_state:
             self.y = data.data
             # rospy.loginfo("Received output w: %f", self.y)
+        self.set_reference()
 
     def create_control_diff(self, u_forecast):
         u_diff = u_forecast.copy()
@@ -204,6 +207,14 @@ class MPC:
         opt_time = time.time() - opt_time
         print(f"Steps: {opt_step} Time: {opt_time:.2f}")
         return u_opt, u_forecast, y_forecast
+
+    def set_reference(self):
+        if self.arc_state:
+            current_time = np.round(time.time() - self.arcon_time, 1)
+            idx = np.where(current_time > self.reference_data[:, 0])[0]
+            if len(idx) > 0:
+                idx = idx[-1]
+                self.y_ref = self.reference_data[idx, -1]
 
     def export_gradient(self):
         np.savetxt(results_dir + "predictions/gradient/gradient_reals.csv",

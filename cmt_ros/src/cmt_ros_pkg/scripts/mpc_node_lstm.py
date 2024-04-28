@@ -18,9 +18,11 @@ class MPC:
     def __init__(self, bead_idx):
 
         self.bead_idx = bead_idx
+        self.reference_data = pd.read_csv(
+            data_dir + f"experiment/control/references/bead{bead_idx}.csv").to_numpy()
 
         # Optimization parameters
-        self.lr = 1e-1
+        self.lr = 1e-3
         self.alpha_time = 1e-3
         self.alpha_opt = 1e-3
         self.cost_tol = 1e-2
@@ -106,11 +108,6 @@ class MPC:
         self.weight_control = 1.0
         self.weight_output = 1.0
 
-        # Desired outputs
-        self.y_ref = 5  # mm
-        self.y_ref = (self.y_ref - self.process_y_min) / \
-            (self.process_y_max - self.process_y_min)
-
         # Historic data
         self.u_hist = np.zeros((self.P, self.process_inputs))
         self.y_hist = np.zeros((self.Q, self.process_outputs))
@@ -166,6 +163,7 @@ class MPC:
                 (self.process_y_max - self.process_y_min)
             self.y_hist = self.update_hist(
                 self.y_hist, y_row_scaled.reshape((1, 1)))
+        self.set_reference()
 
     def load_train_data(self, data_dir):
         input_train = pd.read_csv(
@@ -363,6 +361,16 @@ class MPC:
         print(f"Steps: {opt_step} Time: {opt_time:.2f}")
         return u_opt, u_forecast, y_forecast
 
+    def set_reference(self):
+        if self.arc_state:
+            current_time = np.round(time.time() - self.arcon_time, 1)
+            idx = np.where(current_time > self.reference_data[:, 0])[0]
+            if len(idx) > 0:
+                idx = idx[-1]
+                self.y_ref = self.reference_data[idx, -1]
+                self.y_ref = (self.y_ref - self.process_y_min) / \
+                    (self.process_y_max - self.process_y_min)
+
     def export_gradient(self):
         np.savetxt(
             results_dir + "predictions/gradient/control/gradient_reals.csv",
@@ -400,7 +408,6 @@ while not rospy.is_shutdown():
             u_forecast=None,
             verbose=True)
         u_forecast[:-1] = u_forecast[1:]
-        # Send the "u_row" variable
         mpc.rate.sleep()
         exp_step += 1
         exp_time = mpc.step_time

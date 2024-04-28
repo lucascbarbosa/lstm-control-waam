@@ -15,7 +15,9 @@ class Experiment(object):
         # Load input data
         self.bead_idx = bead_idx
         self.command_data = pd.read_csv(
-            self.data_dir + f"experiment/commands/bead{bead_idx}.csv").to_numpy()
+            self.data_dir +
+            f"experiment/calibration/commands/bead{bead_idx}.csv"
+        ).to_numpy()
 
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
