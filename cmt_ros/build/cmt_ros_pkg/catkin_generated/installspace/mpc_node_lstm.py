@@ -11,7 +11,6 @@ from scipy.interpolate import interp1d
 import rospy
 from std_msgs.msg import Float32, Bool, Float64MultiArray
 import time
-import sys
 
 
 class MPC:
@@ -46,7 +45,7 @@ class MPC:
         self.metrics_process = pd.read_csv(results_dir +
                                            f"models/experiment/hp_metrics.csv"
                                            )
-        process_best_model_id = 70
+        process_best_model_id = 22
         process_best_model_filename = f"run_{process_best_model_id:03d}.keras"
         self.process_best_params = self.metrics_process[
             self.metrics_process["run_id"] == int(process_best_model_id)
@@ -64,7 +63,7 @@ class MPC:
         self.process_model.compile(optimizer=self.opt, loss=mean_squared_error)
 
         # Gradient data
-        self.gradient_source = "both"
+        self.gradient_source = "pred"
         (self.gradient_input_train,
          self.gradient_output_train,
          _,
@@ -81,11 +80,10 @@ class MPC:
         # Load gradient model metrics
         self.metrics_gradient = pd.read_csv(
             results_dir + f"models/gradient/hp_metrics.csv")
-        gradient_best_model_id = 3
-        gradient_best_model_filename = \
-            f"run_{gradient_best_model_id:03d}.keras"
-        self.gradient_best_params = self.metrics_gradient[
-            self.metrics_gradient["run_id"] == int(gradient_best_model_id)]
+        gradient_best_model_id = 7
+        gradient_best_model_filename = f"run_{gradient_best_model_id:03d}.keras"
+        self.gradient_best_params = self.metrics_gradient[self.metrics_gradient["run_id"] == int(
+            gradient_best_model_id)]
         # Load gradient model
         self.gradient_model = load_model(
             results_dir +
@@ -110,7 +108,7 @@ class MPC:
         self.weight_output = 1.0
 
         # Desired outputs
-        self.y_ref = 5  # mm
+        self.y_ref = 9  # mm
         self.y_ref = (self.y_ref - self.process_y_min) / \
             (self.process_y_max - self.process_y_min)
 
@@ -225,7 +223,6 @@ class MPC:
         u_diff_forecast = self.create_control_diff(u_forecast)
         output_error = (self.y_ref - y_forecast) * \
             (self.process_y_max-self.process_y_min)
-
         output_cost = np.sum(output_error**2 * self.weight_output)
         control_cost = np.sum(u_diff_forecast**2 * self.weight_control)
         return output_cost + control_cost
@@ -264,7 +261,7 @@ class MPC:
                     gradient_input = (
                         seq_input.ravel()[:self.gradient_inputs]
                     ).reshape(1, self.gradient_inputs)
-                    gradient_input = (gradient_input - self.gradient_x_min) / \
+                    gradient_input = (gradient_input - self.gradient_x_min) /  \
                         (self.gradient_x_max - self.gradient_x_min)
 
                     # print(f'u_H: {u_hist}')
@@ -319,20 +316,17 @@ class MPC:
         return steps, y_forecast
 
     # Optimization function method
-    def optimization_function(self, u_hist, y_hist, lr, u_forecast=None,
-                              verbose=False):
+    def optimization_function(self, u_hist, y_hist, lr, u_forecast=None, verbose=False):
         opt_time = time.time()
         if u_forecast is None:
-            u_forecast = np.random.normal(loc=0.5, scale=0.1,
-                                          size=(self.M, 1))
-            # u_forecast = np.random.uniform(size=(self.M, 1))
+            # u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(self.M, 1)) #
+            u_forecast = np.random.uniform(size=(self.M, 1))
         opt_step = 0
         cost = np.inf
         last_cost = cost
         delta_cost = -cost
-        # gradient history for adaptive learning rate algorithm
-        # gradient_hist = np.zeros((self.process_input_test.shape[0],self.M))
-        gradient_hist = []
+        # gradient_hist = np.zeros((self.process_input_test.shape[0],self.M)) # gradient history for adaptive learning rate algorithm
+        gradient_hist = []  # gradient history for adaptive learning rate algorithm
         converged = True
         while delta_cost < -self.cost_tol:
             steps, y_forecast = self.compute_step(u_hist, y_hist, u_forecast)
@@ -356,33 +350,28 @@ class MPC:
                 break
         u_opt = u_forecast[0, :]
         u_opt = u_opt[0]
-        # Descaling
         u_opt = u_opt * (self.process_u_max[0] -
                          self.process_u_min[0]) + self.process_u_min[0]
-        command_opt = self.wfs2pow(u_opt)
-        rospy.loginfo("Sending command: %f", command_opt)
-        self.pub.publish(command_opt)
+        u_opt = self.wfs2pow(u_opt)
+        self.pub.publish(u_opt)
+        rospy.loginfo("Sending control wfs: %f", u_opt)
         opt_time = time.time() - opt_time
         print(f"Steps: {opt_step} Time: {opt_time:.2f}")
         self.list_performance_opt.append(
-            {'Steps': opt_step, 'Time': opt_time, 'Cost': last_cost,
-             'Converged': converged})
+            {'Steps': opt_step, 'Time': opt_time, 'Cost': last_cost, 'Converged': converged})
         return u_opt, u_forecast, y_forecast
 
     def export_gradient(self):
-        np.savetxt(
-            results_dir + "predictions/gradient/control/gradient_reals.csv",
-            np.array(self.gradient_reals))
-        np.savetxt(
-            results_dir + "predictions/gradient/control/gradient_preds.csv",
-            np.array(self.gradient_preds))
+        np.savetxt(results_dir + "predictions/gradient/gradient_reals.csv",
+                   np.array(self.gradient_reals))
+        np.savetxt(results_dir + "predictions/gradient/gradient_preds.csv",
+                   np.array(self.gradient_preds))
 
     def export_performance(self):
         performance_df = pd.DataFrame(self.list_performance_opt)
         performance_df.to_csv(
             results_dir +
-            f'mpc_performance/gradient_{self.gradient_source}.csv',
-            index=False)
+            f'mpc_performance/gradient_{self.gradient_source}.csv', index=False)
 
 
 # Filepaths
@@ -391,8 +380,7 @@ results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
 
 
 # Create an instance of the MPC class
-args = rospy.myargv(argv=sys.argv)
-bead_idx = int(args[1])
+bead_idx = 1
 mpc = MPC(bead_idx)
 # u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(M, 1)) #
 # u_forecast = np.random.uniform(size=(mpc.M, 1)) #

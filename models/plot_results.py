@@ -190,7 +190,8 @@ def gradient_angle(Y_real, Y_pred):
     return angles
 
 
-source = "experiment"
+source = "gradient"
+gradient_source = "calibration"
 save = True
 fontsize = 16
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
@@ -246,11 +247,13 @@ elif source.split('/')[0] == "experiment":
 
 elif source == "gradient":
     Y_real = np.loadtxt(
-        results_dir + f"predictions/{source}/gradient_reals.csv",
+        results_dir +
+        f"predictions/{source}/{gradient_source}/gradient_reals.csv",
         dtype=np.float64,
     )
     Y_pred = np.loadtxt(
-        results_dir + f"predictions/{source}/gradient_preds.csv",
+        results_dir +
+        f"predictions/{source}/{gradient_source}/gradient_preds.csv",
         dtype=np.float64,
     )
 
@@ -260,14 +263,16 @@ elif source == "gradient":
     angles = gradient_angle(Y_real, Y_pred)
     fig = plt.figure(figsize=(20, 9))
     avg = np.mean(angles)
-    plt.title("Angular error between real and predicted gradients")
+    plt.title("Angular error between real and predicted gradients",
+              fontsize=fontsize)
     sns.histplot(angles, bins=128)
     # plt.axvline(90, linestyle="--", color="black", label="90 deg")
     plt.axvline(avg, linestyle="--", color="red", label=f"Mean: {avg:.2f}")
-    plt.legend()
+    plt.legend(fontsize=fontsize)
     plt.xlim(0, 45)
     plt.tight_layout()
-    plt.savefig(results_dir + f"plots/{source}/gradient_angles.png")
+    plt.savefig(
+        results_dir + f"plots/{source}/{gradient_source}_gradient_angles.png")
     plt.show()
 
     # Dimensions error

@@ -12,9 +12,14 @@ class Cell(object):
         rospy.init_node("cell_node", anonymous=True)
         rospy.Subscriber("fronius_remote_command", Float32, self.callback)
         self.pub_arc = rospy.Publisher("arc_state", Bool, queue_size=10)
-        self.arc_idxs = [10, 500]
+        self.pub_ts = rospy.Publisher(
+            "kr90/travel_speed", Float32, queue_size=10)
+        self.arc_idxs = [10, 2000]
         self.pub_width = rospy.Publisher(
             "xiris/bead/filtered", Float32, queue_size=10)
+        self.pub_power = rospy.Publisher(
+            "powersource_state", Float32, queue_size=10)
+
         self.fs = 10
         self.rate = rospy.Rate(self.fs)
 
@@ -33,11 +38,13 @@ class Cell(object):
         # Current values
         self.time = 0.0
         self.u = 0.0
+        self.p = 0.0
         self.x = np.zeros((2, 1))
         self.y = 0.0
 
     def callback(self, data):
-        self.u = data.data
+        self.p = data.data
+        self.u = self.pow2wfs(self.p)
         rospy.loginfo("Received command wfs: %f", self.u)
 
     def resample_data(self, original_data, original_time, new_time):
@@ -60,6 +67,11 @@ class Cell(object):
                       np.dot(self.ss_discrete.D, self.u))[0]
         self.pub_width.publish(self.y)
         rospy.loginfo("Sending y: %s", self.y)
+        self.pub_power.publish(self.p + np.random.normal())
+        rospy.loginfo("Sending power: %s", self.p + np.random.normal())
+        self.ts = 10.0 + np.random.normal()
+        self.pub_ts.publish(self.ts)
+        rospy.loginfo("Sending TS: %s", self.ts)
 
     def set_arcstate(self, t):
         arc_state = t > self.arc_idxs[0] and t < self.arc_idxs[1]
@@ -69,6 +81,12 @@ class Cell(object):
             rospy.signal_shutdown("Shutting down...")
         else:
             self.arc_state = arc_state
+
+    def wfs2pow(self, f):
+        return np.round((f-1.5)*100/(10.5 - 1.5), 2)
+
+    def pow2wfs(self, p):
+        return np.round((p*9/100)+1.5, 3)
 
 
 cell = Cell()

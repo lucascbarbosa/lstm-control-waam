@@ -117,7 +117,7 @@ def pow2wfs(power_data):
 source = "gradient"
 gradient_source = "experiment"
 # Load metrics
-best_model_id = 9
+best_model_id = 3
 best_model_filename = f"run_{best_model_id:03d}.keras"
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
@@ -251,7 +251,7 @@ elif source == "experiment":
         mse = compute_metrics(Y_pred, Y_real)
         print(f"MSE for bead {bead_idx}: we={mse[0]}")
 
-elif source == "gradient":
+elif source == "gradient" and gradient_source == "experiment":
     # Load database
     X_train, Y_train, X_test, Y_test = load_train_data(
         data_dir + f"gradient/{gradient_source}/"
@@ -274,10 +274,12 @@ elif source == "gradient":
     )  # Denormalize
 
     Y_real = Y_test
-    np.savetxt(results_dir + f"predictions/{source}/gradient_reals.csv",
-               Y_real)
-    np.savetxt(results_dir + f"predictions/{source}/gradient_preds.csv",
-               Y_pred)
+    np.savetxt(
+        results_dir + f"predictions/{source}/calibration/gradient_reals.csv",
+        Y_real)
+    np.savetxt(
+        results_dir + f"predictions/{source}/calibration/gradient_preds.csv",
+        Y_pred)
 
     angles = gradient_angle(Y_pred, Y_real)
 
@@ -296,23 +298,22 @@ elif source == "gradient":
     plt.tight_layout()
 
     # Dimensions error
-    error = Y_pred - Y_real
-    fig, axs = plt.subplots(num_outputs)
-    fig.set_size_inches(20, 9)
-    for i in range(num_outputs):
-        sns.histplot(error[:, i], bins=128, ax=axs[i])
-        avg = np.mean(error[:, i])
-        axs[i].axvline(
-            avg,
-            color="red",
-            linestyle="dashed",
-            linewidth=2,
-            label=f"Mean: {avg*1e3:.1f}e-3",
-        )
-        axs[i].set_title(
-            r"Gradient error histogram w.r.t. u[t-%s]" % (num_outputs - i)
-        )
-        axs[i].legend()
-
-    plt.tight_layout()
+    # error = Y_pred - Y_real
+    # fig, axs = plt.subplots(num_outputs)
+    # fig.set_size_inches(20, 9)
+    # for i in range(num_outputs):
+    #     sns.histplot(error[:, i], bins=128, ax=axs[i])
+    #     avg = np.mean(error[:, i])
+    #     axs[i].axvline(
+    #         avg,
+    #         color="red",
+    #         linestyle="dashed",
+    #         linewidth=2,
+    #         label=f"Mean: {avg*1e3:.1f}e-3",
+    #     )
+    #     axs[i].set_title(
+    #         r"Gradient error histogram w.r.t. u[t-%s]" % (num_outputs - i)
+    #     )
+    #     axs[i].legend()
+    # plt.tight_layout()
     plt.show()
