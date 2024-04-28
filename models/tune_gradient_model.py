@@ -130,7 +130,7 @@ def run_training(
 metrics_process = pd.read_csv(
     results_dir + f"models/experiment/hp_metrics.csv"
 )
-best_model_id = 22
+best_model_id = 169
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics_process[metrics_process["run_id"] == int(best_model_id)]
 P = best_params.iloc[0, 1]

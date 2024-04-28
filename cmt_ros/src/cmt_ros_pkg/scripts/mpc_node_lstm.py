@@ -248,7 +248,6 @@ class MPC:
         output_jacobian = np.zeros((self.N, self.M))
         y_forecast = np.zeros((self.N, 1))
         for i in range(self.N):
-            start_time = time.time()
             if i < self.M:
                 u_row = np.array([[u_forecast[i, 0], self.ts]])
             if i >= self.M:
@@ -292,7 +291,6 @@ class MPC:
             y_row = output_tensor.numpy().reshape((1, 1))
             y_forecast[i, :] = y_row
             y_hist = self.update_hist(y_hist, y_row)
-            print(time.time() - start_time)
 
         input_jacobian = self.build_input_jacobian()
         steps = np.zeros(u_forecast.shape)

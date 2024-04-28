@@ -37,6 +37,20 @@ class MPC:
         self.total_steps = 10
         self.rate = rospy.Rate(self.pub_freq)
 
+        # Define model
+        numerator = [0, 0, 0.8]
+        denominator = [0.2, 1.2, 1]
+        self.T = 1/self.pub_freq
+        G_continuous = control.TransferFunction(numerator, denominator)
+        G_discrete = control.sample_system(
+            G_continuous, self.T, method='tustin')
+        self.ss_discrete = control.tf2ss(G_discrete)
+
+        # Current sort_values
+        self.u = 0.0
+        self.x = np.zeros((2, 1))
+        self.y = 0.0
+
     def pow2wfs(self, p):
         return np.round((p*9/100)+1.5, 3)
 
@@ -60,22 +74,28 @@ class MPC:
         p = data.data
         # rospy.loginfo("Received power %f", p)
         f = self.pow2wfs(p)
-        self.f = (f - self.process_u_min[0]) / \
-            (self.process_u_max[0] - self.process_u_min[0])
-        new_u = np.array([[self.f, self.ts]])
-        self.u_hist = self.update_hist(self.u_hist, new_u)
+        self.u = f
+        self.x = p.dot(self.ss_discrete.A, self.x) + \
+            np.dot(self.ss_discrete.B, self.u)
+        y = list(np.dot(self.ss_discrete.C, self.x) +
+                 np.dot(self.ss_discrete.D, self.u))[0]
+        print(self.y, y)
 
     def callback_width(self, data):
         if self.arc_state:
-            current_time = time.time() - start_time
-            y_row = data.data
+            self.y = data.data
             # rospy.loginfo("Received output w: %f", y_row)
-            y_row_scaled = (y_row - self.process_y_min) / \
-                (self.process_y_max - self.process_y_min)
-            self.y_hist = self.update_hist(
-                self.y_hist, y_row_scaled.reshape((1, 1)))
 
-    # Optimization function method
+    # def compute_step(self, u_forecast):
+    #     output_jacobian = np.zeros((self.N, self.M))
+    #     y_forecast = np.zeros((self.N, 1))
+    #     for i in range(self.N):
+    #         if i < self.M:
+    #             u_row = np.array([[u_forecast[i, 0], self.ts]])
+    #         if i >= self.M:
+    #             u_row = np.array([[u_forecast[-1, 0], self.ts]])
+    #         for j in range(self.process_inputs):
+
     def optimization_function(self, u_hist, y_hist, lr, u_forecast=None, verbose=False):
         opt_time = time.time()
         if u_forecast is None:
