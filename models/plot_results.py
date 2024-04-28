@@ -30,11 +30,11 @@ def plot_prediction(source="simulation", save=False):
 
     elif source == "experiment":
         fig = plt.figure(figsize=(12, 6))
-        fig.suptitle("Output prediction")
-        plt.title(r"$w_e\;(mm)$")
+        fig.suptitle("Output prediction", fontsize=fontsize)
+        plt.title(r"$W\;(mm)$", fontsize=fontsize)
         plt.plot(Y_real, color="k", label="Measured")
         plt.plot(Y_pred, color="r", label="Predicted")
-        plt.legend()
+        plt.legend(fontsize=fontsize)
 
     elif source == "mpc":
         fig = plt.figure(figsize=(12, 6))
@@ -192,6 +192,7 @@ def gradient_angle(Y_real, Y_pred):
 
 source = "experiment"
 save = True
+fontsize = 16
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 metrics_df["test_loss"] = metrics_df["test_loss"].apply(
     lambda x: np.nan if x > 1 else x
@@ -260,11 +261,11 @@ elif source == "gradient":
     fig = plt.figure(figsize=(20, 9))
     avg = np.mean(angles)
     plt.title("Angular error between real and predicted gradients")
-    sns.histplot(angles, bins=512)
+    sns.histplot(angles, bins=128)
     # plt.axvline(90, linestyle="--", color="black", label="90 deg")
     plt.axvline(avg, linestyle="--", color="red", label=f"Mean: {avg:.2f}")
     plt.legend()
-    plt.xlim(0, 90)
+    plt.xlim(0, 45)
     plt.tight_layout()
     plt.savefig(results_dir + f"plots/{source}/gradient_angles.png")
     plt.show()
