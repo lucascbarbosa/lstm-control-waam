@@ -14,7 +14,7 @@ class Cell(object):
         self.pub_arc = rospy.Publisher("arc_state", Bool, queue_size=10)
         self.pub_ts = rospy.Publisher(
             "kr90/travel_speed", Float32, queue_size=10)
-        self.arc_idxs = [10, 500]
+        self.arc_idxs = [10, 2000]
         self.pub_width = rospy.Publisher(
             "xiris/bead/filtered", Float32, queue_size=10)
         self.pub_power = rospy.Publisher(

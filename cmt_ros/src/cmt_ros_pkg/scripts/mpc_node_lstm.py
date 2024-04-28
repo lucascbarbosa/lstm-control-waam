@@ -19,7 +19,7 @@ class MPC:
         self.bead_idx = bead_idx
 
         # Optimization parameters
-        self.lr = 5e-2
+        self.lr = 1e-1
         self.alpha_time = 1e-3
         self.alpha_opt = 1e-3
         self.cost_tol = 1e-2
@@ -145,13 +145,13 @@ class MPC:
 
     def callback_ts(self, data):
         ts = data.data
-        rospy.loginfo("Received TS %f", ts)
+        # rospy.loginfo("Received TS %f", ts)
         self.ts = (ts - self.process_u_min[1]) / \
             (self.process_u_max[1] - self.process_u_min[1])
 
     def callback_power(self, data):
         p = data.data
-        rospy.loginfo("Received power %f", p)
+        # rospy.loginfo("Received power %f", p)
         f = self.pow2wfs(p)
         self.f = (f - self.process_u_min[0]) / \
             (self.process_u_max[0] - self.process_u_min[0])
@@ -162,7 +162,7 @@ class MPC:
         if self.arc_state:
             current_time = time.time() - start_time
             y_row = data.data
-            rospy.loginfo("Received output w: %f", y_row)
+            # rospy.loginfo("Received output w: %f", y_row)
             y_row_scaled = (y_row - self.process_y_min) / \
                 (self.process_y_max - self.process_y_min)
             self.y_hist = self.update_hist(
@@ -248,6 +248,7 @@ class MPC:
         output_jacobian = np.zeros((self.N, self.M))
         y_forecast = np.zeros((self.N, 1))
         for i in range(self.N):
+            start_time = time.time()
             if i < self.M:
                 u_row = np.array([[u_forecast[i, 0], self.ts]])
             if i >= self.M:
@@ -264,7 +265,7 @@ class MPC:
                     gradient_input = (gradient_input - self.gradient_x_min) /  \
                         (self.gradient_x_max - self.gradient_x_min)
 
-                    print(f'u_H: {u_hist}')
+                    # print(f'u_H: {u_hist}')
                     # print(f'u_F: {u_forecast}')
                     # print(f'g: {gradient_input}')
                     gradient_input = tf.convert_to_tensor(gradient_input)
@@ -291,6 +292,7 @@ class MPC:
             y_row = output_tensor.numpy().reshape((1, 1))
             y_forecast[i, :] = y_row
             y_hist = self.update_hist(y_hist, y_row)
+            print(time.time() - start_time)
 
         input_jacobian = self.build_input_jacobian()
         steps = np.zeros(u_forecast.shape)
@@ -298,6 +300,7 @@ class MPC:
         output_error = (self.y_ref - y_forecast) * \
             (self.process_y_max-self.process_y_min)
         input_diff = u_diff_forecast
+
         for j in range(self.M):
             output_step = (
                 -2
@@ -349,8 +352,8 @@ class MPC:
                 break
         u_opt = u_forecast[0, :]
         u_opt = u_opt[0]
-        u_opt = u_opt * (self.process_u_max -
-                         self.process_u_min) + self.process_u_min
+        u_opt = u_opt * (self.process_u_max[0] -
+                         self.process_u_min[0]) + self.process_u_min[0]
         u_opt = self.wfs2pow(u_opt)
         self.pub.publish(u_opt)
         rospy.loginfo("Sending control wfs: %f", u_opt)
