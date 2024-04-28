@@ -100,9 +100,6 @@ class MPC:
         self.gradient_preds = []
         self.gradient_reals = []
 
-        # MPC Performance data
-        self.list_performance_opt = []
-
         # Define MPC parameters
         self.M = self.process_inputs * self.P  # control horizon
         self.N = self.process_outputs * self.Q  # prediction horizon
@@ -364,9 +361,6 @@ class MPC:
         self.pub.publish(command_opt)
         opt_time = time.time() - opt_time
         print(f"Steps: {opt_step} Time: {opt_time:.2f}")
-        self.list_performance_opt.append(
-            {'Steps': opt_step, 'Time': opt_time, 'Cost': last_cost,
-             'Converged': converged})
         return u_opt, u_forecast, y_forecast
 
     def export_gradient(self):
@@ -376,13 +370,6 @@ class MPC:
         np.savetxt(
             results_dir + "predictions/gradient/control/gradient_preds.csv",
             np.array(self.gradient_preds))
-
-    def export_performance(self):
-        performance_df = pd.DataFrame(self.list_performance_opt)
-        performance_df.to_csv(
-            results_dir +
-            f'mpc_performance/gradient_{self.gradient_source}.csv',
-            index=False)
 
 
 # Filepaths
@@ -421,7 +408,6 @@ while not rospy.is_shutdown():
     else:
         pass
 
-mpc.export_performance()
 if mpc.gradient_source == 'both':
     mpc.export_gradient()
 rospy.spin()
