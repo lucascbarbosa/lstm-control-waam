@@ -7,7 +7,7 @@ import time
 
 
 class Experiment(object):
-    def __init__(self, pub_freq, bead_idx):
+    def __init__(self, pub_freq, bead_idx, reverse_text):
         # Filepaths
         self.data_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/database/"
         self.results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
@@ -15,7 +15,8 @@ class Experiment(object):
         # Load input data
         self.bead_idx = bead_idx
         self.command_data = pd.read_csv(
-            self.data_dir + f"experiment/calibration/commands/bead{bead_idx}.csv").to_numpy()
+            self.data_dir +
+            f"experiment/calibration/commands/bead{bead_idx}{reverse_text}.csv").to_numpy()
 
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
@@ -54,7 +55,12 @@ class Experiment(object):
 pub_freq = 10
 args = rospy.myargv(argv=sys.argv)
 bead_idx = int(args[1])
-exp = Experiment(pub_freq, bead_idx)
+if len(args) == 3:
+    reverse = args[2] == "-r"
+    reverse_text = "_reverse"
+else:
+    reverse_text = ""
+exp = Experiment(pub_freq, bead_idx, reverse_text)
 start_time = time.time()
 while not rospy.is_shutdown():
     if exp.arc_state:
