@@ -46,7 +46,6 @@ class Experiment(object):
                 idx = idx[0]
                 f = self.command_data[idx, -1]
                 p = self.wfs2pow(f)
-
                 msg = Float64MultiArray()
                 msg.data = [p]
                 dim = []

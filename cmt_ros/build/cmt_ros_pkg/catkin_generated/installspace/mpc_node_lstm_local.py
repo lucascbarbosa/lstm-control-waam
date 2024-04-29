@@ -9,7 +9,7 @@ import pandas as pd
 from scipy.interpolate import interp1d
 
 import rospy
-from std_msgs.msg import Float32, Bool, Float64MultiArray, MultiArrayDimension
+from std_msgs.msg import Float32, Bool
 import time
 import sys
 
@@ -120,7 +120,7 @@ class MPC:
         rospy.Subscriber("powersource_state", Float32, self.callback_power)
         rospy.Subscriber("kr90/travel_speed", Float32, self.callback_ts)
         self.pub = rospy.Publisher(
-            "fronius_remote_command", Float64MultiArray, queue_size=10)
+            "fronius_remote_command", Float32, queue_size=10)
         self.pub_freq = 10  # sampling frequency of published data
         self.step_time = 1 / self.pub_freq
         self.total_steps = 10
@@ -354,15 +354,9 @@ class MPC:
         # Descaling
         u_opt = u_opt * (self.process_u_max[0] -
                          self.process_u_min[0]) + self.process_u_min[0]
-        command_opt = self.wfs2pow(u_opt)  # convert to power
-        # Send command
-        msg = Float64MultiArray()
-        msg.data = [command_opt]
-        dim = []
-        dim.append(MultiArrayDimension('PwrSrc', 1, 4))
-        msg.layout.dim = dim
-        self.pub.publish(msg)
+        command_opt = self.wfs2pow(u_opt)
         rospy.loginfo("Sending command: %f", command_opt)
+        self.pub.publish(command_opt)
         opt_time = time.time() - opt_time
         print(f"Steps: {opt_step} Time: {opt_time:.2f}")
         return u_opt, u_forecast, y_forecast

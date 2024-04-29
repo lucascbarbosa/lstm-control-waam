@@ -26,7 +26,7 @@ class Cell(object):
         # Define model
         numerator = [0, 0, 0.8]
         denominator = [0.2, 1.2, 1]
-        self.T = 1/self.fs
+        self.T = 1 / self.fs
         G_continuous = control.TransferFunction(numerator, denominator)
         G_discrete = control.sample_system(
             G_continuous, self.T, method='tustin')
