@@ -32,10 +32,11 @@ class MPC:
 
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
-        rospy.Subscriber("arc_state", Bool, self.callback_arc)
+        rospy.Subscriber("kr90/arc_state", Bool, self.callback_arc)
         self.arc_state = False
         rospy.Subscriber("xiris/bead/filtered", Float32, self.callback_width)
-        rospy.Subscriber("powersource_state", Float32, self.callback_power)
+        rospy.Subscriber("kr90/powersource_state",
+                         Float32, self.callback_power)
         rospy.Subscriber("kr90/travel_speed", Float32, self.callback_ts)
         self.pub = rospy.Publisher(
             "fronius_remote_command", Float64MultiArray, queue_size=10)

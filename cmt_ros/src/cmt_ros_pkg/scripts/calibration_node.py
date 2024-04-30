@@ -21,7 +21,7 @@ class Experiment(object):
 
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
-        rospy.Subscriber("arc_state", Bool, self.callback_arc)
+        rospy.Subscriber("kr90/arc_state", Bool, self.callback_arc)
         self.arc_state = False
         self.pub = rospy.Publisher(
             "fronius_remote_command", Float64MultiArray, queue_size=10)

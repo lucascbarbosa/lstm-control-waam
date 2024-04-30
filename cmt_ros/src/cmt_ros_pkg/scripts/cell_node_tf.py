@@ -11,14 +11,14 @@ class Cell(object):
         # Rospy setup
         rospy.init_node("cell_node", anonymous=True)
         rospy.Subscriber("fronius_remote_command", Float32, self.callback)
-        self.pub_arc = rospy.Publisher("arc_state", Bool, queue_size=10)
+        self.pub_arc = rospy.Publisher("kr90/arc_state", Bool, queue_size=10)
         self.pub_ts = rospy.Publisher(
             "kr90/travel_speed", Float32, queue_size=10)
         self.arc_idxs = [10, 2000]
         self.pub_width = rospy.Publisher(
             "xiris/bead/filtered", Float32, queue_size=10)
         self.pub_power = rospy.Publisher(
-            "powersource_state", Float32, queue_size=10)
+            "kr90/powersource_state", Float32, queue_size=10)
 
         self.fs = 10
         self.rate = rospy.Rate(self.fs)
