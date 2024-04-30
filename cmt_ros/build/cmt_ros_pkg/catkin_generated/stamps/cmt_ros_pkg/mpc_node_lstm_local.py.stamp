@@ -221,6 +221,7 @@ class MPC:
         output_error = (self.y_ref - y_forecast) * \
             (self.process_y_max-self.process_y_min)
 
+        print("Output error: {output_error}")
         output_cost = np.sum(output_error**2 * self.weight_output)
         control_cost = np.sum(u_diff_forecast**2 * self.weight_control)
         return output_cost + control_cost
@@ -368,6 +369,7 @@ class MPC:
             if len(idx) > 0:
                 idx = idx[-1]
                 self.y_ref = self.reference_data[idx, -1]
+                print(f"y_r: {self.y_ref}")
                 self.y_ref = (self.y_ref - self.process_y_min) / \
                     (self.process_y_max - self.process_y_min)
 
