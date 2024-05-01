@@ -28,16 +28,6 @@ class Cell(object):
         self.fs = 10
         self.rate = rospy.Rate(self.fs)
 
-        # Arc state
-        self.arc_state = False
-
-        # Current values
-        self.time = 0.0
-        self.u = 0.0
-        self.p = 0.0
-        self.x = np.zeros((2, 1))
-        self.y = 0.0
-
         # Load data
         (self.process_input_train,
          self.process_output_train,
@@ -82,12 +72,25 @@ class Cell(object):
         self.u_hist = np.zeros((self.M, self.process_inputs))
         self.y_hist = np.zeros((self.N,  self.process_outputs))
 
+        # Current values
+        self.arc_state = False
+        self.time = 0.0
+        self.p = 60.0
+        self.f = self.pow2wfs(self.p)
+        self.u = np.array([[self.f, self.ts]])
+        self.u = (self.u - self.process_u_min) / \
+            (self.process_u_max - self.process_u_min)
+        self.x = np.zeros((2, 1))
+        self.y = 0.0
+
     def callback(self, data):
         self.p = data.data
         self.f = self.pow2wfs(self.p)
+        self.u = np.array([[self.f, self.ts]])
         rospy.loginfo("Received command wfs: %f", self.f)
         self.u = (self.u - self.process_u_min) / \
             (self.process_u_max - self.process_u_min)
+        self.u_hist = self.update_hist(self.u_hist, self.u)
 
     def load_train_data(self, data_dir):
         input_train = pd.read_csv(
@@ -114,11 +117,13 @@ class Cell(object):
             (1, self.P * self.process_inputs + self.Q * self.process_outputs, 1))
 
     def predict_output(self):
-        self.u = np.array([[self.f, self.ts]])
+        print(self.u_hist)
+        print(self.y_hist)
         self.u_hist = self.update_hist(self.u_hist, self.u)
         seq_input = self.build_sequence(self.u_hist, self.y_hist)
         input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
         self.y = self.process_model(input_tensor).numpy()[0, 0]
+        self.y_hist = self.update_hist(self.y_hist, np.array([[self.y]]))
         self.y = self.y * (self.process_y_max -
                            self.process_y_min) + self.process_y_min
         self.y = self.y[0]
@@ -127,7 +132,6 @@ class Cell(object):
         self.pub_power.publish(self.p + np.random.normal())
         rospy.loginfo("Sending power: %s", self.p + np.random.normal())
         # self.ts += np.random.normal(loc=0.0, scale=0.1)
-        self.y_hist = self.update_hist(self.y_hist, [[self.y]])
         self.pub_ts.publish(self.ts)
         rospy.loginfo("Sending TS: %s", self.ts)
 
@@ -157,8 +161,8 @@ try:
     while not rospy.is_shutdown():
         cell.set_arcstate(k)
         cell.predict_output()
-        k += 1
         cell.rate.sleep()
+        k += 1
 except rospy.ROSInterruptException:
     pass
 

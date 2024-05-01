@@ -22,7 +22,7 @@ class MPC:
             data_dir + f"experiment/control/references/bead{bead_idx}.csv").to_numpy()
 
         # Optimization parameters
-        self.lr = 1e-3
+        self.lr = 1e-2
         self.alpha_time = 1e-3
         self.alpha_opt = 1e-3
         self.cost_tol = 1e-2

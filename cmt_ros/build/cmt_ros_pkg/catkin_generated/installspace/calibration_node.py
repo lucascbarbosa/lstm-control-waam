@@ -20,7 +20,7 @@ class Experiment(object):
         ).to_numpy()
 
         # ROSPY Parameters
-        rospy.init_node("kr90/mpc_node", anonymous=True)
+        rospy.init_node("mpc_node", anonymous=True)
         rospy.Subscriber("kr90/arc_state", Bool, self.callback_arc)
         self.arc_state = False
         self.pub = rospy.Publisher(
