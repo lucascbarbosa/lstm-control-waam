@@ -1,0 +1,8 @@
+prefix=/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/devel
+
+Name: kuka_rsi_velocity_interface
+Description: Description of kuka_rsi_velocity_interface
+Version: 0.1.0
+Cflags: -I/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/src/kuka-kin/kuka_experimental/kuka_rsi_velocity_interface/include -I/usr/include
+Libs: -L${prefix}/lib /usr/lib/x86_64-linux-gnu/libtinyxml.so
+Requires: std_msgs geometry_msgs sensor_msgs kdl_parser message_runtime

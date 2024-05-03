@@ -1,0 +1,17 @@
+(cl:defpackage kuka_rsi_msgs-msg
+  (:use )
+  (:export
+   "<FRONIUS500ICOMMAND>"
+   "FRONIUS500ICOMMAND"
+   "<FRONIUS500ISTATE>"
+   "FRONIUS500ISTATE"
+   "<FRONIUSCOMMAND>"
+   "FRONIUSCOMMAND"
+   "<FRONIUSSTATE>"
+   "FRONIUSSTATE"
+   "<PLASMACOMMAND>"
+   "PLASMACOMMAND"
+   "<PLASMASTATE>"
+   "PLASMASTATE"
+  ))
+

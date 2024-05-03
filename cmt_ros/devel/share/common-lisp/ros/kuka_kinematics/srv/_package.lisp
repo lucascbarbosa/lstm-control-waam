@@ -1,0 +1,10 @@
+(cl:defpackage kuka_kinematics-srv
+  (:use )
+  (:export
+   "SOLVEPOSITIONIK"
+   "<SOLVEPOSITIONIK-REQUEST>"
+   "SOLVEPOSITIONIK-REQUEST"
+   "<SOLVEPOSITIONIK-RESPONSE>"
+   "SOLVEPOSITIONIK-RESPONSE"
+  ))
+

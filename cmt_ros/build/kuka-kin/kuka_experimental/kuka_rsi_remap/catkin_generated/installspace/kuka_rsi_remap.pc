@@ -1,0 +1,8 @@
+prefix=/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/install
+
+Name: kuka_rsi_remap
+Description: Description of kuka_rsi_remap
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

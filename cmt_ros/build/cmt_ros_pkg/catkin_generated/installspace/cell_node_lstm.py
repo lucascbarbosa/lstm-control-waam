@@ -86,9 +86,11 @@ class Cell(object):
     def callback(self, data):
         self.p = data.data
         self.f = self.pow2wfs(self.p)
+        self.u = np.array([[self.f, self.ts]])
         rospy.loginfo("Received command wfs: %f", self.f)
         self.u = (self.u - self.process_u_min) / \
             (self.process_u_max - self.process_u_min)
+        self.u_hist = self.update_hist(self.u_hist, self.u)
 
     def load_train_data(self, data_dir):
         input_train = pd.read_csv(
@@ -115,6 +117,8 @@ class Cell(object):
             (1, self.P * self.process_inputs + self.Q * self.process_outputs, 1))
 
     def predict_output(self):
+        print(self.u_hist)
+        print(self.y_hist)
         self.u_hist = self.update_hist(self.u_hist, self.u)
         seq_input = self.build_sequence(self.u_hist, self.y_hist)
         input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)

@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>kuka_kinematics</name>
+  <version>0.0.0</version>
+  <description>The kuka_kinematics package</description>
+  <author>Fernando Coutinho</author>
+  <maintainer email="fernando_coutinho_@hotmail.com">Fernando Coutinho</maintainer>
+  <license>TODO</license>
+  <author email="fernando_coutinho_@hotmail.com">Fernando Coutinho</author> -->
+
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>cmake_modules</build_depend>
+  <build_depend>message_generation</build_depend>
+  <depend>controller_manager</depend>
+  <depend>hardware_interface</depend>
+  <depend>joint_limits_interface</depend>
+  <depend>realtime_tools</depend>
+  <depend>roscpp</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>kdl_parser</depend>
+  <depend>geometry_msgs</depend>
+  <depend>message_runtime</depend>
+  <exec_depend>message_generation</exec_depend>
+  <depend>pykdl_utils</depend>
+  <depend>urdfdom_py</depend>
+</package>

@@ -66,7 +66,7 @@ class MPC:
         self.process_model.compile(optimizer=self.opt, loss=mean_squared_error)
 
         # Gradient data
-        self.gradient_source = "both"
+        self.gradient_source = "real"
         (self.gradient_input_train,
          self.gradient_output_train,
          _,
@@ -112,6 +112,14 @@ class MPC:
         self.u_hist = np.zeros((self.P, self.process_inputs))
         self.y_hist = np.zeros((self.Q, self.process_outputs))
 
+        # Initial TS and reference
+        self.ts = self.reference_data[0, -2]
+        self.ts = (self.ts - self.process_u_min[1]) / \
+            (self.process_u_max[1] - self.process_u_min[1])
+        self.y_ref = 4.0
+        self.y_ref = (self.y_ref - self.process_y_min) / \
+            (self.process_y_max[0] - self.process_y_min[0])
+
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
         rospy.Subscriber("kr90/arc_state", Bool, self.callback_arc)
@@ -119,7 +127,7 @@ class MPC:
         rospy.Subscriber("xiris/bead/filtered", Float32, self.callback_width)
         rospy.Subscriber("kr90/powersource_state",
                          Float32, self.callback_power)
-        rospy.Subscriber("kr90/travel_speed", Float32, self.callback_ts)
+        rospy.Subscriber("kr90/kr90/travel_speed", Float32, self.callback_ts)
         self.pub = rospy.Publisher(
             "fronius_remote_command", Float32, queue_size=10)
         self.pub_freq = 10  # sampling frequency of published data
@@ -164,7 +172,7 @@ class MPC:
                 (self.process_y_max - self.process_y_min)
             self.y_hist = self.update_hist(
                 self.y_hist, y_row_scaled.reshape((1, 1)))
-        self.set_reference()
+        # self.set_reference()
 
     def load_train_data(self, data_dir):
         input_train = pd.read_csv(
@@ -330,8 +338,6 @@ class MPC:
         converged = True
         while delta_cost < -self.cost_tol:
             steps, y_forecast = self.compute_step(u_hist, y_hist, u_forecast)
-            print(f'u_F: {u_forecast}')
-            print(f"Y_F: {y_forecast}")
             cost = self.cost_function(u_forecast, y_forecast)
             delta_cost = cost - last_cost
             gradient_hist.append(steps[:, 0].ravel().tolist())
@@ -350,6 +356,10 @@ class MPC:
                     print("Passed optimal solution")
                 converged = False
                 break
+
+        print(f"U_F: {u_forecast}")
+        print(f"Y_F: {y_forecast}")
+        print(f"Y_R: {self.y_ref}")
         u_opt = u_forecast[0, :]
         u_opt = u_opt[0]
         # Descaling
@@ -398,7 +408,7 @@ mpc = MPC(bead_idx)
 exp_time = 0
 exp_step = 1
 start_time = time.time()
-rospy.wait_for_message("xiris/bead/filtered", Float32)  # Wait for width
+# rospy.wait_for_message("xiris/bead/filtered", Float32)  # Wait for width
 mpc.pub.publish(60)  # publish initial command of 60%
 while not rospy.is_shutdown():
     if mpc.arc_state:

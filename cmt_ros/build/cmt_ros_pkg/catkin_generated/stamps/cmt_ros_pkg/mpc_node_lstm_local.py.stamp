@@ -22,7 +22,7 @@ class MPC:
             data_dir + f"experiment/control/references/bead{bead_idx}.csv").to_numpy()
 
         # Optimization parameters
-        self.lr = 1e-3
+        self.lr = 1e-1
         self.alpha_time = 1e-3
         self.alpha_opt = 1e-3
         self.cost_tol = 1e-2
@@ -119,7 +119,7 @@ class MPC:
         rospy.Subscriber("xiris/bead/filtered", Float32, self.callback_width)
         rospy.Subscriber("kr90/powersource_state",
                          Float32, self.callback_power)
-        rospy.Subscriber("kr90/travel_speed", Float32, self.callback_ts)
+        rospy.Subscriber("kr90/kr90/travel_speed", Float32, self.callback_ts)
         self.pub = rospy.Publisher(
             "fronius_remote_command", Float32, queue_size=10)
         self.pub_freq = 10  # sampling frequency of published data
@@ -221,8 +221,6 @@ class MPC:
         u_diff_forecast = self.create_control_diff(u_forecast)
         output_error = (self.y_ref - y_forecast) * \
             (self.process_y_max-self.process_y_min)
-
-        print("Output error: {output_error}")
         output_cost = np.sum(output_error**2 * self.weight_output)
         control_cost = np.sum(u_diff_forecast**2 * self.weight_control)
         return output_cost + control_cost
@@ -265,7 +263,6 @@ class MPC:
                         (self.gradient_x_max - self.gradient_x_min)
 
                     # print(f'u_H: {u_hist}')
-                    # print(f'u_F: {u_forecast}')
                     # print(f'g: {gradient_input}')
                     gradient_input = tf.convert_to_tensor(gradient_input)
                     gradient_pred = self.predict_gradient(gradient_input)
@@ -320,9 +317,9 @@ class MPC:
                               verbose=False):
         opt_time = time.time()
         if u_forecast is None:
-            u_forecast = np.random.normal(loc=0.5, scale=0.1,
-                                          size=(self.M, 1))
-            # u_forecast = np.random.uniform(size=(self.M, 1))
+            # u_forecast = np.random.normal(loc=0.5, scale=0.2,
+            #                               size=(self.M, 1))
+            u_forecast = np.random.uniform(size=(self.M, 1))
         opt_step = 0
         cost = np.inf
         last_cost = cost
@@ -333,6 +330,8 @@ class MPC:
         converged = True
         while delta_cost < -self.cost_tol:
             steps, y_forecast = self.compute_step(u_hist, y_hist, u_forecast)
+            print(f'u_F: {u_forecast}')
+            print(f"Y_F: {y_forecast}")
             cost = self.cost_function(u_forecast, y_forecast)
             delta_cost = cost - last_cost
             gradient_hist.append(steps[:, 0].ravel().tolist())
@@ -399,7 +398,7 @@ mpc = MPC(bead_idx)
 exp_time = 0
 exp_step = 1
 start_time = time.time()
-rospy.wait_for_message("xiris/bead/filtered", Float32)  # Wait for width
+# rospy.wait_for_message("xiris/bead/filtered", Float32)  # Wait for width
 mpc.pub.publish(60)  # publish initial command of 60%
 while not rospy.is_shutdown():
     if mpc.arc_state:

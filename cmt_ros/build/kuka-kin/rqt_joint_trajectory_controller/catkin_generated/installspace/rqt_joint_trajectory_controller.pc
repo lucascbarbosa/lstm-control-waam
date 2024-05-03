@@ -1,0 +1,8 @@
+prefix=/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/install
+
+Name: rqt_joint_trajectory_controller
+Description: Description of rqt_joint_trajectory_controller
+Version: 0.17.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

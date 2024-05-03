@@ -1,0 +1,8 @@
+prefix=/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/install
+
+Name: kuka_kinematics
+Description: Description of kuka_kinematics
+Version: 0.0.0
+Cflags: -I${prefix}/include
+Libs: -L${prefix}/lib -lkuka_kinematics
+Requires: roscpp std_msgs geometry_msgs sensor_msgs kdl_parser message_runtime message_generation
