@@ -164,9 +164,8 @@ delete_models(results_dir + "models/gradient/hyperparams/")
 
 # set search space for hp's
 hp_search_space = {
-    "batch_size": [16, 32, 64],
-    # "batch_size": [16],
-    "num_epochs": [100],
+    "batch_size": [16],
+    "num_epochs": [50],
     "validation_split": [0.1, 0.2, 0.3],
     # "validation_split": [0.1],
     "lr": [1e-3, 1e-2],

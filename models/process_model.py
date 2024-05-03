@@ -43,7 +43,7 @@ def create_model(
     model = Sequential()
     model.add(
         LSTM(
-            units=16,
+            units=8,
             activation="relu",
             input_shape=(input_sequence_length, 1),
         )

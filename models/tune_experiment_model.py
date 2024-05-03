@@ -173,10 +173,10 @@ delete_models(results_dir + "models/experiment/hyperparams/")
 
 # set search space for hp's
 hp_search_space = {
-    "P": np.arange(5, 51, 5),
-    "Q": np.arange(0, 51, 5),  # np.arange(0, 51, 5)
+    "P": [1, 10, 20, 30, 40, 50],
+    "Q": [0, 10, 20, 30, 40, 50],  # np.arange(0, 51, 5)
     "H": [1],
-    "batch_size": [16, 32, 64],
+    "batch_size": [16],  # [16, 32, 64]
     "num_epochs": [10],
     "validation_split": [0.1],
     "lr": [1e-3],

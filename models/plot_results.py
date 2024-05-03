@@ -51,7 +51,7 @@ def plot_prediction(source="simulation", save=False):
         elif source == "experiment":
             plt.savefig(
                 results_dir
-                + f"plots/experiment/calibration/calibration_bead{bead_test}_lstm_prediction.png"
+                + f"plots/experiment/calibration/calibration_bead{bead_test}_lstm_prediction.svg"
             )
         elif source == "mpc":
             plt.savefig(results_dir + f"plots/mpc_lstm_prediction.png")
@@ -190,7 +190,7 @@ def gradient_angle(Y_real, Y_pred):
     return angles
 
 
-source = "gradient"
+source = "experiment"
 gradient_source = "calibration"
 save = True
 fontsize = 16
