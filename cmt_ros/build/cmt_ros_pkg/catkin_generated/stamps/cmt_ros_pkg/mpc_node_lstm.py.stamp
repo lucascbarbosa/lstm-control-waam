@@ -63,43 +63,10 @@ class MPC:
         self.opt = Adam(learning_rate=self.process_best_params["lr"])
         self.process_model.compile(optimizer=self.opt, loss=mean_squared_error)
 
-        # Gradient data
-        self.gradient_source = "real"
-        (self.gradient_input_train,
-         self.gradient_output_train,
-         _,
-         _) = self.load_train_data(data_dir + f"gradient/experiment/")
-
-        self.gradient_inputs = self.gradient_input_train.shape[1]
-        self.gradient_outputs = self.gradient_output_train.shape[1]
-
-        self.gradient_x_min = self.gradient_input_train.min(axis=0)
-        self.gradient_x_max = self.gradient_input_train.max(axis=0)
-        self.gradient_y_min = self.gradient_output_train.min(axis=0)
-        self.gradient_y_max = self.gradient_output_train.max(axis=0)
-
-        # Load gradient model metrics
-        self.metrics_gradient = pd.read_csv(
-            results_dir + f"models/gradient/hp_metrics.csv")
-        gradient_best_model_id = 2
-        gradient_best_model_filename = \
-            f"run_{gradient_best_model_id:03d}.keras"
-        self.gradient_best_params = self.metrics_gradient[
-            self.metrics_gradient["run_id"] == int(gradient_best_model_id)]
-        # Load gradient model
-        self.gradient_model = load_model(
-            results_dir +
-            f"models/gradient/best/{gradient_best_model_filename}"
-        )
-
-        self.opt = Adam(learning_rate=self.gradient_best_params["lr"])
-        self.gradient_model.compile(
-            optimizer=self.opt, loss=mean_squared_error)
-
         # Define MPC parameters
         self.M = 5  # control horizon
         self.N = 5  # prediction horizon
-        self.weight_control = 1.0
+        self.weight_control = 0.1
         self.weight_output = 1.0
 
         # Historic data
@@ -126,12 +93,12 @@ class MPC:
 
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
-        rospy.Subscriber("arc_state", Bool, self.callback_arc)
+        rospy.Subscriber("kr90/arc_state", Bool, self.callback_arc)
         self.arc_state = False
         rospy.Subscriber("xiris/bead/filtered", Float64, self.callback_width)
-        rospy.Subscriber("powersource_state/wire_feed_speed",
+        rospy.Subscriber("kr90/powersource_state/wire_feed_speed",
                          Float32, self.callback_power)
-        rospy.Subscriber("kr90/travel_speed", Float64, self.callback_ts)
+        rospy.Subscriber("kr90/kr90/travel_speed", Float64, self.callback_ts)
         self.pub = rospy.Publisher(
             "fronius_remote_command", Float64MultiArray, queue_size=10)
         self.pub_freq = 10  # sampling frequency of published data
@@ -338,7 +305,7 @@ class MPC:
         # gradient_hist = np.zeros((self.process_input_test.shape[0],self.M))
         gradient_hist = []
         converged = True
-        while delta_cost < -self.cost_tol:
+        while delta_cost < -self.cost_tol and opt_step < 5:
             steps, y_forecast = self.compute_step(u_hist, y_hist, u_forecast)
             cost = self.cost_function(u_forecast, y_forecast)
             delta_cost = cost - last_cost
@@ -424,7 +391,7 @@ mpc = MPC(bead_idx)
 exp_time = 0
 exp_step = 1
 start_time = time.time()
-rospy.wait_for_message("xiris/bead/filtered", Float32)  # Wait for width
+# rospy.wait_for_message("xiris/bead/filtered", Float32)  # Wait for width
 while not rospy.is_shutdown():
     if mpc.arc_state:
         print(f"Time step: {exp_step}")

@@ -31,12 +31,6 @@ def build_train_data(data_dir, beads_train, beads_test):
             data_dir + filename_train + "_w.csv"
         ).to_numpy()
 
-        wfs_train = resample_data(
-            wfs_train[:, 1], wfs_train[:, 0], output_train[:, 0]
-        )
-        ts_train = resample_data(
-            ts_train[:, 1], ts_train[:, 0], output_train[:, 0]
-        )
         input_train = np.concatenate(
             (wfs_train, ts_train[:, 1].reshape((len(ts_train), 1))),
             axis=1)
