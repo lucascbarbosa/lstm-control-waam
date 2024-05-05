@@ -130,7 +130,7 @@ def run_training(
 metrics_process = pd.read_csv(
     results_dir + f"models/experiment/hp_metrics.csv"
 )
-best_model_id = 169
+best_model_id = 8
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics_process[metrics_process["run_id"] == int(best_model_id)]
 P = best_params.iloc[0, 1]
@@ -165,7 +165,7 @@ delete_models(results_dir + "models/gradient/hyperparams/")
 # set search space for hp's
 hp_search_space = {
     "batch_size": [16],
-    "num_epochs": [50],
+    "num_epochs": [100],
     "validation_split": [0.1, 0.2, 0.3],
     # "validation_split": [0.1],
     "lr": [1e-3, 1e-2],

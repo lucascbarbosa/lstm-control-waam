@@ -18,10 +18,6 @@ class MPC:
     def __init__(self, bead_idx):
 
         self.bead_idx = bead_idx
-        self.reference_data = pd.read_csv(
-            data_dir + f"experiment/control/references/bead{bead_idx}.csv").to_numpy()
-
-        self.ts = self.reference_data[0, -2]
 
         # Optimization parameters
         self.lr = 1e-1
@@ -50,16 +46,13 @@ class MPC:
         self.metrics_process = pd.read_csv(results_dir +
                                            f"models/experiment/hp_metrics.csv"
                                            )
-        process_best_model_id = 70
+        process_best_model_id = 8
         process_best_model_filename = f"run_{process_best_model_id:03d}.keras"
         self.process_best_params = self.metrics_process[
             self.metrics_process["run_id"] == int(process_best_model_id)
         ]
         self.P = self.process_best_params.iloc[0, 1]
         self.Q = self.process_best_params.iloc[0, 2]
-
-        # reference
-        self.y_ref = 6.0
 
         # Load process model
         self.process_model = load_model(
@@ -88,7 +81,7 @@ class MPC:
         # Load gradient model metrics
         self.metrics_gradient = pd.read_csv(
             results_dir + f"models/gradient/hp_metrics.csv")
-        gradient_best_model_id = 3
+        gradient_best_model_id = 2
         gradient_best_model_filename = \
             f"run_{gradient_best_model_id:03d}.keras"
         self.gradient_best_params = self.metrics_gradient[
@@ -104,8 +97,8 @@ class MPC:
             optimizer=self.opt, loss=mean_squared_error)
 
         # Define MPC parameters
-        self.M = self.process_inputs * self.P  # control horizon
-        self.N = self.process_outputs * self.Q  # prediction horizon
+        self.M = 5  # control horizon
+        self.N = 5  # prediction horizon
         self.weight_control = 1.0
         self.weight_output = 1.0
 
@@ -113,9 +106,23 @@ class MPC:
         self.u_hist = np.zeros((self.P, self.process_inputs))
         self.y_hist = np.zeros((self.Q, self.process_outputs))
 
+        # Initial TS and reference
+        self.reference_data = pd.read_csv(
+            data_dir + f"experiment/control/references/bead{bead_idx}.csv").to_numpy()
+        self.ts = self.reference_data[0, -2]
+        self.ts = (self.ts - self.process_u_min[1]) / \
+            (self.process_u_max[1] - self.process_u_min[1])
+        self.y_ref = self.reference_data[0, -1]
+        self.y_ref = (self.y_ref - self.process_y_min) / \
+            (self.process_y_max[0] - self.process_y_min[0])
+
         # Gradient data
         self.gradient_reals = []
         self.gradient_preds = []
+
+        # Forecast data
+        self.u_forecast_data = []
+        self.y_forecast_data = []
 
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
@@ -124,7 +131,7 @@ class MPC:
         rospy.Subscriber("xiris/bead/filtered", Float64, self.callback_width)
         rospy.Subscriber("powersource_state/wire_feed_speed",
                          Float32, self.callback_power)
-        rospy.Subscriber("travel_speed", Float32, self.callback_ts)
+        rospy.Subscriber("kr90/travel_speed", Float64, self.callback_ts)
         self.pub = rospy.Publisher(
             "fronius_remote_command", Float64MultiArray, queue_size=10)
         self.pub_freq = 10  # sampling frequency of published data
@@ -202,9 +209,9 @@ class MPC:
             (1 * (self.P * self.process_inputs + self.Q * self.process_outputs),
              ))
         u = grad[: self.process_inputs *
-                 self.P].reshape((self.P * self.process_inputs, 1))
+                 self.P].reshape((self.P, self.process_inputs))[:, 0]
         y = grad[self.process_inputs *
-                 self.P:].reshape((self.Q * self.process_outputs, 1))
+                 self.P:].reshape((self.Q, self.process_outputs))
         return u, y
 
     # Create control diff method
@@ -268,11 +275,9 @@ class MPC:
                     gradient_input = (gradient_input - self.gradient_x_min) / \
                         (self.gradient_x_max - self.gradient_x_min)
 
-                    # print(f'u_H: {u_hist}')
-                    # print(f'u_F: {u_forecast}')
-                    # print(f'g: {gradient_input}')
                     gradient_input = tf.convert_to_tensor(gradient_input)
-                    gradient_pred = self.predict_gradient(gradient_input)
+                    gradient_pred = self.predict_gradient(
+                        gradient_input).reshape((self.P, self.process_inputs))[:, 0]
 
                     # Split gradients
                     self.gradient_preds.append(gradient_pred.ravel().tolist())
@@ -286,11 +291,9 @@ class MPC:
                     input_gradient = gradient_real
 
                 if i < self.P - 1:
-                    output_jacobian[i, : i + 1] = input_gradient[
-                        -(i + 1):, :
-                    ].ravel()
+                    output_jacobian[i, : i + 1] = input_gradient[-(i + 1):]
                 else:
-                    output_jacobian[i, :] = input_gradient[:, :].ravel()
+                    output_jacobian[i, :] = input_gradient[:]
 
             y_row = output_tensor.numpy().reshape((1, 1))
             y_forecast[i, :] = y_row
@@ -335,7 +338,7 @@ class MPC:
         # gradient_hist = np.zeros((self.process_input_test.shape[0],self.M))
         gradient_hist = []
         converged = True
-        while delta_cost < -self.cost_tol and opt_step < 5:
+        while delta_cost < -self.cost_tol:
             steps, y_forecast = self.compute_step(u_hist, y_hist, u_forecast)
             cost = self.cost_function(u_forecast, y_forecast)
             delta_cost = cost - last_cost
@@ -355,9 +358,14 @@ class MPC:
                     print("Passed optimal solution")
                 converged = False
                 break
-        print(f"U_F: {u_forecast}")
-        print(f"Y_F: {y_forecast}")
-        print(f"Y_R: {self.y_ref}")
+
+        # print(f"U_F: {u_forecast}")
+        # print(f"Y_F: {y_forecast}")
+        # print(f"Y_R: {self.y_ref}")
+        # Save forecast
+        self.u_forecast_data.append(u_forecast.ravel().tolist())
+        self.y_forecast_data.append(y_forecast.ravel().tolist())
+
         u_opt = u_forecast[0, 0]
         # Descaling
         u_opt = u_opt * (self.process_u_max[0] -
@@ -393,6 +401,12 @@ class MPC:
             results_dir + "predictions/gradient/control/gradient_preds.csv",
             np.array(self.gradient_preds))
 
+    def export_forecast(self):
+        np.savetxt(results_dir + "predictions/forecast/u_forecast.csv",
+                   np.array(self.u_forecast_data))
+        np.savetxt(results_dir + "predictions/forecast/y_forecast.csv",
+                   np.array(self.y_forecast_data))
+
 
 # Filepaths
 data_dir = f"/home/lbarbosa/Documents/Github/lstm-control-waam/database/"
@@ -410,7 +424,7 @@ mpc = MPC(bead_idx)
 exp_time = 0
 exp_step = 1
 start_time = time.time()
-# rospy.wait_for_message("xiris/bead/filtered", Float32)  # Wait for width
+rospy.wait_for_message("xiris/bead/filtered", Float32)  # Wait for width
 while not rospy.is_shutdown():
     if mpc.arc_state:
         print(f"Time step: {exp_step}")
@@ -430,4 +444,6 @@ while not rospy.is_shutdown():
 
 if mpc.gradient_source == 'both':
     mpc.export_gradient()
+
+mpc.export_forecast()
 rospy.spin()

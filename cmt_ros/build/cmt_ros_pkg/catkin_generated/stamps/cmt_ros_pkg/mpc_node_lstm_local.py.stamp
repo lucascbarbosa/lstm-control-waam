@@ -66,7 +66,7 @@ class MPC:
         self.process_model.compile(optimizer=self.opt, loss=mean_squared_error)
 
         # Gradient data
-        self.gradient_source = "both"
+        self.gradient_source = "real"
         (self.gradient_input_train,
          self.gradient_output_train,
          _,
@@ -111,6 +111,14 @@ class MPC:
         # Historic data
         self.u_hist = np.zeros((self.P, self.process_inputs))
         self.y_hist = np.zeros((self.Q, self.process_outputs))
+
+        # Initial TS and reference
+        self.ts = self.reference_data[0, -2]
+        self.ts = (self.ts - self.process_u_min[1]) / \
+            (self.process_u_max[1] - self.process_u_min[1])
+        self.y_ref = 4.0
+        self.y_ref = (self.y_ref - self.process_y_min) / \
+            (self.process_y_max[0] - self.process_y_min[0])
 
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
@@ -164,7 +172,7 @@ class MPC:
                 (self.process_y_max - self.process_y_min)
             self.y_hist = self.update_hist(
                 self.y_hist, y_row_scaled.reshape((1, 1)))
-        self.set_reference()
+        # self.set_reference()
 
     def load_train_data(self, data_dir):
         input_train = pd.read_csv(
@@ -330,8 +338,6 @@ class MPC:
         converged = True
         while delta_cost < -self.cost_tol:
             steps, y_forecast = self.compute_step(u_hist, y_hist, u_forecast)
-            print(f'u_F: {u_forecast}')
-            print(f"Y_F: {y_forecast}")
             cost = self.cost_function(u_forecast, y_forecast)
             delta_cost = cost - last_cost
             gradient_hist.append(steps[:, 0].ravel().tolist())
@@ -350,6 +356,10 @@ class MPC:
                     print("Passed optimal solution")
                 converged = False
                 break
+
+        print(f"U_F: {u_forecast}")
+        print(f"Y_F: {y_forecast}")
+        print(f"Y_R: {self.y_ref}")
         u_opt = u_forecast[0, :]
         u_opt = u_opt[0]
         # Descaling

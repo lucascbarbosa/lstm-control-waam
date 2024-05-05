@@ -46,7 +46,7 @@ class MPC:
         self.metrics_process = pd.read_csv(results_dir +
                                            f"models/experiment/hp_metrics.csv"
                                            )
-        process_best_model_id = 70
+        process_best_model_id = 8
         process_best_model_filename = f"run_{process_best_model_id:03d}.keras"
         self.process_best_params = self.metrics_process[
             self.metrics_process["run_id"] == int(process_best_model_id)
@@ -81,7 +81,7 @@ class MPC:
         # Load gradient model metrics
         self.metrics_gradient = pd.read_csv(
             results_dir + f"models/gradient/hp_metrics.csv")
-        gradient_best_model_id = 3
+        gradient_best_model_id = 2
         gradient_best_model_filename = \
             f"run_{gradient_best_model_id:03d}.keras"
         self.gradient_best_params = self.metrics_gradient[
@@ -97,9 +97,9 @@ class MPC:
             optimizer=self.opt, loss=mean_squared_error)
 
         # Define MPC parameters
-        self.M = self.process_inputs * self.P  # control horizon
-        self.N = self.process_outputs * self.Q  # prediction horizon
-        self.weight_control = 1.0
+        self.M = 5  # control horizon
+        self.N = 5  # prediction horizon
+        self.weight_control = 0.1
         self.weight_output = 1.0
 
         # Historic data
@@ -126,12 +126,12 @@ class MPC:
 
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
-        rospy.Subscriber("arc_state", Bool, self.callback_arc)
+        rospy.Subscriber("kr90/arc_state", Bool, self.callback_arc)
         self.arc_state = False
         rospy.Subscriber("xiris/bead/filtered", Float64, self.callback_width)
-        rospy.Subscriber("powersource_state/wire_feed_speed",
+        rospy.Subscriber("kr90/powersource_state/wire_feed_speed",
                          Float32, self.callback_power)
-        rospy.Subscriber("travel_speed", Float32, self.callback_ts)
+        rospy.Subscriber("kr90/kr90/travel_speed", Float64, self.callback_ts)
         self.pub = rospy.Publisher(
             "fronius_remote_command", Float64MultiArray, queue_size=10)
         self.pub_freq = 10  # sampling frequency of published data
@@ -209,9 +209,9 @@ class MPC:
             (1 * (self.P * self.process_inputs + self.Q * self.process_outputs),
              ))
         u = grad[: self.process_inputs *
-                 self.P].reshape((self.P * self.process_inputs, 1))
+                 self.P].reshape((self.P, self.process_inputs))[:, 0]
         y = grad[self.process_inputs *
-                 self.P:].reshape((self.Q * self.process_outputs, 1))
+                 self.P:].reshape((self.Q, self.process_outputs))
         return u, y
 
     # Create control diff method
@@ -275,11 +275,9 @@ class MPC:
                     gradient_input = (gradient_input - self.gradient_x_min) / \
                         (self.gradient_x_max - self.gradient_x_min)
 
-                    # print(f'u_H: {u_hist}')
-                    # print(f'u_F: {u_forecast}')
-                    # print(f'g: {gradient_input}')
                     gradient_input = tf.convert_to_tensor(gradient_input)
-                    gradient_pred = self.predict_gradient(gradient_input)
+                    gradient_pred = self.predict_gradient(
+                        gradient_input).reshape((self.P, self.process_inputs))[:, 0]
 
                     # Split gradients
                     self.gradient_preds.append(gradient_pred.ravel().tolist())
@@ -293,11 +291,9 @@ class MPC:
                     input_gradient = gradient_real
 
                 if i < self.P - 1:
-                    output_jacobian[i, : i + 1] = input_gradient[
-                        -(i + 1):, :
-                    ].ravel()
+                    output_jacobian[i, : i + 1] = input_gradient[-(i + 1):]
                 else:
-                    output_jacobian[i, :] = input_gradient[:, :].ravel()
+                    output_jacobian[i, :] = input_gradient[:]
 
             y_row = output_tensor.numpy().reshape((1, 1))
             y_forecast[i, :] = y_row
@@ -342,7 +338,7 @@ class MPC:
         # gradient_hist = np.zeros((self.process_input_test.shape[0],self.M))
         gradient_hist = []
         converged = True
-        while delta_cost < -self.cost_tol:
+        while delta_cost < -self.cost_tol and opt_step < 5:
             steps, y_forecast = self.compute_step(u_hist, y_hist, u_forecast)
             cost = self.cost_function(u_forecast, y_forecast)
             delta_cost = cost - last_cost
@@ -363,9 +359,9 @@ class MPC:
                 converged = False
                 break
 
-        print(f"U_F: {u_forecast}")
-        print(f"Y_F: {y_forecast}")
-        print(f"Y_R: {self.y_ref}")
+        # print(f"U_F: {u_forecast}")
+        # print(f"Y_F: {y_forecast}")
+        # print(f"Y_R: {self.y_ref}")
         # Save forecast
         self.u_forecast_data.append(u_forecast.ravel().tolist())
         self.y_forecast_data.append(y_forecast.ravel().tolist())
@@ -428,7 +424,7 @@ mpc = MPC(bead_idx)
 exp_time = 0
 exp_step = 1
 start_time = time.time()
-rospy.wait_for_message("xiris/bead/filtered", Float32)  # Wait for width
+# rospy.wait_for_message("xiris/bead/filtered", Float32)  # Wait for width
 while not rospy.is_shutdown():
     if mpc.arc_state:
         print(f"Time step: {exp_step}")

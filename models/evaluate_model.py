@@ -197,11 +197,13 @@ elif source == "experiment":
             bead_filename + "_w.csv"
         ).to_numpy()
 
+        time_array = output_test[:, 0]
+
         wfs_test = resample_data(
-            wfs_test[:, 1], wfs_test[:, 0], output_test[:, 0]
+            wfs_test[:, 1], wfs_test[:, 0], time_array
         )
         ts_test = resample_data(
-            ts_test[:, 1], ts_test[:, 0], output_test[:, 0]
+            ts_test[:, 1], ts_test[:, 0], time_array
         )
         input_test = np.concatenate(
             (wfs_test, ts_test[:, 1].reshape((len(ts_test), 1))),
@@ -239,13 +241,15 @@ elif source == "experiment":
             )  # Denormalize
 
         # Save real and predicted data
+        time_array = time_array[best_params.iloc[0, 2]:]
+        time_array = time_array.reshape((time_array.shape[0], 1))
         np.savetxt(
             results_dir + f"predictions/experiment/bead{bead_idx}_y_real.csv",
-            Y_real,
+            np.concatenate((time_array, Y_real), axis=1),
         )
         np.savetxt(
             results_dir + f"predictions/experiment/bead{bead_idx}_y_pred.csv",
-            Y_pred,
+            np.concatenate((time_array, Y_pred), axis=1),
         )
 
         mse = compute_metrics(Y_pred, Y_real)

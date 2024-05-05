@@ -18,7 +18,7 @@ class Cell(object):
         rospy.Subscriber("fronius_remote_command", Float32, self.callback)
         self.pub_arc = rospy.Publisher("kr90/arc_state", Bool, queue_size=10)
         self.pub_ts = rospy.Publisher(
-            "kr90/travel_speed", Float32, queue_size=10)
+            "kr90/kr90/travel_speed", Float32, queue_size=10)
         self.arc_idxs = [10, 2000]
         self.pub_width = rospy.Publisher(
             "xiris/bead/filtered", Float32, queue_size=10)
@@ -117,8 +117,6 @@ class Cell(object):
             (1, self.P * self.process_inputs + self.Q * self.process_outputs, 1))
 
     def predict_output(self):
-        print(self.u_hist)
-        print(self.y_hist)
         self.u_hist = self.update_hist(self.u_hist, self.u)
         seq_input = self.build_sequence(self.u_hist, self.y_hist)
         input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)

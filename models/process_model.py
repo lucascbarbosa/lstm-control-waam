@@ -43,12 +43,12 @@ def create_model(
     model = Sequential()
     model.add(
         LSTM(
-            units=8,
+            units=1,
             activation="relu",
             input_shape=(input_sequence_length, 1),
         )
     )
-    model.add(Dense(units=num_features_output))
+    # model.add(Dense(units=num_features_output))
     # Compile the model
     model.compile(optimizer=Adam(learning_rate=lr), loss=mean_squared_error)
 

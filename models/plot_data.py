@@ -257,8 +257,10 @@ def plot_experiment(
     fig.legend(bbox_to_anchor=(0.94, 0.92))
 
     if end_time is not None:
-        plt.xlim(5.0, end_time)
-        plt.xticks(np.arange(5.0, end_time+0.1, 0.5))
+        axs[0].set_xlim(5.0, end_time)
+        axs[0].set_xticks(np.arange(5.0, end_time+0.1, 0.5))
+        axs[1].set_xlim(5.0, end_time)
+        axs[1].set_xticks(np.arange(5.0, end_time+0.1, 0.5))
 
     if save:
         if scale:

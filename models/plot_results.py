@@ -32,8 +32,10 @@ def plot_prediction(source="simulation", save=False):
         fig = plt.figure(figsize=(12, 6))
         fig.suptitle("Output prediction", fontsize=fontsize)
         plt.title(r"$W\;(mm)$", fontsize=fontsize)
-        plt.plot(Y_real, color="k", label="Measured")
-        plt.plot(Y_pred, color="r", label="Predicted")
+        plt.plot(Y_real[:, 0], Y_real[:, 1], color="k", label="Measured")
+        plt.plot(Y_pred[:, 0], Y_pred[:, 1], color="r", label="Predicted")
+        plt.xlabel('t')
+        plt.ylabel('Value')
         plt.legend(fontsize=fontsize)
 
     elif source == "mpc":
@@ -51,7 +53,7 @@ def plot_prediction(source="simulation", save=False):
         elif source == "experiment":
             plt.savefig(
                 results_dir
-                + f"plots/experiment/calibration/calibration_bead{bead_test}_lstm_prediction.svg"
+                + f"plots/experiment/calibration/calibration_bead{bead_test}_lstm_prediction.png"
             )
         elif source == "mpc":
             plt.savefig(results_dir + f"plots/mpc_lstm_prediction.png")

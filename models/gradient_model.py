@@ -43,12 +43,12 @@ def create_model(
 
     model.add(
         LSTM(
-            units=64,
+            units=1,
             activation="relu",
             input_shape=(num_features_input, 1),
         )
     )
-    model.add(Dense(units=num_features_output, activation="relu"))
+    # model.add(Dense(units=num_features_output, activation="relu"))
 
     # Compile the model
     model.compile(optimizer=Adam(learning_rate=lr), loss=mean_squared_error)
