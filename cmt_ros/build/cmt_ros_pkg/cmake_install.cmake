@@ -53,19 +53,11 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmt_ros_pkg" TYPE PROGRAM FILES "/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/build/cmt_ros_pkg/catkin_generated/installspace/mpc_node_lstm_local.py")
-endif()
-
-if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmt_ros_pkg" TYPE PROGRAM FILES "/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/build/cmt_ros_pkg/catkin_generated/installspace/mpc_node_model_local.py")
-endif()
-
-if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmt_ros_pkg" TYPE PROGRAM FILES "/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/build/cmt_ros_pkg/catkin_generated/installspace/mpc_node_lstm.py")
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmt_ros_pkg" TYPE PROGRAM FILES "/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/build/cmt_ros_pkg/catkin_generated/installspace/mpc_node_model.py")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmt_ros_pkg" TYPE PROGRAM FILES "/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/build/cmt_ros_pkg/catkin_generated/installspace/mpc_node_tf.py")
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
@@ -73,14 +65,6 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmt_ros_pkg" TYPE PROGRAM FILES "/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/build/cmt_ros_pkg/catkin_generated/installspace/calibration_node_local.py")
-endif()
-
-if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmt_ros_pkg" TYPE PROGRAM FILES "/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/build/cmt_ros_pkg/catkin_generated/installspace/cell_node_tf.py")
-endif()
-
-if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmt_ros_pkg" TYPE PROGRAM FILES "/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/build/cmt_ros_pkg/catkin_generated/installspace/cell_node_lstm.py")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmt_ros_pkg" TYPE PROGRAM FILES "/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/build/cmt_ros_pkg/catkin_generated/installspace/cell_node.py")
 endif()
 

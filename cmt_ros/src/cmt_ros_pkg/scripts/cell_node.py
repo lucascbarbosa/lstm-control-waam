@@ -1,5 +1,5 @@
 import rospy
-from std_msgs.msg import Float32, Bool, Float64MultiArray
+from std_msgs.msg import Float64, Bool, Float64MultiArray
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
@@ -18,17 +18,14 @@ class Cell(object):
 
         # Rospy setup
         rospy.init_node("cell_node", anonymous=True)
-        rospy.Subscriber("fronius_remote_command", Float32, self.callback)
+        rospy.Subscriber("fronius_remote_command",
+                         Float64MultiArray, self.callback)
         self.pub_arc = rospy.Publisher("kr90/arc_state", Bool, queue_size=10)
-        self.pub_ts = rospy.Publisher(
-            "kr90/kr90/travel_speed", Float32, queue_size=10)
-        self.arc_idxs = [10, 2000]
+        self.arc_idxs = [50, 750]
         self.pub_width = rospy.Publisher(
-            "xiris/bead/filtered", Float32, queue_size=10)
-        self.pub_power = rospy.Publisher(
-            "kr90/powersource_state", Float32, queue_size=10)
+            "xiris/bead/filtered", Float64, queue_size=10)
 
-        self.fs = 5
+        self.fs = 55
         self.rate = rospy.Rate(self.fs)
 
         # Define model
@@ -51,7 +48,7 @@ class Cell(object):
         self.y = 0.0
 
     def callback(self, data):
-        self.p = data.data
+        self.p = data.data[0]
         self.u = self.pow2wfs(self.p)
         rospy.loginfo("Received command wfs: %f", self.u)
 
@@ -62,10 +59,6 @@ class Cell(object):
                       np.dot(self.ss_discrete.D, self.u))[0]
         self.pub_width.publish(self.y)
         rospy.loginfo("Sending y: %s", self.y)
-        self.pub_power.publish(self.p)
-        rospy.loginfo("Sending power: %s", self.p)
-        self.pub_ts.publish(self.ts)
-        rospy.loginfo("Sending TS: %s", self.ts)
 
     def set_arcstate(self, t):
         arc_state = t > self.arc_idxs[0] and t < self.arc_idxs[1]

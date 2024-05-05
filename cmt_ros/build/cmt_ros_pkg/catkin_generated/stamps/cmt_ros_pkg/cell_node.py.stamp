@@ -1,30 +1,35 @@
 import rospy
-from std_msgs.msg import Float32, Bool, Float64MultiArray
+from std_msgs.msg import Float64, Bool, Float64MultiArray
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 import control
+import sys
 
 
 class Cell(object):
-    def __init__(self):
+    def __init__(self, ts):
+
+        self.ts = ts
+
+        # Read gain
+        with open(results_dir + f'models/tf/ts_{ts}.txt', 'r') as f:
+            gain = float(f.read())
+
         # Rospy setup
         rospy.init_node("cell_node", anonymous=True)
-        rospy.Subscriber("fronius_remote_command", Float32, self.callback)
-        self.pub_arc = rospy.Publisher("arc_state", Bool, queue_size=10)
-        self.pub_ts = rospy.Publisher(
-            "kr90/travel_speed", Float32, queue_size=10)
+        rospy.Subscriber("fronius_remote_command",
+                         Float64MultiArray, self.callback)
+        self.pub_arc = rospy.Publisher("kr90/arc_state", Bool, queue_size=10)
         self.arc_idxs = [10, 2000]
         self.pub_width = rospy.Publisher(
-            "xiris/bead/filtered", Float32, queue_size=10)
-        self.pub_power = rospy.Publisher(
-            "powersource_state", Float32, queue_size=10)
+            "xiris/bead/filtered", Float64, queue_size=10)
 
-        self.fs = 10
+        self.fs = 55
         self.rate = rospy.Rate(self.fs)
 
         # Define model
-        numerator = [0, 0, 0.8]
+        numerator = [0, 0, gain]
         denominator = [0.2, 1.2, 1]
         self.T = 1 / self.fs
         G_continuous = control.TransferFunction(numerator, denominator)
@@ -43,22 +48,9 @@ class Cell(object):
         self.y = 0.0
 
     def callback(self, data):
-        self.p = data.data
+        self.p = data.data[0]
         self.u = self.pow2wfs(self.p)
         rospy.loginfo("Received command wfs: %f", self.u)
-
-    def resample_data(self, original_data, original_time, new_time):
-        interp_func = interp1d(
-            original_time,
-            original_data,
-            kind="linear",
-            fill_value="extrapolate",
-        )
-
-        resampled_data = np.zeros((new_time.shape[0], 2))
-        resampled_data[:, 0] = new_time
-        resampled_data[:, 1] = interp_func(new_time)
-        return resampled_data
 
     def predict_output(self):
         self.x = np.dot(self.ss_discrete.A, self.x) + \
@@ -67,11 +59,6 @@ class Cell(object):
                       np.dot(self.ss_discrete.D, self.u))[0]
         self.pub_width.publish(self.y)
         rospy.loginfo("Sending y: %s", self.y)
-        self.pub_power.publish(self.p + np.random.normal())
-        rospy.loginfo("Sending power: %s", self.p + np.random.normal())
-        self.ts = 10.0 + np.random.normal()
-        self.pub_ts.publish(self.ts)
-        rospy.loginfo("Sending TS: %s", self.ts)
 
     def set_arcstate(self, t):
         arc_state = t > self.arc_idxs[0] and t < self.arc_idxs[1]
@@ -89,7 +76,11 @@ class Cell(object):
         return np.round((p*9/100)+1.5, 3)
 
 
-cell = Cell()
+data_dir = f"/home/lbarbosa/Documents/Github/lstm-control-waam/database/"
+results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
+args = rospy.myargv(argv=sys.argv)
+ts = int(args[1])
+cell = Cell(ts)
 k = 0
 try:
     while not rospy.is_shutdown():
