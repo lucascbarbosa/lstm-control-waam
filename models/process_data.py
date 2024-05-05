@@ -22,10 +22,10 @@ def build_train_data(data_dir, beads_train, beads_test):
     for bead_idx in beads_train:
         filename_train = f"series/bead{bead_idx}"
         wfs_train = pd.read_csv(
-            data_dir + filename_train + "_wfs.csv"
+            data_dir + filename_train + "_wfs_command.csv"
         ).to_numpy()
         ts_train = pd.read_csv(
-            data_dir + filename_train + "_ts.csv"
+            data_dir + filename_train + "_ts_command.csv"
         ).to_numpy()
         output_train = pd.read_csv(
             data_dir + filename_train + "_w.csv"

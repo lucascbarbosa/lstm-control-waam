@@ -18,10 +18,10 @@ def pow2wfs(power_data):
     Covert power to wfs
 
     Args:
-        power_data (float): power command
+        power_data (float): power wfs_command
 
     Returns:
-        float: wfs command
+        float: wfs wfs_command
     """
     return (power_data * 9 / 100) + 1.5
 
@@ -38,7 +38,7 @@ def plot_simulation(
     Args:
         bead_idx (int): index of welded bead
         wfs_data(np.array): wfs data
-        command_data(np.array): wfs command data
+        wfs_command_data(np.array): wfs wfs_command data
         w_data(np.array): width data
         fig_filename (str): figure file name
         scale (bool): whether to scale data
@@ -61,7 +61,7 @@ def plot_simulation(
             where="post",
             linestyle="--",
             color="#6B66EC",
-            label="Scaled WFS command",
+            label="Scaled WFS wfs_command",
         )
         ax2.plot(w_data[:, 0], w_data[:, 1],
                  color="#006400", label="Scaled width")
@@ -74,7 +74,7 @@ def plot_simulation(
             where="post",
             linestyle="--",
             color="#6B66EC",
-            label="WFS command",
+            label="WFS wfs_command",
         )
         ax2.plot(w_data[:, 0], w_data[:, 1],
                  color="#006400", label="Width")
@@ -95,7 +95,7 @@ def plot_simulation(
 # def plot_experiment(
 #     bead_idx,
 #     wfs_data,
-#     command_data,
+#     wfs_command_data,
 #     w_data,
 #     fig_filename,
 #     N
@@ -106,7 +106,7 @@ def plot_simulation(
 #     Args:
 #         bead_idx (int): index of welded bead
 #         wfs_data(np.array): wfs data
-#         command_data(np.array): wfs command data
+#         wfs_command_data(np.array): wfs wfs_command data
 #         w_data(np.array): width data
 #         fig_filename (str): figure file name
 #         scale (bool): whether to scale data
@@ -132,12 +132,12 @@ def plot_simulation(
 #             label="Scaled WFS value",
 #         )
 #         ax1.step(
-#             command_data[:, 0],
-#             command_data[:, 1],
+#             wfs_command_data[:, 0],
+#             wfs_command_data[:, 1],
 #             where="post",
 #             linestyle="--",
 #             color="#6B66EC",
-#             label="Scaled WFS command",
+#             label="Scaled WFS wfs_command",
 #         )
 #         ax1.set_ylabel("WFS")
 #         ax2.plot(w_data[:, 0], w_data[:, 1],
@@ -152,12 +152,12 @@ def plot_simulation(
 #             label="WFS value",
 #         )
 #         ax1.step(
-#             command_data[:, 0],
-#             command_data[:, 1],
+#             wfs_command_data[:, 0],
+#             wfs_command_data[:, 1],
 #             where="post",
 #             linestyle="--",
 #             color="#6B66EC",
-#             label="WFS command",
+#             label="WFS wfs_command",
 #         )
 #         ax2.plot(w_data[:, 0], w_data[:, 1] * 1000,
 #                  color="#006400", label="Width")
@@ -176,10 +176,11 @@ def plot_simulation(
 
 def plot_experiment(
     bead_idx,
+    wfs_command_data,
     wfs_data,
-    command_data,
-    w_data,
+    ts_command_data,
     ts_data,
+    w_data,
     fig_filename,
     N
 ):
@@ -189,7 +190,7 @@ def plot_experiment(
     Args:
         bead_idx (int): index of welded bead
         wfs_data(np.array): wfs data
-        command_data(np.array): wfs command data
+        wfs_command_data(np.array): wfs wfs_command data
         w_data(np.array): width data
         fig_filename (str): figure file name
         scale (bool): whether to scale data
@@ -208,47 +209,51 @@ def plot_experiment(
 
     if scale:
         ax2.plot(ts_data[:, 0], ts_data[:, 1],
-                 color='orange', label='Scaled TS')
+                 color='#CC5500', label=' Scaled TS')
+        ax2.plot(ts_command_data[:, 0], ts_command_data[:, 1],
+                 color='#FFA500', linestyle='--', label='Scaled TS command')
         axs[0].step(
             wfs_data[:, 0],
             wfs_data[:, 1],
             where="post",
             color="#000080",
-            label="Scaled WFS value",
+            label="Scaled WFS",
         )
         axs[0].step(
-            command_data[:, 0],
-            command_data[:, 1],
+            wfs_command_data[:, 0],
+            wfs_command_data[:, 1],
             where="post",
             linestyle="--",
             color="#6B66EC",
             label="Scaled WFS command",
         )
         axs[1].plot(w_data[:, 0], w_data[:, 1],
-                    color="#006400", label="Scaled width")
+                    color="#006400")
         axs[0].set_ylabel("WFS")
         ax2.set_ylabel("TS")
         axs[1].set_ylabel("W")
     else:
         ax2.plot(ts_data[:, 0], ts_data[:, 1],
-                 color='orange', label='TS')
+                 color='#CC5500', label='TS')
+        ax2.plot(ts_command_data[:, 0], ts_command_data[:, 1],
+                 color='#FFA500', linestyle='--', label='TS command')
         axs[0].step(
             wfs_data[:, 0],
             wfs_data[:, 1],
             where="post",
             color="#000080",
-            label="WFS value",
+            label="WFS",
         )
         axs[0].step(
-            command_data[:, 0],
-            command_data[:, 1],
+            wfs_command_data[:, 0],
+            wfs_command_data[:, 1],
             where="post",
             linestyle="--",
             color="#6B66EC",
             label="WFS command",
         )
         axs[1].plot(w_data[:, 0], w_data[:, 1],
-                    color="#006400", label="Width")
+                    color="#006400")
         axs[0].set_ylabel("WFS (m/min)")
         ax2.set_ylabel("TS (mm/s)")
         axs[1].set_ylabel("W (mm)")
@@ -265,10 +270,10 @@ def plot_experiment(
     if save:
         if scale:
             fig.savefig(
-                results_dir + f"plots/{source}/calibration_{fig_filename}.png")
+                results_dir + f"plots/{source}/calibration_{fig_filename}.{format}")
         else:
             fig.savefig(
-                results_dir + f"plots/{source}/calibration_{fig_filename}_raw.png")
+                results_dir + f"plots/{source}/calibration_{fig_filename}_raw.{format}")
         plt.close()
     else:
         fig.show()
@@ -276,9 +281,14 @@ def plot_experiment(
 
 N = None  # Horizon plotted
 end_time = 16
-scale = False
+scale = True
 save = True
+format = "eps"
 source = "experiment/calibration"
+experiment_matrix = pd.read_excel(
+    data_dir + 'experiment/calibration/experiment_matrix.xlsx')['TS (mm/s)']
+ts_min = experiment_matrix.min()
+ts_max = experiment_matrix.max()
 data_path = data_dir + f"{source}/"
 if source == "simulation":
     input_train, output_train, input_test, output_test = load_train_data(
@@ -295,25 +305,31 @@ if source.split('/')[0] == "experiment":
     bead_idxs = list(range(1, 16))
     for bead_idx in bead_idxs:
         bead_filename = data_path + f"series/bead{bead_idx}"
-        command_data = pd.read_csv(bead_filename + "_command.csv").to_numpy()
-        command_data[:, 1:] = pow2wfs(command_data[:, 1:])
+        wfs_command_data = pd.read_csv(
+            bead_filename + "_wfs_command.csv").to_numpy()
+        wfs_command_data[:, 1:] = pow2wfs(wfs_command_data[:, 1:])
         wfs_data = pd.read_csv(bead_filename + "_wfs.csv").to_numpy()
         w_data = pd.read_csv(bead_filename + "_w.csv").to_numpy()
         ts_data = pd.read_csv(bead_filename + "_ts.csv").to_numpy()
+        ts_command_data = pd.read_csv(
+            bead_filename + "_ts_command.csv").to_numpy()
         fig_filename = f"bead{bead_idx}"
         if scale:
             wfs_data[:, 1:] = normalize_data(wfs_data[:, 1:])
-            command_data[:, 1:] = normalize_data(
-                command_data[:, 1:])
+            wfs_command_data[:, 1:] = normalize_data(
+                wfs_command_data[:, 1:])
             w_data[:, 1:] = normalize_data(w_data[:, 1:])
-            ts_data[:, 1:] = normalize_data(ts_data[:, 1:])
+            ts_command_data[:, 1:] = normalize_data(
+                ts_command_data[:, 1:], ts_min, ts_max)
+            ts_data[:, 1:] = normalize_data(ts_data[:, 1:], ts_min, ts_max)
 
         plot_experiment(
             bead_idx,
+            wfs_command_data,
             wfs_data,
-            command_data,
-            w_data,
+            ts_command_data,
             ts_data,
+            w_data,
             fig_filename,
             N
         )

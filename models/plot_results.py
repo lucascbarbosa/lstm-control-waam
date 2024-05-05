@@ -49,37 +49,40 @@ def plot_prediction(source="simulation", save=False):
     fig.tight_layout()
     if save:
         if source == "simulation":
-            plt.savefig(results_dir + f"plots/simulation_lstm_prediction.png")
+            plt.savefig(
+                results_dir + f"plots/simulation_lstm_prediction.{format}")
         elif source == "experiment":
             plt.savefig(
                 results_dir
-                + f"plots/experiment/calibration/calibration_bead{bead_test}_lstm_prediction.png"
+                + f"plots/experiment/calibration/calibration_bead{bead_test}_lstm_prediction.{format}"
             )
         elif source == "mpc":
-            plt.savefig(results_dir + f"plots/mpc_lstm_prediction.png")
+            plt.savefig(results_dir + f"plots/mpc_lstm_prediction.{format}")
     plt.show()
 
 
-def plot_heatmap(batch_size, source="simulation", save=False):
+def plot_heatmap(source, save=False):
     fig = plt.figure(figsize=(8, 6))
 
-    heatmap_df = metrics_df[metrics_df["batch_size"] == batch_size][
-        ["P", "Q", "test_loss"]
-    ].pivot(index="Q", columns="P", values="test_loss")
+    heatmap_df = metrics_df[["P", "Q", "test_loss"]].pivot(
+        index="Q", columns="P", values="test_loss")
 
     sns.heatmap(heatmap_df, annot=True, cmap="magma", fmt=".4f")
-    plt.title(f"Erro de predição para batch_size={batch_size}")
+    plt.title(f"Hyperparameters heatmap error")
     fig.tight_layout()
 
     if save:
         plt.savefig(
-            results_dir + f"plots/{source}_hp_metrics_{batch_size}.png"
+            results_dir +
+            f"plots/{source}/calibration/calibration_bead{bead_test}_heatmap.{format}"
         )
+
+    plt.tight_layout()
     plt.show()
 
 
 def histogram_error(bins, source="simulation", save=False):
-    error = Y_pred - Y_real
+    error = Y_pred[:, 1] - Y_real[:, 1]
     if source == "simulation":
         fig, axs = plt.subplots(2, 1, figsize=(10, 6))
         for i, ax in enumerate(axs):
@@ -94,13 +97,14 @@ def histogram_error(bins, source="simulation", save=False):
                 linewidth=2,
                 label=f"Mean: {avg*1e6:.1f}e-6. Std: {std*1e5:.1f}e-5 P-valor: {p_val*1e10: .1f}e-10",
             )
-            ax.set_title(r"Histograma do erro de previsão de $w_e$")
-            ax.set_xlabel(r"k")
+            ax.set_title(r"Prediction error histogram for $w_e$")
+            ax.set_xlabel(r"error")
             ax.legend()
 
         plt.subplots_adjust(hspace=0.5)
         if save:
-            plt.savefig(results_dir + f"plots/{source}_error_histogram.png")
+            plt.savefig(
+                results_dir + f"plots/{source}_error_histogram.{format}")
 
     elif source == "experiment":
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -113,20 +117,21 @@ def histogram_error(bins, source="simulation", save=False):
             color="red",
             linestyle="dashed",
             linewidth=2,
-            label=f"Mean: {avg*1e2:.1f}e-2. Std: {std*1e2:.1f}e-2 P-valor: {p_val*1e35: .1f}e-35",
+            label=f"Mean: {avg:.2f} Std: {std:.2f} P-valor: {p_val: .4f}",
         )
 
-        ax.set_title(r"Histograma do erro de previsão de $w_e$")
-        ax.set_xlabel(r"k")
+        ax.set_title(r"Prediction error histogram for $w_e$")
+        ax.set_xlabel(r"error")
         ax.legend()
 
         plt.subplots_adjust(hspace=0.5)
         if save:
             plt.savefig(
                 results_dir
-                + f"plots/{source}_bead{idx_test}_error_histogram.png"
+                + f"plots/experiment/calibration/{source}_bead{bead_test}_error_histogram.{format}"
             )
 
+    plt.tight_layout()
     plt.show()
 
 
@@ -173,29 +178,14 @@ def plot_mpc(u, y, y_ref, save=True):
     plt.tight_layout()
 
     if save:
-        plt.savefig(results_dir + f"plots/{source}_mpc_outputs.png")
+        plt.savefig(results_dir + f"plots/{source}_mpc_outputs.{format}")
     plt.show()
 
 
-def gradient_angle(Y_real, Y_pred):
-    angles = np.zeros(Y_real.shape[0])
-    for i in range(Y_real.shape[0]):
-        vec_real = Y_real[i, :]
-        vec_pred = Y_pred[i, :]
-        dot_product = np.dot(vec_real, vec_pred)
-        norm_vec_real = np.linalg.norm(vec_real)
-        norm_vec_pred = np.linalg.norm(vec_pred)
-        angle = np.degrees(
-            np.arccos(dot_product / (norm_vec_real * norm_vec_pred))
-        )
-        angles[i] = angle
-    return angles
-
-
 source = "experiment"
-gradient_source = "calibration"
 save = True
 fontsize = 16
+format = "eps"
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 metrics_df["test_loss"] = metrics_df["test_loss"].apply(
     lambda x: np.nan if x > 1 else x
@@ -224,7 +214,7 @@ if source == "simulation":
 
     # plot_mpc(mpc_u, mpc_y, y_means,save=False)
 
-elif source.split('/')[0] == "experiment":
+elif source == "experiment":
     beads_test = [3, 6, 10, 15]
     for bead_test in beads_test:
         Y_real = np.loadtxt(
@@ -238,63 +228,9 @@ elif source.split('/')[0] == "experiment":
 
         plot_prediction(source=source, save=save)
 
-        bins = 32
-        # histogram_error(bins, source=source, save=True)
+        bins = 16
+        histogram_error(bins, source=source, save=save)
 
-        # batch_sizes = [16, 32, 64]
-        # for batch_size in batch_sizes:
-        #     plot_heatmap(batch_size, source=source, save=True)
+        plot_heatmap(source=source, save=True)
 
         # plot_mpc(mpc_u, mpc_y, y_means,save=False)
-
-elif source == "gradient":
-    Y_real = np.loadtxt(
-        results_dir +
-        f"predictions/{source}/{gradient_source}/gradient_reals.csv",
-        dtype=np.float64,
-    )
-    Y_pred = np.loadtxt(
-        results_dir +
-        f"predictions/{source}/{gradient_source}/gradient_preds.csv",
-        dtype=np.float64,
-    )
-
-    num_outputs = Y_pred.shape[1]
-
-    # Angles error
-    angles = gradient_angle(Y_real, Y_pred)
-    fig = plt.figure(figsize=(20, 9))
-    avg = np.mean(angles)
-    plt.title("Angular error between real and predicted gradients",
-              fontsize=fontsize)
-    sns.histplot(angles, bins=128)
-    # plt.axvline(90, linestyle="--", color="black", label="90 deg")
-    plt.axvline(avg, linestyle="--", color="red", label=f"Mean: {avg:.2f}")
-    plt.legend(fontsize=fontsize)
-    plt.xlim(0, 45)
-    plt.tight_layout()
-    plt.savefig(
-        results_dir + f"plots/{source}/{gradient_source}_gradient_angles.png")
-    plt.show()
-
-    # Dimensions error
-    # error = Y_pred - Y_real
-    # fig, axs = plt.subplots(num_outputs)
-    # fig.set_size_inches(20, 9)
-    # for i in range(num_outputs):
-    #     sns.histplot(error[:, i], bins=128, ax=axs[i])
-    #     avg = np.mean(error[:, i])
-    #     axs[i].axvline(
-    #         avg,
-    #         color="red",
-    #         linestyle="dashed",
-    #         linewidth=2,
-    #         label=f"Mean: {avg*1e3:.1f}e-3",
-    #     )
-    #     axs[i].set_title(
-    #         r"Gradient error histogram w.r.t. u[t-%s]" % (num_outputs - i)
-    #     )
-    #     axs[i].legend()
-    #
-    # plt.tight_layout()
-    # plt.savefig(results_dir + f"plots/gradient_dimensions.png")

@@ -63,39 +63,6 @@ class MPC:
         self.opt = Adam(learning_rate=self.process_best_params["lr"])
         self.process_model.compile(optimizer=self.opt, loss=mean_squared_error)
 
-        # Gradient data
-        self.gradient_source = "real"
-        (self.gradient_input_train,
-         self.gradient_output_train,
-         _,
-         _) = self.load_train_data(data_dir + f"gradient/experiment/")
-
-        self.gradient_inputs = self.gradient_input_train.shape[1]
-        self.gradient_outputs = self.gradient_output_train.shape[1]
-
-        self.gradient_x_min = self.gradient_input_train.min(axis=0)
-        self.gradient_x_max = self.gradient_input_train.max(axis=0)
-        self.gradient_y_min = self.gradient_output_train.min(axis=0)
-        self.gradient_y_max = self.gradient_output_train.max(axis=0)
-
-        # Load gradient model metrics
-        self.metrics_gradient = pd.read_csv(
-            results_dir + f"models/gradient/hp_metrics.csv")
-        gradient_best_model_id = 2
-        gradient_best_model_filename = \
-            f"run_{gradient_best_model_id:03d}.keras"
-        self.gradient_best_params = self.metrics_gradient[
-            self.metrics_gradient["run_id"] == int(gradient_best_model_id)]
-        # Load gradient model
-        self.gradient_model = load_model(
-            results_dir +
-            f"models/gradient/best/{gradient_best_model_filename}"
-        )
-
-        self.opt = Adam(learning_rate=self.gradient_best_params["lr"])
-        self.gradient_model.compile(
-            optimizer=self.opt, loss=mean_squared_error)
-
         # Define MPC parameters
         self.M = 5  # control horizon
         self.N = 5  # prediction horizon

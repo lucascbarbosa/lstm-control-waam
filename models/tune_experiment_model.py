@@ -15,10 +15,9 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 data_dir = "database/"
 results_dir = "results/"
 
+
 ############
 # Function #
-
-
 def split_train_test(beads, k):
     idxs = np.random.choice(len(beads), k, replace=False)
     beads_test = beads[idxs]
@@ -177,7 +176,7 @@ hp_search_space = {
     "Q": [0, 10, 20, 30, 40, 50],  # np.arange(0, 51, 5)
     "H": [1],
     "batch_size": [16],  # [16, 32, 64]
-    "num_epochs": [10],
+    "num_epochs": [50],
     "validation_split": [0.1],
     "lr": [1e-3],
 }

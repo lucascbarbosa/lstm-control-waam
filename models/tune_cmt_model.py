@@ -101,7 +101,7 @@ u_train = input_train[:, 1]
 y_train = output_train[:, 1]
 
 # Constant
-T = 0.02
+T = np.diff(time)[0]
 denominator = [0.2, 1.2, 1]
 
 # Optimization
