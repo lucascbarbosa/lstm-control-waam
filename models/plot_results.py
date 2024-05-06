@@ -74,7 +74,7 @@ def plot_heatmap(source, save=False):
     if save:
         plt.savefig(
             results_dir +
-            f"plots/{source}/calibration/calibration_bead{bead_test}_heatmap.{format}"
+            f"plots/{source}/calibration/calibration_heatmap.{format}"
         )
 
     plt.tight_layout()
@@ -231,6 +231,6 @@ elif source == "experiment":
         bins = 16
         histogram_error(bins, source=source, save=save)
 
-        plot_heatmap(source=source, save=True)
+    # plot_heatmap(source=source, save=True)
 
-        # plot_mpc(mpc_u, mpc_y, y_means,save=False)
+    # plot_mpc(mpc_u, mpc_y, y_means,save=False)

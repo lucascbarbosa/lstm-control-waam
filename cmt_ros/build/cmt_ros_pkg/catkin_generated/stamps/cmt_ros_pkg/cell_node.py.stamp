@@ -21,7 +21,7 @@ class Cell(object):
         rospy.Subscriber("fronius_remote_command",
                          Float64MultiArray, self.callback)
         self.pub_arc = rospy.Publisher("kr90/arc_state", Bool, queue_size=10)
-        self.arc_idxs = [10, 2000]
+        self.arc_idxs = [50, 750]
         self.pub_width = rospy.Publisher(
             "xiris/bead/filtered", Float64, queue_size=10)
 

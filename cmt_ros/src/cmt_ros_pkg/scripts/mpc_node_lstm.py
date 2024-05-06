@@ -1,21 +1,19 @@
+"""MPC ROS node."""
 import tensorflow as tf
 from keras.models import load_model
 from tensorflow.keras.losses import mean_squared_error
 from tensorflow.keras.optimizers import Adam
-import joblib
 
 import numpy as np
 import pandas as pd
-from scipy.interpolate import interp1d
-
+import time
+import sys
 import rospy
-from std_msgs.msg import (Float32,
-                          Float64,
+from std_msgs.msg import (Float64,
                           Bool,
                           Float64MultiArray,
                           MultiArrayDimension)
-import time
-import sys
+import threading
 
 
 class MPC:
@@ -32,7 +30,7 @@ class MPC:
         # Process data
         (self.process_input_train,
          self.process_output_train,
-         _,
+         self.process_input_test,
          _) = self.load_train_data(data_dir + "experiment/calibration/")
 
         self.process_input_train = self.process_input_train[:, 1:]
@@ -50,7 +48,7 @@ class MPC:
         self.metrics_process = pd.read_csv(results_dir +
                                            f"models/experiment/hp_metrics.csv"
                                            )
-        process_best_model_id = 3
+        process_best_model_id = 10
         process_best_model_filename = f"run_{process_best_model_id:03d}.keras"
         self.process_best_params = self.metrics_process[
             self.metrics_process["run_id"] == int(process_best_model_id)
@@ -68,10 +66,10 @@ class MPC:
         self.process_model.compile(optimizer=self.opt, loss=mean_squared_error)
 
         # Define MPC parameters
-        self.M = self.P  # control horizon
-        self.N = self.Q  # prediction horizon
-        self.weight_control = 0.1
-        self.weight_output = 1.0
+        self.M = 20   # control horizon
+        self.N = 20  # prediction horizon
+        self.weight_control = 1.0
+        self.weight_output = 10.0
 
         # Width count
         self.resample_factor = 11
@@ -83,18 +81,15 @@ class MPC:
         self.ts = self.reference_data[0, -2]
         self.ts = (self.ts - self.process_u_min[1]) / \
             (self.process_u_max[1] - self.process_u_min[1])
-        self.y_ref = self.reference_data[0, -1]
+        # self.y_ref = self.reference_data[0, -1]
+        self.y_ref = 7.0
         self.y_ref = (self.y_ref - self.process_y_min) / \
             (self.process_y_max[0] - self.process_y_min[0])
 
         # Historic data
         self.u_hist = np.zeros((self.P, self.process_inputs))
-        self.u_hist[0, :] = [0.0, self.ts]
+        self.u_hist[:, :] = [0.0, self.ts]
         self.y_hist = np.zeros((self.Q, self.process_outputs))
-
-        # Forecast data
-        self.u_forecast_data = []
-        self.y_forecast_data = []
 
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
@@ -105,7 +100,17 @@ class MPC:
             "fronius_remote_command", Float64MultiArray, queue_size=10)
         self.pub_freq = 5  # sampling frequency of published data
         self.step_time = 1 / self.pub_freq
-        self.rate = rospy.Rate(self.pub_freq)
+        self.rate = rospy.Rate(self.pub_freq * 2)
+
+        # Forecast data
+        self.command_forecast = np.ones((self.M, 1)) * 40.0
+
+        # Forecast data
+        # self.u_forecast = np.random.normal(loc=0.5, scale=0.1,
+        #                                    size=(self.M, 1))
+        self.u_forecast = np.full((self.M, 1), 0.5)
+        self.u_forecast_data = []
+        self.y_forecast_data = []
 
     def pow2wfs(self, p):
         return np.round((p*9/100)+1.5, 3)
@@ -157,16 +162,6 @@ class MPC:
         return np.hstack((u, y)).reshape(
             (1, P * self.process_inputs + Q * self.process_outputs, 1))
 
-    def split_gradient(self, grad):
-        grad = grad.reshape(
-            (1 * (self.P * self.process_inputs + self.Q * self.process_outputs),
-             ))
-        u = grad[: self.process_inputs *
-                 self.P].reshape((self.P, self.process_inputs))[:, 0]
-        y = grad[self.process_inputs *
-                 self.P:].reshape((self.Q, self.process_outputs))
-        return u, y
-
     # Create control diff method
     def create_control_diff(self, u_forecast):
         u_diff = u_forecast.copy()
@@ -182,9 +177,9 @@ class MPC:
         return input_jacobian
 
     # Cost function method
-    def cost_function(self, u_forecast, y_forecast):
-        u_diff_forecast = self.create_control_diff(u_forecast)
-        output_error = (self.y_ref - y_forecast) * \
+    def cost_function(self):
+        u_diff_forecast = self.create_control_diff(self.u_forecast)
+        output_error = (self.y_ref - self.y_forecast) * \
             (self.process_y_max-self.process_y_min)
 
         output_cost = np.sum(output_error**2 * self.weight_output)
@@ -192,15 +187,30 @@ class MPC:
         return output_cost + control_cost
 
     def compute_gradient(self, input_tensor, j):
+        # start_time = time.time()
         with tf.GradientTape() as t:
             t.watch(input_tensor)
             output_tensor = self.process_model(input_tensor)
             gradient = t.gradient(
                 output_tensor[:, j], input_tensor
             ).numpy()[0, :, 0]
+        # print(time.time() - start_time)
         return output_tensor, gradient
 
-    def compute_step(self, u_hist, y_hist, u_forecast):
+    def split_gradient(self, grad):
+        grad = grad.reshape(
+            (1 * (self.P * self.process_inputs + self.Q * self.process_outputs),
+             ))
+        u = grad[: self.process_inputs *
+                 self.P].reshape((self.P, self.process_inputs))[:, 0]
+        y = grad[self.process_inputs *
+                 self.P:].reshape((self.Q, self.process_outputs))
+        return u, y
+
+    def compute_step(self):
+        u_forecast = self.u_forecast.copy()
+        u_hist = self.u_hist.copy()
+        y_hist = self.y_hist.copy()
         output_jacobian = np.zeros((self.N, self.M))
         y_forecast = np.zeros((self.N, 1))
         for i in range(self.N):
@@ -249,66 +259,71 @@ class MPC:
         return steps, y_forecast
 
     # Optimization function method
-    def optimization_function(self, u_hist, y_hist, lr, u_forecast=None,
-                              verbose=False):
-        opt_time = time.time()
-        if u_forecast is None:
-            u_forecast = np.random.normal(loc=0.5, scale=0.1,
-                                          size=(self.M, 1))
-            # u_forecast = np.random.uniform(size=(self.M, 1))
-        opt_step = 0
+    def optimization_function(self):
+        current_time = np.round(time.time(), 1)
+        opt_step = 1
         cost = np.inf
         last_cost = cost
         delta_cost = -cost
         # gradient history for adaptive learning rate algorithm
-        # gradient_hist = np.zeros((self.process_input_test.shape[0],self.M))
+        gradient_hist = np.zeros((self.process_input_test.shape[0], self.M))
         gradient_hist = []
-        converged = True
-        while delta_cost < -self.cost_tol:
-            steps, y_forecast = self.compute_step(u_hist, y_hist, u_forecast)
-            cost = self.cost_function(u_forecast, y_forecast)
+        lr = self.lr
+        while delta_cost < -self.cost_tol and opt_step < 15:
+            steps, self.y_forecast = self.compute_step()
+            cost = self.cost_function()
             delta_cost = cost - last_cost
             gradient_hist.append(steps[:, 0].ravel().tolist())
             ada_grad = np.sqrt(np.sum(np.array(gradient_hist)[
-                :opt_step+1, :]**2, axis=0)+1e-10).reshape((self.M, 1))
+                :opt_step, :]**2, axis=0)+1e-10).reshape((self.M, 1))
             if verbose:
-                print(f"Opt step: {opt_step+1} Cost: {cost}\n")
+                print(f"Opt step: {opt_step} Cost: {cost}\n")
             if delta_cost < 0:
-                u_forecast += (-lr/ada_grad)*steps
-                u_forecast = np.clip(u_forecast, a_min=0.0, a_max=1.0)
+                self.u_forecast += (-lr/ada_grad)*steps
+                self.u_forecast = np.clip(
+                    self.u_forecast, a_min=0.0, a_max=1.0)
                 lr = lr * (1.0 - self.alpha_opt)
                 last_cost = cost
-                opt_step += 1
             else:
                 if verbose:
                     print("Passed optimal solution")
-                converged = False
                 break
+            opt_step += 1
+
+        opt_time = time.time() - current_time
+        print(f"Steps: {opt_step} Time: {opt_time:.2f} " +
+              f"Time per step: {opt_time/opt_step:.2f} " +
+              f"Time per grad: {opt_time/(opt_step*self.N):.3f}")
 
         print(
-            f"U_F: {u_forecast * (self.process_u_max[0] - self.process_u_min[0]) + self.process_u_min[0]}")
-        print(f"Y_F: {y_forecast}")
-        print(f"Y_R: {self.y_ref}")
-        # Save forecast
-        self.u_forecast_data.append(u_forecast.ravel().tolist())
-        self.y_forecast_data.append(y_forecast.ravel().tolist())
+            f"U_F: {self.u_forecast * (self.process_u_max[0] - self.process_u_min[0]) + self.process_u_min[0]}")
+        print(
+            f"Y_F: {self.y_forecast * (self.process_y_max - self.process_y_min) + self.process_y_min}")
+        print(
+            f"Y_R: {self.y_ref * (self.process_y_max - self.process_y_min) + self.process_y_min}")
 
-        u_opt = u_forecast[0, 0]
-        # Descaling
-        u_opt = u_opt * (self.process_u_max[0] -
-                         self.process_u_min[0]) + self.process_u_min[0]
-        command_opt = self.wfs2pow(u_opt)  # convert to power
+        # Save forecast
+        self.u_forecast_data.append(self.u_forecast.ravel().tolist())
+        self.y_forecast_data.append(self.y_forecast.ravel().tolist())
+
+        # Convert to WFS
+        self.command_forecast = self.wfs2pow(
+            self.command_forecast)  # convert to power
+
         # Send command
-        msg = Float64MultiArray()
-        msg.data = [command_opt]
-        dim = []
-        dim.append(MultiArrayDimension('PwrSrc', 1, 4))
-        msg.layout.dim = dim
+        self.u_forecast[:-1] = self.u_forecast[1:]
+        self.lr = self.lr * (1.0 - self.alpha_time)
+
+    def publish_command(self, command_index):
+        # Descaling
+        command_forecast = self.u_forecast * (self.process_u_max[0] -
+                                              self.process_u_min[0]) + \
+            self.process_u_min[0]
+        command = command_forecast[min(command_index, len(command_forecast)-1)]
+        command = self.wfs2pow(command)
+        msg.data = [command]
         self.pub.publish(msg)
-        rospy.loginfo("Sending command: %f", command_opt)
-        opt_time = time.time() - opt_time
-        print(f"Steps: {opt_step} Time: {opt_time:.2f}")
-        return u_opt, u_forecast, y_forecast
+        # rospy.loginfo("Sending command: %f", command)
 
     def export_forecast(self):
         np.savetxt(results_dir + "predictions/forecast/u_forecast.csv",
@@ -317,22 +332,24 @@ class MPC:
                    np.array(self.y_forecast_data))
 
 
+def very_long_fun(x, y):
+    print('Doing')
+    time.sleep(5)
+    print('Done')
+
+
 # Filepaths
 data_dir = f"/home/lbarbosa/Documents/Github/lstm-control-waam/database/"
 results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
-
 
 # Create an instance of the MPC class
 args = rospy.myargv(argv=sys.argv)
 bead_idx = int(args[1])
 mpc = MPC(bead_idx)
-# u_forecast = np.random.normal(loc=0.5, scale=0.05, size=(M, 1)) #
-# u_forecast = np.random.uniform(size=(mpc.M, 1)) #
+verbose = True
 
 # MPC loop
-exp_time = 0.0
-exp_step = 1
-start_time = time.time()
+initial_delay = 3.0
 msg = Float64MultiArray()
 msg.data = [40.0]
 dim = []
@@ -340,23 +357,33 @@ dim.append(MultiArrayDimension('PwrSrc', 1, 4))
 msg.layout.dim = dim
 rospy.wait_for_message("xiris/bead/filtered", Float64)  # Wait for width
 mpc.pub.publish(msg)
+
+# Timing parameters
+forecast_time = mpc.N * mpc.step_time  # forecast period in seconds
+# time in seconds after command_time to trigger optimization
+trigger_time = forecast_time / 2
+command_index = 0  # Index of command in command_forecast
+start_time = None
+u_forecast = None
 while not rospy.is_shutdown():
     if mpc.arc_state:
-        if exp_step == 1:
-            print('Sleeping 5 seconds')
-            time.sleep(5)
-        print(f"Time step: {exp_step}")
-        u_opt, u_forecast, y_forecast = mpc.optimization_function(
-            mpc.u_hist,
-            mpc.y_hist,
-            mpc.lr,
-            u_forecast=None,
-            verbose=True)
-        u_forecast[:-1] = u_forecast[1:]
+        if start_time is None:
+            start_time = np.round(time.time(), 1)
+            exp_time = 0.0
+            command_time = 0.0
+        else:
+            exp_time = np.round(time.time() - start_time, 1)
+        if exp_time >= initial_delay:
+            print(
+                f"Time: {exp_time} Command_time: {command_time} Command: {command_index // 2}")
+            if exp_time == command_time + trigger_time:
+                threading.Thread(target=mpc.optimization_function).start()
+            mpc.publish_command(command_index//2)
+            command_time = (exp_time // forecast_time) * forecast_time
+            command_index += 1
+            if exp_time == command_time + forecast_time:
+                command_index = 0
         mpc.rate.sleep()
-        exp_step += 1
-        exp_time += mpc.step_time
-        mpc.lr = mpc.lr * (1.0 - mpc.alpha_time)
     else:
         pass
 
