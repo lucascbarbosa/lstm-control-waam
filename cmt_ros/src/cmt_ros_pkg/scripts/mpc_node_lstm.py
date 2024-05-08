@@ -3,17 +3,16 @@ import tensorflow as tf
 from keras.models import load_model
 from tensorflow.keras.losses import mean_squared_error
 from tensorflow.keras.optimizers import Adam
-
-import numpy as np
-import pandas as pd
-import time
-import sys
-import rospy
+import threading
 from std_msgs.msg import (Float64,
                           Bool,
                           Float64MultiArray,
                           MultiArrayDimension)
-import threading
+import rospy
+import sys
+import time
+import pandas as pd
+import numpy as np
 
 
 class MPC:
@@ -23,9 +22,9 @@ class MPC:
 
         # Optimization parameters
         self.lr = 1e-1
-        self.alpha_time = 1e-3
-        self.alpha_opt = 1e-3
-        self.cost_tol = 1e-2
+        self.alpha_time = 1e-2
+        self.alpha_opt = 1e-2
+        self.cost_tol = 1e-3
 
         # Process data
         (self.process_input_train,
@@ -48,7 +47,7 @@ class MPC:
         self.metrics_process = pd.read_csv(results_dir +
                                            f"models/experiment/hp_metrics.csv"
                                            )
-        process_best_model_id = 10
+        process_best_model_id = 26
         process_best_model_filename = f"run_{process_best_model_id:03d}.keras"
         self.process_best_params = self.metrics_process[
             self.metrics_process["run_id"] == int(process_best_model_id)
@@ -66,13 +65,13 @@ class MPC:
         self.process_model.compile(optimizer=self.opt, loss=mean_squared_error)
 
         # Define MPC parameters
-        self.M = 20   # control horizon
-        self.N = 20  # prediction horizon
-        self.weight_control = 1.0
-        self.weight_output = 10.0
+        self.M = self.P   # control horizon
+        self.N = self.Q  # prediction horizon
+        self.weight_control = 0.0
+        self.weight_output = 1.0
 
         # Width count
-        self.resample_factor = 11
+        self.resample_factor = 2
         self.w_count = 0
 
         # Initial TS and reference
@@ -82,7 +81,7 @@ class MPC:
         self.ts = (self.ts - self.process_u_min[1]) / \
             (self.process_u_max[1] - self.process_u_min[1])
         # self.y_ref = self.reference_data[0, -1]
-        self.y_ref = 7.0
+        self.y_ref = 5.0
         self.y_ref = (self.y_ref - self.process_y_min) / \
             (self.process_y_max[0] - self.process_y_min[0])
 
@@ -98,17 +97,19 @@ class MPC:
         rospy.Subscriber("xiris/bead/filtered", Float64, self.callback_width)
         self.pub = rospy.Publisher(
             "fronius_remote_command", Float64MultiArray, queue_size=10)
+        self.pub_mpc = rospy.Publisher(
+            "mpc_state", Bool, queue_size=10)
+        self.pub = rospy.Publisher(
+            "width_reference", Float64, queue_size=10)
+        self. mpc_state = False
         self.pub_freq = 5  # sampling frequency of published data
         self.step_time = 1 / self.pub_freq
         self.rate = rospy.Rate(self.pub_freq * 2)
 
         # Forecast data
-        self.command_forecast = np.ones((self.M, 1)) * 40.0
-
-        # Forecast data
         # self.u_forecast = np.random.normal(loc=0.5, scale=0.1,
         #                                    size=(self.M, 1))
-        self.u_forecast = np.full((self.M, 1), 0.5)
+        self.u_forecast = np.full((self.M, 1), 0.0)
         self.u_forecast_data = []
         self.y_forecast_data = []
 
@@ -124,16 +125,20 @@ class MPC:
         elif self.arc_state and not bool(data.data):
             rospy.signal_shutdown("Shutting down")
         self.arc_state = bool(data.data)
+        rospy.loginfo("Received arc: %f", self.arc_state)
 
     def callback_width(self, data):
         if self.arc_state:
             if self.w_count % self.resample_factor == 0:
                 y_row = data.data
-                # rospy.loginfo("Received output w: %f", y_row)
+                rospy.loginfo("Received output w: %f", y_row)
                 y_row_scaled = (y_row - self.process_y_min) / \
                     (self.process_y_max - self.process_y_min)
                 self.y_hist = self.update_hist(
                     self.y_hist, y_row_scaled.reshape((1, 1)))
+                if y_row_scaled >= 0.0:
+                    self.mpc_state = True
+                    self.pub_mpc.publish(self.mpc_state)
             self.w_count += 1
 
     def load_train_data(self, data_dir):
@@ -159,10 +164,11 @@ class MPC:
         y = y_hist.ravel()
         P = u_hist.shape[0]
         Q = y_hist.shape[0]
-        return np.hstack((u, y)).reshape(
+        sequence = np.hstack((u, y)).reshape(
             (1, P * self.process_inputs + Q * self.process_outputs, 1))
-
+        return sequence
     # Create control diff method
+
     def create_control_diff(self, u_forecast):
         u_diff = u_forecast.copy()
         u_diff[1:] = u_diff[1:] - u_diff[:-1]
@@ -199,13 +205,12 @@ class MPC:
 
     def split_gradient(self, grad):
         grad = grad.reshape(
-            (1 * (self.P * self.process_inputs + self.Q * self.process_outputs),
-             ))
+            (self.P * self.process_inputs + self.Q * self.process_outputs,))
         u = grad[: self.process_inputs *
-                 self.P].reshape((self.P, self.process_inputs))[:, 0]
+                 self.P].reshape((self.P, self.process_inputs))
         y = grad[self.process_inputs *
                  self.P:].reshape((self.Q, self.process_outputs))
-        return u, y
+        return u[:, 0], y
 
     def compute_step(self):
         u_forecast = self.u_forecast.copy()
@@ -222,9 +227,9 @@ class MPC:
             seq_input = self.build_sequence(u_hist, y_hist)
             input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
             for j in range(self.process_outputs):
-                output_tensor, gradient_real = self.compute_gradient(
+                output_tensor, gradient = self.compute_gradient(
                     input_tensor, j)
-                input_gradient, _ = self.split_gradient(gradient_real)
+                input_gradient, _ = self.split_gradient(gradient)
 
                 if i < self.P - 1:
                     output_jacobian[i, : i + 1] = input_gradient[-(i + 1):]
@@ -238,8 +243,7 @@ class MPC:
         input_jacobian = self.build_input_jacobian()
         steps = np.zeros(u_forecast.shape)
         u_diff_forecast = self.create_control_diff(u_forecast)
-        output_error = (self.y_ref - y_forecast) * \
-            (self.process_y_max-self.process_y_min)
+        output_error = (self.y_ref - y_forecast)
         input_diff = u_diff_forecast
 
         for j in range(self.M):
@@ -248,7 +252,6 @@ class MPC:
                 * np.diag(output_error.T @ output_jacobian[:, j])
                 * self.weight_output
             )
-
             input_step = (
                 2 * input_jacobian[:, j].T @ input_diff * self.weight_control
             )
@@ -277,7 +280,7 @@ class MPC:
             ada_grad = np.sqrt(np.sum(np.array(gradient_hist)[
                 :opt_step, :]**2, axis=0)+1e-10).reshape((self.M, 1))
             if verbose:
-                print(f"Opt step: {opt_step} Cost: {cost}\n")
+                print(f"Opt step: {opt_step} Cost: {cost}")
             if delta_cost < 0:
                 self.u_forecast += (-lr/ada_grad)*steps
                 self.u_forecast = np.clip(
@@ -306,36 +309,47 @@ class MPC:
         self.u_forecast_data.append(self.u_forecast.ravel().tolist())
         self.y_forecast_data.append(self.y_forecast.ravel().tolist())
 
-        # Convert to WFS
-        self.command_forecast = self.wfs2pow(
-            self.command_forecast)  # convert to power
+        if simulation:
+            command = self.u_forecast[0] * (self.process_u_max[0] -
+                                            self.process_u_min[0]) + \
+                self.process_u_min[0]
+            command = self.wfs2pow(command)
+            msg.data = [command]
+            self.pub.publish(msg)
+            rospy.loginfo("Sending command: %f", command)
 
         # Send command
         self.u_forecast[:-1] = self.u_forecast[1:]
         self.lr = self.lr * (1.0 - self.alpha_time)
 
     def publish_command(self, command_index):
+        # Get index
+        idx = min(command_index, len(self.u_forecast)-1)
+        # Update hist
+        new_u = np.array([self.u_forecast[idx, 0], self.ts])
+        self.u_hist = self.update_hist(self.u_hist, new_u)
+
         # Descaling
         command_forecast = self.u_forecast * (self.process_u_max[0] -
                                               self.process_u_min[0]) + \
             self.process_u_min[0]
-        command = command_forecast[min(command_index, len(command_forecast)-1)]
+
+        # Select command in forecast
+        command = command_forecast[idx]
+
+        # Convert to power
         command = self.wfs2pow(command)
+
+        # Send command
         msg.data = [command]
         self.pub.publish(msg)
-        # rospy.loginfo("Sending command: %f", command)
+        rospy.loginfo("Sending command: %f", command)
 
     def export_forecast(self):
         np.savetxt(results_dir + "predictions/forecast/u_forecast.csv",
                    np.array(self.u_forecast_data))
         np.savetxt(results_dir + "predictions/forecast/y_forecast.csv",
                    np.array(self.y_forecast_data))
-
-
-def very_long_fun(x, y):
-    print('Doing')
-    time.sleep(5)
-    print('Done')
 
 
 # Filepaths
@@ -345,47 +359,69 @@ results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
 # Create an instance of the MPC class
 args = rospy.myargv(argv=sys.argv)
 bead_idx = int(args[1])
+if len(args) > 2:
+    simulation = bool(args[2] == '-s')
+else:
+    simulation = False
 mpc = MPC(bead_idx)
 verbose = True
 
 # MPC loop
-initial_delay = 3.0
+delay_time = 3.0
+rospy.wait_for_message("xiris/bead/filtered", Float64)  # Wait for width
+
+# Timing parameters
+forecast_time = mpc.N * mpc.step_time  # forecast period in seconds
+# time in seconds after command_time to trigger optimization
+trigger_time = forecast_time * 0.1  # 10% of closed loop
+start_time = None
+
+# Simulation timing index parameters
+exp_index = 0
+command_index = 0  # Index of command in command_forecast
+delay_index = 30
+
+# Send Initial command
 msg = Float64MultiArray()
 msg.data = [40.0]
 dim = []
 dim.append(MultiArrayDimension('PwrSrc', 1, 4))
 msg.layout.dim = dim
-rospy.wait_for_message("xiris/bead/filtered", Float64)  # Wait for width
+rospy.loginfo("Sending command: %f", 40.0)
 mpc.pub.publish(msg)
-
-# Timing parameters
-forecast_time = mpc.N * mpc.step_time  # forecast period in seconds
-# time in seconds after command_time to trigger optimization
-trigger_time = forecast_time / 2
-command_index = 0  # Index of command in command_forecast
-start_time = None
-u_forecast = None
-while not rospy.is_shutdown():
-    if mpc.arc_state:
-        if start_time is None:
-            start_time = np.round(time.time(), 1)
-            exp_time = 0.0
-            command_time = 0.0
-        else:
-            exp_time = np.round(time.time() - start_time, 1)
-        if exp_time >= initial_delay:
+if simulation:
+    while not rospy.is_shutdown():
+        if mpc.arc_state:
             print(
-                f"Time: {exp_time} Command_time: {command_time} Command: {command_index // 2}")
-            if exp_time == command_time + trigger_time:
-                threading.Thread(target=mpc.optimization_function).start()
-            mpc.publish_command(command_index//2)
-            command_time = (exp_time // forecast_time) * forecast_time
-            command_index += 1
-            if exp_time == command_time + forecast_time:
-                command_index = 0
-        mpc.rate.sleep()
-    else:
-        pass
+                f"Time step: {exp_index}")
+            if mpc.mpc_state and exp_index > delay_index:
+                mpc.optimization_function()
+            exp_index += 1
+            mpc.rate.sleep()
+        else:
+            pass
+else:
+    while not rospy.is_shutdown():
+        if mpc.arc_state:
+            if start_time is None:
+                start_time = np.round(time.time(), 1)
+                exp_time = 0.0
+                command_time = 0.0
+            else:
+                exp_time = np.round(time.time() - start_time, 1)
+            if exp_time >= delay_time:
+                print(
+                    f"Time: {exp_time} Command_time: {command_time} Command: {command_index // 2}")
+                if exp_time == command_time + trigger_time:
+                    threading.Thread(target=mpc.optimization_function).start()
+                mpc.publish_command(command_index//2)
+                command_time = (exp_time // forecast_time) * forecast_time
+                command_index += 1
+                if exp_time == command_time + forecast_time:
+                    command_index = 0
+            mpc.rate.sleep()
+        else:
+            pass
 
 mpc.export_forecast()
 rospy.spin()

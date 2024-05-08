@@ -174,7 +174,7 @@ def plot_simulation(
 #         else:
 #             fig.savefig(results_dir + f"plots/{source}_{fig_filename}_raw.png")
 
-def plot_experiment(
+def plot_calibration(
     bead_idx,
     wfs_command_data,
     wfs_data,
@@ -270,10 +270,70 @@ def plot_experiment(
     if save:
         if scale:
             fig.savefig(
-                results_dir + f"plots/{source}/calibration_{fig_filename}.{format}")
+                results_dir + f"plots/experiment/{source}/calibration_{fig_filename}.{format}")
         else:
             fig.savefig(
-                results_dir + f"plots/{source}/calibration_{fig_filename}_raw.{format}")
+                results_dir + f"plots/experiment/{source}/calibration_{fig_filename}_raw.{format}")
+        plt.close()
+    else:
+        fig.show()
+
+
+def plot_control(
+    bead_idx,
+    wfs_command_data,
+    ts_command_data,
+    w_data,
+    ref_data,
+    fig_filename,
+    N
+):
+    """
+    Plot experiment data of specific welded bead
+
+    Args:
+        bead_idx (int): index of welded bead
+        wfs_data(np.array): wfs data
+        wfs_command_data(np.array): wfs wfs_command data
+        w_data(np.array): width data
+        fig_filename (str): figure file name
+        scale (bool): whether to scale data
+        save (bool): whether to save data
+        N (int): number of samples of data array
+
+    """
+    if N is None:
+        N = w_data.shape[0]
+
+    fig, axs = plt.subplots(2)
+    fig.set_size_inches((10, 6))
+    axs[0].set_xlabel("t")
+    ax2 = axs[0].twinx()
+    axs[1].set_xlabel("t")
+
+    ax2.plot(ts_command_data[:, 0], ts_command_data[:, 1],
+             color='#FFA500', label='TS command')
+    axs[0].step(
+        wfs_command_data[:, 0],
+        wfs_command_data[:, 1],
+        where="post",
+        color="#6B66EC",
+        label="WFS command",
+    )
+    axs[1].plot(w_data[:, 0], w_data[:, 1],
+                color="#006400", label='Measured Width')
+    axs[1].plot(ref_data[:, 0], ref_data[:, 1], color="#00AA00",
+                linestyle='--', label='Reference Width')
+    axs[0].set_ylabel("WFS (m/min)")
+    ax2.set_ylabel("TS (mm/s)")
+    axs[1].set_ylabel("W (mm)")
+
+    fig.tight_layout()
+    fig.legend(bbox_to_anchor=(0.94, 0.98))
+
+    if save:
+        fig.savefig(
+            results_dir + f"plots/experiment/control/control_{fig_filename}.{format}")
         plt.close()
     else:
         fig.show()
@@ -281,15 +341,15 @@ def plot_experiment(
 
 N = None  # Horizon plotted
 end_time = 16
-scale = True
+scale = False
 save = True
 format = "eps"
-source = "experiment/calibration"
+source = "control"
 experiment_matrix = pd.read_excel(
-    data_dir + 'experiment/calibration/experiment_matrix.xlsx')['TS (mm/s)']
-ts_min = experiment_matrix.min()
-ts_max = experiment_matrix.max()
-data_path = data_dir + f"{source}/"
+    data_dir + f'experiment/{source}/experiment_matrix.xlsx')
+ts_min = experiment_matrix['TS (mm/s)'].min()
+ts_max = experiment_matrix['TS (mm/s)'].max()
+data_path = data_dir + f"experiment/{source}/"
 if source == "simulation":
     input_train, output_train, input_test, output_test = load_train_data(
         data_dir + 'simulation/')
@@ -301,13 +361,12 @@ if source == "simulation":
         N
     )
 
-if source.split('/')[0] == "experiment":
+if source == "calibration":
     bead_idxs = list(range(1, 16))
     for bead_idx in bead_idxs:
         bead_filename = data_path + f"series/bead{bead_idx}"
         wfs_command_data = pd.read_csv(
             bead_filename + "_wfs_command.csv").to_numpy()
-        wfs_command_data[:, 1:] = pow2wfs(wfs_command_data[:, 1:])
         wfs_data = pd.read_csv(bead_filename + "_wfs.csv").to_numpy()
         w_data = pd.read_csv(bead_filename + "_w.csv").to_numpy()
         ts_data = pd.read_csv(bead_filename + "_ts.csv").to_numpy()
@@ -323,13 +382,37 @@ if source.split('/')[0] == "experiment":
                 ts_command_data[:, 1:], ts_min, ts_max)
             ts_data[:, 1:] = normalize_data(ts_data[:, 1:], ts_min, ts_max)
 
-        plot_experiment(
+        plot_calibration(
             bead_idx,
             wfs_command_data,
             wfs_data,
             ts_command_data,
             ts_data,
             w_data,
+            fig_filename,
+            N
+        )
+
+
+if source == "control":
+    bead_idxs = list(range(1, 3))
+    for bead_idx in bead_idxs:
+        bead_filename = data_path + f"series/bead{bead_idx}"
+        wfs_command_data = pd.read_csv(
+            bead_filename + "_wfs_command.csv").to_numpy()
+        w_data = pd.read_csv(bead_filename + "_w.csv").to_numpy()
+        ts_command_data = pd.read_csv(
+            bead_filename + "_ts_command.csv").to_numpy()
+        ref_data = np.zeros(w_data.shape)
+        ref_data[:, 0] = w_data[:, 0]
+        ref_data[:, 1] = 9.0
+        fig_filename = f"bead{bead_idx}"
+        plot_control(
+            bead_idx,
+            wfs_command_data,
+            ts_command_data,
+            w_data,
+            ref_data,
             fig_filename,
             N
         )
