@@ -115,12 +115,14 @@ def pow2wfs(power_data):
 
 
 source = "experiment"
-gradient_source = "experiment"
 # Load metrics
-best_model_id = 10
+best_model_id = 16
 best_model_filename = f"run_{best_model_id:03d}.keras"
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
+P = int(best_params["P"].iloc[0])
+Q = int(best_params["Q"].iloc[0])
+H = int(best_params["H"].iloc[0])
 
 # Load best model
 model = load_model(results_dir + f"models/{source}/best/{best_model_filename}")
@@ -148,9 +150,9 @@ if source == "simulation":
     X_real, Y_real = sequence_data(
         inputs_test,
         outputs_test,
-        int(best_params["P"].iloc[0]),
-        int(best_params["Q"].iloc[0]),
-        int(best_params["H"].iloc[0]),
+        P,
+        Q,
+        H,
     )
 
     # Prediction
@@ -213,6 +215,7 @@ elif source == "experiment":
         input_test = input_test[:, 1:]
         output_test = output_test[:, 1:]
 
+        # Number of features
         num_features_input = input_test.shape[1]
         num_features_output = output_test.shape[1]
 
@@ -224,9 +227,9 @@ elif source == "experiment":
         X_real, Y_real = sequence_data(
             input_test,
             output_test,
-            int(best_params["P"].iloc[0]),
-            int(best_params["Q"].iloc[0]),
-            int(best_params["H"].iloc[0]),
+            P,
+            Q,
+            H,
         )
 
         # Prediction
@@ -241,7 +244,6 @@ elif source == "experiment":
             )  # Denormalize
 
         # Save real and predicted data
-        time_array = time_array[best_params.iloc[0, 2]:]
         time_array = time_array.reshape((time_array.shape[0], 1))
         np.savetxt(
             results_dir + f"predictions/experiment/bead{bead_idx}_y_real.csv",
@@ -254,70 +256,3 @@ elif source == "experiment":
 
         mse = compute_metrics(Y_pred, Y_real)
         print(f"MSE for bead {bead_idx}: we={mse[0]}")
-
-elif source == "gradient" and gradient_source == "experiment":
-    # Load database
-    X_train, Y_train, X_test, Y_test = load_train_data(
-        data_dir + f"gradient/{gradient_source}/"
-    )
-
-    # Scaling
-    train_x_max = X_train.max(axis=0)
-    train_x_min = X_train.min(axis=0)
-    train_y_max = Y_train.max(axis=0)
-    train_y_min = Y_train.min(axis=0)
-    X_test = normalize_data(X_test, train_x_min, train_x_max)
-
-    # Reshape to fit model input
-    X_test = X_test.reshape((X_test.shape[0], X_test.shape[1], 1))
-
-    # Predict data
-    Y_pred = predict_data(model, X_test)
-    Y_pred = denormalize_data(
-        Y_pred, train_y_min, train_y_max
-    )  # Denormalize
-
-    Y_real = Y_test
-    np.savetxt(
-        results_dir + f"predictions/{source}/calibration/gradient_reals.csv",
-        Y_real)
-    np.savetxt(
-        results_dir + f"predictions/{source}/calibration/gradient_preds.csv",
-        Y_pred)
-
-    angles = gradient_angle(Y_pred, Y_real)
-
-    num_outputs = Y_real.shape[1]
-
-    # Angles error
-    angles = gradient_angle(Y_real, Y_pred)
-    print(f"Angular error: {angles.mean():.2f}")
-    fig = plt.figure(figsize=(20, 9))
-    avg = np.mean(angles)
-    plt.title("Angular error between real and predicted gradients")
-    sns.histplot(angles, bins=128)
-    plt.axvline(90, linestyle="--", color="black", label="90 deg")
-    plt.axvline(avg, linestyle="--", color="red", label=f"Mean: {avg:.2f}")
-    plt.legend()
-    plt.tight_layout()
-
-    # Dimensions error
-    # error = Y_pred - Y_real
-    # fig, axs = plt.subplots(num_outputs)
-    # fig.set_size_inches(20, 9)
-    # for i in range(num_outputs):
-    #     sns.histplot(error[:, i], bins=128, ax=axs[i])
-    #     avg = np.mean(error[:, i])
-    #     axs[i].axvline(
-    #         avg,
-    #         color="red",
-    #         linestyle="dashed",
-    #         linewidth=2,
-    #         label=f"Mean: {avg*1e3:.1f}e-3",
-    #     )
-    #     axs[i].set_title(
-    #         r"Gradient error histogram w.r.t. u[t-%s]" % (num_outputs - i)
-    #     )
-    #     axs[i].legend()
-    # plt.tight_layout()
-    plt.show()

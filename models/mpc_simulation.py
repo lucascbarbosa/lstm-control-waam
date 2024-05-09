@@ -14,48 +14,48 @@ data_dir = "database/"
 results_dir = "results/"
 
 # Load data
-(process_input_train,
- process_output_train,
- process_input_test,
+(input_train,
+ output_train,
+ input_test,
  _) = load_train_data(data_dir + "experiment/calibration/")
 
-process_input_train = process_input_train[:, 1:]
-process_output_train = process_output_train[:, 1:]
+input_train = input_train[:, 1:]
+output_train = output_train[:, 1:]
 
-u_min = process_input_train.min(axis=0)
-u_max = process_input_train.max(axis=0)
-y_min = process_output_train.min(axis=0)
-y_max = process_output_train.max(axis=0)
+u_min = input_train.min(axis=0)
+u_max = input_train.max(axis=0)
+y_min = output_train.min(axis=0)
+y_max = output_train.max(axis=0)
 
-process_inputs = process_input_train.shape[1]
-process_outputs = process_output_train.shape[1]
+process_inputs = input_train.shape[1]
+process_outputs = output_train.shape[1]
 
 # Load model
 metrics_process = pd.read_csv(results_dir +
                               f"models/experiment/hp_metrics.csv"
                               )
-process_best_model_id = 26
-process_best_model_filename = f"run_{process_best_model_id:03d}.keras"
-process_best_params = metrics_process[
-    metrics_process["run_id"] == int(process_best_model_id)
+best_model_id = 16
+best_model_filename = f"run_{best_model_id:03d}.keras"
+best_params = metrics_process[
+    metrics_process["run_id"] == int(best_model_id)
 ]
-P = process_best_params.iloc[0, 1]
-Q = process_best_params.iloc[0, 2]
+P = best_params.iloc[0, 1]
+Q = best_params.iloc[0, 2]
 
 # Load process model
 model = load_model(
     results_dir +
-    f"models/experiment/best/{process_best_model_filename}"
+    f"models/experiment/best/{best_model_filename}"
 )
 
-opt = Adam(learning_rate=process_best_params["lr"])
+opt = Adam(learning_rate=best_params["lr"])
 model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Define MPC optimization parameters
-M = P   # control horizon
-N = Q  # prediction horizon
-weight_control = 1.0
-weight_output = 10.0
+M = P  # control horizon
+N = P  # prediction horizon
+weight_control = 0.0
+weight_output = 1.0
 lr = 1e-1
 alpha_time = 1e-2
 alpha_opt = 1e-2
@@ -65,7 +65,7 @@ cost_tol = 1e-3
 ts = 8
 ts_scaled = (ts - u_min[1]) / \
     (u_max[1] - u_min[1])
-y_ref = 9.0
+y_ref = 7
 y_ref_scaled = (y_ref - y_min) / \
     (y_max - y_min)
 
@@ -73,6 +73,7 @@ y_ref_scaled = (y_ref - y_min) / \
 u_hist = np.zeros((P, process_inputs))
 u_hist[:, :] = [0.0, ts_scaled]
 y_hist = np.zeros((Q, process_outputs))
+y_hist[-1, 0] = -y_min/(y_max - y_min)
 
 u_forecast = np.full((M, 1), 0.0)
 u_forecast_data = []
@@ -142,14 +143,12 @@ def cost_function(u_forecast, y_forecast):
 
 
 def compute_gradient(input_tensor, j):
-    # start_time = time.time()
     with tf.GradientTape() as t:
         t.watch(input_tensor)
         output_tensor = model(input_tensor)
         gradient = t.gradient(
             output_tensor[:, j], input_tensor
         ).numpy()[0, :, 0]
-    # print(time.time() - start_time)
     return output_tensor, gradient
 
 
@@ -171,9 +170,9 @@ def compute_step(u_hist, y_hist, u_forecast):
     y_forecast = np.zeros((N, 1))
     for i in range(N):
         if i < M:
-            u_row = np.array([[u_forecast[i, 0], ts]])
+            u_row = np.array([[u_forecast[i, 0], ts_scaled]])
         if i >= M:
-            u_row = np.array([[u_forecast[-1, 0], ts]])
+            u_row = np.array([[u_forecast[-1, 0], ts_scaled]])
         u_hist = update_hist(u_hist, u_row)
         seq_input = build_sequence(u_hist, y_hist)
         input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
@@ -181,11 +180,10 @@ def compute_step(u_hist, y_hist, u_forecast):
             output_tensor, gradient = compute_gradient(
                 input_tensor, j)
             input_gradient, _ = split_gradient(gradient)
-
             if i < P - 1:
-                output_jacobian[i, : i + 1] = input_gradient[-(i + 1):]
+                output_jacobian[i, : i + 1] = input_gradient[-min((i + 1), M):]
             else:
-                output_jacobian[i, :] = input_gradient[:]
+                output_jacobian[i, :] = input_gradient[-M:]
 
         y_row = output_tensor.numpy().reshape((1, 1))
         y_forecast[i, :] = y_row
@@ -196,7 +194,6 @@ def compute_step(u_hist, y_hist, u_forecast):
     u_diff_forecast = create_control_diff(u_forecast)
     output_error = (y_ref_scaled - y_forecast)
     input_diff = u_diff_forecast
-
     for j in range(M):
         output_step = (
             -2
@@ -220,7 +217,7 @@ def optimization_function(u_forecast, lr):
     last_cost = cost
     delta_cost = -cost
     # gradient history for adaptive learning rate algorithm
-    gradient_hist = np.zeros((process_input_test.shape[0], M))
+    gradient_hist = np.zeros((input_test.shape[0], M))
     gradient_hist = []
     lr = lr
     while delta_cost < -cost_tol and opt_step < 15:
@@ -274,21 +271,24 @@ def predict_output(x, u):
 verbose = True
 exp_step = 0
 exp_time = 0.0
-exp_horizon = 100
+exp_horizon = 1000
 x_row = np.zeros((2, 1))
-y_row = np.zeros((1, 1))
+y_row_descaled = np.zeros((1, 1))
 while exp_step < exp_horizon:
-    u_forecast, y_forecast = optimization_function(u_forecast, lr)
-    u_opt = u_forecast[0, 0]
+    if y_row_descaled < 4.0:
+        u_opt = 0.0
+    else:
+        u_forecast, y_forecast = optimization_function(u_forecast, lr)
+        u_opt = u_forecast[0, 0]
+        # Updates
+        u_forecast[:-1] = u_forecast[1:]
+
     u_opt_descaled = u_opt * \
         (u_max[0] - u_min[0]) + u_min[0]
-    x_row, y_row = predict_output(x_row, u_opt_descaled)
-    y_row_scaled = (y_row - y_min) / (y_max - y_min)
+    x_row, y_row_descaled = predict_output(x_row, u_opt_descaled)
+    y_row_scaled = (y_row_descaled - y_min) / (y_max - y_min)
     print(
-        f"Experiment step {exp_step} ({np.round(exp_time, 2)} s): Control {np.round(u_opt_descaled, 2)} Width {np.round(y_row, 2)}")
-
-    # Updates
-    u_forecast[:-1] = u_forecast[1:]
+        f"Experiment step {exp_step}({np.round(exp_time, 2)} s): Control {np.round(u_opt_descaled, 2)} Width {np.round(y_row_descaled[0], 3)}")
 
     # Updates learning rate
     lr = lr * (1.0 - alpha_time)

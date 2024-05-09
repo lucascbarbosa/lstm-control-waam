@@ -54,7 +54,7 @@ process_outputs = output_train.shape[1]
 
 # Model parameters
 metrics = pd.read_csv(results_dir + f"models/experiment/hp_metrics.csv")
-best_model_id = 26
+best_model_id = 16
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics[metrics["run_id"] == int(best_model_id)]
 P = best_params.iloc[0, 1]
@@ -69,13 +69,15 @@ opt = Adam(learning_rate=best_params["lr"])
 model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Create steps
-N = 50
+N = 500
+ts = 8.0
+ts_scaled = (ts - u_min[1]) / (u_max[1] - u_min[1])
 input_data = np.zeros((N, process_inputs))
-input_data[:10, :] = [0.2, 0.25]
-input_data[10:20, :] = [0.4, 0.25]
-input_data[20:30, :] = [0.6, 0.25]
-input_data[30:40, :] = [0.8, 0.25]
-input_data[40:, :] = [1.0, 0.25]
+input_data[:100, :] = [0.2, ts_scaled]
+input_data[100:20, :] = [0.6, ts_scaled]
+input_data[200:300, :] = [0.4, ts_scaled]
+input_data[300:400, :] = [0.8, ts_scaled]
+input_data[400:, :] = [1.0, ts_scaled]
 
 # Historic data
 u_hist = np.zeros((P, process_inputs))
@@ -91,6 +93,8 @@ for i in range(input_data.shape[0]):
     y_descaled = y[0, 0] * (y_max[0] - y_min[0]) + y_min[0]
     output_data.append(y[0, 0])
 
+input_data = input_data * (u_max - u_min) + u_min
+output_data = output_data * (y_max - y_min) + y_min
 plt.plot(input_data[:, 0], label='input')
 plt.plot(output_data, label='output')
 plt.legend()

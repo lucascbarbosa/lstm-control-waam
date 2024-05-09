@@ -173,18 +173,25 @@ def sequence_data(X, Y, P, Q, H):
         X_seq (np.array): sequenced input dataset
         Y_seq (np.array): sequenced output dataset
     """
+
     num_features_input = X.shape[1]
     num_features_output = Y.shape[1]
+
+    # Zero padding
+    X = np.vstack(
+        (np.zeros((max(P - 1, Q), num_features_input)), X))
+    Y = np.concatenate(
+        (np.zeros((max(P - 1, Q), num_features_output)), Y))
     X_seq = np.zeros((len(X) - max(P - 1, Q) - H + 1,
-                     P * num_features_input + Q*num_features_output, 1))
+                     P * num_features_input + Q * num_features_output, 1))
     Y_seq = np.zeros((len(X) - max(P - 1, Q) - H + 1, num_features_output))
+
     for i in range(0, len(X) - max(P - 1, Q) - H + 1):
         X_seq[i, :, 0] = np.hstack(
             (
-                X[i: i + P, :].ravel(),
-                Y[i: i + Q, :].ravel(),
+                X[i + max(0, Q - P + 1): i + max(Q + 1, P), :].ravel(),
+                Y[i + max(0, P - Q - 1): i + max(P - 1, Q), :].ravel(),
             )
         )
-        Y_seq[i, :] = Y[i + Q + H - 1, :]
-
+        Y_seq[i, :] = Y[i + max(P-1, Q) + H - 1, :]
     return X_seq, Y_seq

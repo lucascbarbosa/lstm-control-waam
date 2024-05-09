@@ -149,11 +149,13 @@ input_train, output_train, input_test, output_test = load_train_data(
     data_dir + "experiment/calibration/"
 )
 
+# Remove time
 input_train = input_train[:, 1:]
 input_test = input_test[:, 1:]
 output_train = output_train[:, 1:]
 output_test = output_test[:, 1:]
 
+# Number of features
 num_features_input = input_train.shape[1]
 num_features_output = output_train.shape[1]
 
@@ -172,13 +174,13 @@ delete_models(results_dir + "models/experiment/hyperparams/")
 
 # set search space for hp's
 hp_search_space = {
-    "P": [1, 10, 20, 30, 40, 50],
-    "Q": [1, 10, 20, 30, 40, 50],  # np.arange(0, 51, 5)
+    "P": [20, 30, 40, 50],  # np.arange(0, 51, 5)
+    "Q": [3],
     "H": [1],
-    "batch_size": [16],  # [16, 32, 64]
+    "batch_size": [16, 32],  # [16, 32, 64]
     "num_epochs": [100],
-    "validation_split": [0.1],
-    "lr": [1e-1],
+    "validation_split": [0.1, 0.2],
+    "lr": [1e-2],
 }
 
 hp_combinations = list(itertools.product(*hp_search_space.values()))
