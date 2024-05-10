@@ -13,7 +13,7 @@ results_dir = "results/"
 def plot_prediction(source="simulation", save=False):
     if source == "simulation":
         fig, axs = plt.subplots(2, 1)
-        fig.set_size_inches(12, 6)
+        fig.set_size_inches(figsize)
 
         axs[0].plot(Y_real[:, 0] * 1000, color="k", label="Measured")
         axs[0].plot(Y_pred[:, 0] * 1000, color="r", label="Predicted")
@@ -29,17 +29,17 @@ def plot_prediction(source="simulation", save=False):
         axs[1].legend()
 
     elif source == "experiment":
-        fig = plt.figure(figsize=(12, 6))
-        fig.suptitle("Output prediction", fontsize=fontsize)
+        fig = plt.figure(figsize=figsize)
+        # fig.suptitle("Output prediction", fontsize=fontsize)
         plt.title(r"$W\;(mm)$", fontsize=fontsize)
         plt.plot(Y_real[:, 0], Y_real[:, 1], color="k", label="Measured")
         plt.plot(Y_pred[:, 0], Y_pred[:, 1], color="r", label="Predicted")
-        plt.xlabel('t')
-        plt.ylabel('Value')
+        plt.xlabel('t', fontsize=fontsize)
+        plt.ylabel('Value', fontsize=fontsize)
         plt.legend(fontsize=fontsize)
 
     elif source == "mpc":
-        fig = plt.figure(figsize=(12, 6))
+        fig = plt.figure(figsize=figsize)
         fig.suptitle("MPC control prediction")
         plt.title(r"$WFS\;(mm/s)$")
         plt.step(x=range(len(Y_real)), y=Y_real, color="k", label="Measured")
@@ -62,7 +62,7 @@ def plot_prediction(source="simulation", save=False):
 
 
 def plot_heatmap(source, save=False):
-    fig = plt.figure(figsize=(8, 6))
+    fig = plt.figure(figsize=figsize)
 
     heatmap_df = metrics_df[["P", "Q", "test_loss"]].pivot(
         index="Q", columns="P", values="test_loss")
@@ -84,7 +84,7 @@ def plot_heatmap(source, save=False):
 def histogram_error(bins, source="simulation", save=False):
     error = Y_pred[:, 1] - Y_real[:, 1]
     if source == "simulation":
-        fig, axs = plt.subplots(2, 1, figsize=(10, 6))
+        fig, axs = plt.subplots(2, 1, figsize=figsize)
         for i, ax in enumerate(axs):
             _, p_val = shapiro(error[:, i])
             sns.histplot(error[:, i], bins=bins, ax=ax)
@@ -98,8 +98,8 @@ def histogram_error(bins, source="simulation", save=False):
                 label=f"Mean: {avg*1e6:.1f}e-6. Std: {std*1e5:.1f}e-5 P-valor: {p_val*1e10: .1f}e-10",
             )
             ax.set_title(r"Prediction error histogram for $w_e$")
-            ax.set_xlabel(r"error")
-            ax.legend()
+            ax.set_xlabel("Error", fontsize=fontsize)
+            ax.legend(fontsize=fontsize)
 
         plt.subplots_adjust(hspace=0.5)
         if save:
@@ -107,7 +107,7 @@ def histogram_error(bins, source="simulation", save=False):
                 results_dir + f"plots/{source}_error_histogram.{format}")
 
     elif source == "experiment":
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=figsize)
         sns.histplot(error, bins=bins, ax=ax)
         _, p_val = shapiro(error)
         avg = np.mean(error)
@@ -120,7 +120,7 @@ def histogram_error(bins, source="simulation", save=False):
             label=f"Mean: {avg:.2f} Std: {std:.2f} P-valor: {p_val: .4f}",
         )
 
-        ax.set_title(r"Prediction error histogram for $w_e$")
+        # ax.set_title(r"Prediction error histogram for $w_e$")
         ax.set_xlabel(r"error")
         ax.legend()
 
@@ -157,7 +157,7 @@ def plot_mpc(u, y, y_ref, save=True):
     print(f"RMSE: {rmses}")
     # Plot inputs
     fig, axs = plt.subplots(2, 1)
-    fig.set_size_inches(12, 6)
+    fig.set_size_inches(figsize)
     fig.suptitle("MPC Control Signal")
 
     for i in range(2):
@@ -166,7 +166,7 @@ def plot_mpc(u, y, y_ref, save=True):
         axs[i].set_ylabel(u_labels[i])
 
     fig, axs = plt.subplots(2, 1)
-    fig.set_size_inches(12, 6)
+    fig.set_size_inches(figsize)
     fig.suptitle("MPC Output")
 
     for i in range(2):
@@ -184,7 +184,8 @@ def plot_mpc(u, y, y_ref, save=True):
 
 source = "experiment"
 save = True
-fontsize = 16
+fontsize = 20
+figsize = (10, 4)
 format = "eps"
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 metrics_df["test_loss"] = metrics_df["test_loss"].apply(
@@ -228,7 +229,7 @@ elif source == "experiment":
 
         plot_prediction(source=source, save=save)
 
-        bins = 16
+        bins = 32
         histogram_error(bins, source=source, save=save)
 
     # plot_heatmap(source=source, save=True)

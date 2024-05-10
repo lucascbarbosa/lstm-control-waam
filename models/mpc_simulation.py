@@ -54,18 +54,18 @@ model.compile(optimizer=opt, loss=mean_squared_error)
 # Define MPC optimization parameters
 M = P  # control horizon
 N = P  # prediction horizon
-weight_control = 0.0
+weight_control = 1.0
 weight_output = 1.0
 lr = 1e-1
 alpha_time = 1e-2
 alpha_opt = 1e-2
-cost_tol = 1e-3
+cost_tol = 1e-2
 
 # Define TS and width reference
 ts = 8
 ts_scaled = (ts - u_min[1]) / \
     (u_max[1] - u_min[1])
-y_ref = 7
+y_ref = 9.0
 y_ref_scaled = (y_ref - y_min) / \
     (y_max - y_min)
 
@@ -76,8 +76,7 @@ y_hist = np.zeros((Q, process_outputs))
 y_hist[-1, 0] = -y_min/(y_max - y_min)
 
 u_forecast = np.full((M, 1), 0.0)
-u_forecast_data = []
-y_forecast_data = []
+
 
 # Define plant model
 with open(results_dir + f'models/tf/ts_{ts}.txt', 'r') as f:
@@ -90,6 +89,13 @@ G_continuous = control.TransferFunction(numerator, denominator)
 G_discrete = control.sample_system(
     G_continuous, T, method='tustin')
 ss_discrete = control.tf2ss(G_discrete)
+
+# Data arrays
+u_data = []
+y_data = []
+cost_data = []
+u_forecast_data = []
+y_forecast_data = []
 
 
 def pow2wfs(self, p):
@@ -213,14 +219,14 @@ def compute_step(u_hist, y_hist, u_forecast):
 def optimization_function(u_forecast, lr):
     current_time = np.round(time.time(), 1)
     opt_step = 1
-    cost = np.inf
+    cost = 99999999
     last_cost = cost
     delta_cost = -cost
     # gradient history for adaptive learning rate algorithm
     gradient_hist = np.zeros((input_test.shape[0], M))
     gradient_hist = []
     lr = lr
-    while delta_cost < -cost_tol and opt_step < 15:
+    while delta_cost/cost < -cost_tol and exp_step < 30:
         steps, y_forecast = compute_step(u_hist, y_hist, u_forecast)
         cost = cost_function(u_forecast, y_forecast)
         delta_cost = cost - last_cost
@@ -253,11 +259,7 @@ def optimization_function(u_forecast, lr):
     print(
         f"Y_R: {y_ref_scaled * (y_max - y_min) + y_min}")
 
-    # Save forecast
-    u_forecast_data.append(u_forecast.ravel().tolist())
-    y_forecast_data.append(y_forecast.ravel().tolist())
-
-    return u_forecast, y_forecast
+    return u_forecast, y_forecast, cost
 
 
 def predict_output(x, u):
@@ -271,17 +273,25 @@ def predict_output(x, u):
 verbose = True
 exp_step = 0
 exp_time = 0.0
-exp_horizon = 1000
+exp_horizon = 200
 x_row = np.zeros((2, 1))
 y_row_descaled = np.zeros((1, 1))
+mpc_state = False
+time_array = []
 while exp_step < exp_horizon:
     if y_row_descaled < 4.0:
         u_opt = 0.0
+
     else:
-        u_forecast, y_forecast = optimization_function(u_forecast, lr)
+        mpc_state = True
+        u_forecast, y_forecast, cost = optimization_function(u_forecast, lr)
         u_opt = u_forecast[0, 0]
-        # Updates
+
+        # Updates forecast
         u_forecast[:-1] = u_forecast[1:]
+
+        # Updates learning rate
+        lr = lr * (1.0 - alpha_time)
 
     u_opt_descaled = u_opt * \
         (u_max[0] - u_min[0]) + u_min[0]
@@ -290,11 +300,24 @@ while exp_step < exp_horizon:
     print(
         f"Experiment step {exp_step}({np.round(exp_time, 2)} s): Control {np.round(u_opt_descaled, 2)} Width {np.round(y_row_descaled[0], 3)}")
 
-    # Updates learning rate
-    lr = lr * (1.0 - alpha_time)
-
     # Updates hists
     u_hist = update_hist(u_hist, np.array([[u_opt, ts_scaled]]))
     y_hist = update_hist(y_hist, np.array([[y_row_scaled]]))
     exp_time += np.round(T, 1)
     exp_step += 1
+
+    # Save data
+    if mpc_state:
+        time_array.append(np.round(exp_time, 2))
+        u_data.append(u_opt_descaled)
+        y_data.append(y_row_descaled[0])
+        cost_data.append(cost)
+        u_forecast_data.append(u_forecast.ravel().tolist())
+        y_forecast_data.append(y_forecast.ravel().tolist())
+
+u_data = np.array(u_data)
+y_data = np.array(y_data)
+cost_data = np.array(cost_data)
+
+u_forecast_data = np.array(u_forecast_data)
+y_forecast_data = np.array(y_forecast_data)
