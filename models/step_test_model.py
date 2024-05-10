@@ -1,18 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-from models.process_data import sequence_data, load_train_data, normalize_data
-
 import tensorflow
 from keras.models import load_model
 from tensorflow.keras.losses import mean_squared_error
 from tensorflow.keras.optimizers import Adam
-
+from models.process_data import load_train_data
 from scipy.signal import find_peaks
-from control import tf2ss
-from pydmd import DMDc
-
+import control
 import time
 # Data paths
 data_dir = "database/"
@@ -39,71 +34,37 @@ def build_sequence():
     return sequence
 
 
-def compute_dmd(input_data, output_data, r=2):
-    """
-    Estimate the state-space matrices A, B, C, and D using DMD.
+def compute_ss(output_data):
+    peaks, _ = find_peaks(output_data)
+    if len(peaks) > 1:
+        time_constant = time[peaks[1]] - time[peaks[0]]
+        overshoot = (output_data[peaks[0]] -
+                     output_data[-1]) / output_data[-1]
+        zeta = np.abs(np.log(overshoot)) / \
+            np.sqrt(np.pi**2 + np.log(overshoot)**2)
+        omega_n = 4 / (zeta * time_constant)
+        print(f"Zeta: {zeta} W_n: {omega_n} \n")
 
-    Args:
-    - X: Input snapshot matrix
-    - Y: Output snapshot matrix
-    - r: Number of DMD modes to compute
+        numerator = [0, 0, omega_n**2]
+        denominator = [1, 2*zeta*omega_n, omega_n**2]
 
-    Returns:
-    - A: State matrix
-    - B: Input matrix
-    - C: Output matrix
-    - D: Feedthrough matrix
-    """
-    # Convert to matrices
-    X = np.vstack((output_data[:-1], output_data[1:]))
-    U = input_data.T[:, :-2]
+        G_continuous = control.TransferFunction(numerator, denominator)
+        G_discrete = control.sample_system(
+            G_continuous, T, method='tustin')
+        ss_discrete = control.tf2ss(G_discrete)
 
-    dmdc = DMDc()
-    dmdc.fit(X, U)
-
-    Phi = dmdc.modes
-    Lambda = np.diag(dmdc.eigs)
-    A, B, C, D = calculate_state_space(Phi, Lambda, X, U)
-    return A, B, C, D
+        return ss_discrete.A, ss_discrete.B, ss_discrete.C, ss_discrete. D
 
 
-def calculate_state_space(Phi, Lambda, X, U):
-
-    # Calculate A matrix
-    A = np.dot(np.dot(Phi, Lambda), np.linalg.pinv(Phi))
-
-    # Calculate B matrix
-    B = U[:, -2:].reshape((2, 1))
-
-    C = np.array([[1, 0]])
-
-    D = np.array([[0]])
-    return A, B, C, D
-
-
-# def compute_ss(output_data):
-#     peaks, _ = find_peaks(output_data)
-#     if len(peaks) > 1:
-#         time_constant = time[peaks[1]] - time[peaks[0]]
-#         overshoot = (output_data[peaks[0]] -
-#                      output_data[-1]) / output_data[-1]
-#         zeta = np.abs(np.log(overshoot)) / \
-#             np.sqrt(np.pi**2 + np.log(overshoot)**2)
-#         omega_n = 4 / (zeta * time_constant)
-#         print(f"Zeta: {zeta} W_n: {omega_n}")
-#
-#         num = [[omega_n**2]]
-#         den = [[1, 2*zeta*omega_n, omega_n**2]]
-#         print(f"Num: {num} Den: {den}")
-#
-#         A, B, C, D = tf2ss(num, den)
-
-def predict(input_data):
-    output_data = np.zeros((input_data.shape[0]+1, 1))
-    x = np.zeros((2, 1))
+def predict_output(input_data):
+    input_data = input_data[:, 0]
+    predicted_data = np.zeros((input_data.shape[0], 1))
+    x_row = np.zeros((2, 1))
     for i in range(len(input_data)):
-        u = input_data[i, :].reshape((2, 1))
-        x = A @ x + B @ u
+        u_row = input_data[i].reshape((1, 1))
+        x_row = A @ x_row + B @ u_row
+        predicted_data[i] = C @ x_row + D @ u_row
+    return predicted_data
 
 
 # Load data
@@ -155,7 +116,7 @@ for ts_step in ts_steps:
         y_hist = np.zeros((Q, process_outputs))
         output_data = []
         for i in range(input_data.shape[0]):
-            u = input_data[i]
+            u = input_data[i].reshape((1, 2))
             u_hist = update_hist(u_hist, u)
             input_seq = build_sequence()
             input_tensor = tensorflow.convert_to_tensor(
@@ -167,16 +128,13 @@ for ts_step in ts_steps:
 
         input_data = input_data * (u_max - u_min) + u_min
         output_data = output_data * (y_max - y_min) + y_min
-
         print(f"WFS: {input_data[0,0]} TS: {input_data[0,1]}")
 
-        # A, B, C, D = compute_ss(output_data)
+        A, B, C, D = compute_ss(output_data)
+        output_pred = predict_output(input_data)
 
-        A, B, C, D = compute_dmd(input_data[:, :1], output_data)
-        predict_output(input_data)
-        # plt.plot(input_data[:, 0], label='WFS (mm/min)')
-        # plt.plot(input_data[:, 1], label='TS (mm/s)')
-        # plt.plot(output_data, label='Width (mm)')
-        # plt.legend()
-        # plt.tight_layout()
-        # plt.show()
+        plt.plot(output_pred, label='Predicted')
+        plt.plot(output_data, label='Measured')
+        plt.legend()
+        plt.tight_layout()
+        plt.show()

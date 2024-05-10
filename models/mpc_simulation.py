@@ -9,93 +9,8 @@ import numpy as np
 import time
 import control
 
-# Paths
-data_dir = "database/"
-results_dir = "results/"
-
-# Load data
-(input_train,
- output_train,
- input_test,
- _) = load_train_data(data_dir + "experiment/calibration/")
-
-input_train = input_train[:, 1:]
-output_train = output_train[:, 1:]
-
-u_min = input_train.min(axis=0)
-u_max = input_train.max(axis=0)
-y_min = output_train.min(axis=0)
-y_max = output_train.max(axis=0)
-
-process_inputs = input_train.shape[1]
-process_outputs = output_train.shape[1]
-
-# Load model
-metrics_process = pd.read_csv(results_dir +
-                              f"models/experiment/hp_metrics.csv"
-                              )
-best_model_id = 16
-best_model_filename = f"run_{best_model_id:03d}.keras"
-best_params = metrics_process[
-    metrics_process["run_id"] == int(best_model_id)
-]
-P = best_params.iloc[0, 1]
-Q = best_params.iloc[0, 2]
-
-# Load process model
-model = load_model(
-    results_dir +
-    f"models/experiment/best/{best_model_filename}"
-)
-
-opt = Adam(learning_rate=best_params["lr"])
-model.compile(optimizer=opt, loss=mean_squared_error)
-
-# Define MPC optimization parameters
-M = P  # control horizon
-N = P  # prediction horizon
-weight_control = 1.0
-weight_output = 1.0
-lr = 1e-1
-alpha_time = 1e-2
-alpha_opt = 1e-2
-cost_tol = 1e-2
-
-# Define TS and width reference
-ts = 8
-ts_scaled = (ts - u_min[1]) / \
-    (u_max[1] - u_min[1])
-y_ref = 9.0
-y_ref_scaled = (y_ref - y_min) / \
-    (y_max - y_min)
-
-# Historic data
-u_hist = np.zeros((P, process_inputs))
-u_hist[:, :] = [0.0, ts_scaled]
-y_hist = np.zeros((Q, process_outputs))
-y_hist[-1, 0] = -y_min/(y_max - y_min)
-
-u_forecast = np.full((M, 1), 0.0)
-
-
-# Define plant model
-with open(results_dir + f'models/tf/ts_{ts}.txt', 'r') as f:
-    gain = float(f.read())
-fs = 5.0
-numerator = [0, 0, gain]
-denominator = [0.2, 1.2, 1]
-T = 1 / fs
-G_continuous = control.TransferFunction(numerator, denominator)
-G_discrete = control.sample_system(
-    G_continuous, T, method='tustin')
-ss_discrete = control.tf2ss(G_discrete)
-
-# Data arrays
-u_data = []
-y_data = []
-cost_data = []
-u_forecast_data = []
-y_forecast_data = []
+#############
+# Functions #
 
 
 def pow2wfs(self, p):
@@ -140,7 +55,7 @@ def build_input_jacobian():
 
 def cost_function(u_forecast, y_forecast):
     u_diff_forecast = create_control_diff(u_forecast)
-    output_error = (y_ref_scaled - y_forecast) * \
+    output_error = (y_ref_scaled[exp_step:min(exp_step+N, exp_horizon-exp_step)] - y_forecast[:min(N, exp_horizon-exp_step)]) * \
         (y_max-y_min)
 
     output_cost = np.sum(output_error**2 * weight_output)
@@ -198,7 +113,8 @@ def compute_step(u_hist, y_hist, u_forecast):
     input_jacobian = build_input_jacobian()
     steps = np.zeros(u_forecast.shape)
     u_diff_forecast = create_control_diff(u_forecast)
-    output_error = (y_ref_scaled - y_forecast)
+    output_error = (y_ref_scaled[exp_step:min(
+        exp_step+N, exp_horizon)] - y_forecast[:min(N, exp_horizon-exp_step)])
     input_diff = u_diff_forecast
     for j in range(M):
         output_step = (
@@ -226,7 +142,7 @@ def optimization_function(u_forecast, lr):
     gradient_hist = np.zeros((input_test.shape[0], M))
     gradient_hist = []
     lr = lr
-    while delta_cost/cost < -cost_tol and exp_step < 30:
+    while delta_cost/cost < -cost_tol and opt_step < 50:
         steps, y_forecast = compute_step(u_hist, y_hist, u_forecast)
         cost = cost_function(u_forecast, y_forecast)
         delta_cost = cost - last_cost
@@ -257,9 +173,19 @@ def optimization_function(u_forecast, lr):
     print(
         f"Y_F: {y_forecast * (y_max - y_min) + y_min}")
     print(
-        f"Y_R: {y_ref_scaled * (y_max - y_min) + y_min}")
+        f"Y_R: {y_ref_scaled[exp_step:min(exp_step+N, exp_horizon-exp_step)] * (y_max - y_min) + y_min}")
 
-    return u_forecast, y_forecast, cost
+    return u_forecast, y_forecast, last_cost
+
+
+def step_reference(amp):
+    return np.full((exp_horizon, 1), amp)
+
+
+def sine_reference(mean, w, amp):
+    y_ref = mean + np.sin(w*np.arange(0, exp_horizon*T, T)) * amp
+    y_ref = y_ref.reshape((exp_horizon, 1))
+    return y_ref
 
 
 def predict_output(x, u):
@@ -270,18 +196,115 @@ def predict_output(x, u):
     return x, y
 
 
+def name_forecast_cols():
+    u_forecast_list = ["u_forecast_" + str(i).zfill(2) for i in range(1, M+1)]
+    y_forecast_list = ["y_forecast_" + str(i).zfill(2) for i in range(1, N+1)]
+    return u_forecast_list + y_forecast_list
+
+
+# Paths
+data_dir = "database/"
+results_dir = "results/"
+
+# Load data
+(input_train,
+ output_train,
+ input_test,
+ _) = load_train_data(data_dir + "experiment/calibration/")
+
+input_train = input_train[:, 1:]
+output_train = output_train[:, 1:]
+
+u_min = input_train.min(axis=0)
+u_max = input_train.max(axis=0)
+y_min = output_train.min(axis=0)
+y_max = output_train.max(axis=0)
+
+process_inputs = input_train.shape[1]
+process_outputs = output_train.shape[1]
+
+# Load model
+metrics_process = pd.read_csv(results_dir +
+                              f"models/experiment/hp_metrics.csv"
+                              )
+best_model_id = 16
+best_model_filename = f"run_{best_model_id:03d}.keras"
+best_params = metrics_process[
+    metrics_process["run_id"] == int(best_model_id)
+]
+P = best_params.iloc[0, 1]
+Q = best_params.iloc[0, 2]
+
+# Load process model
+model = load_model(
+    results_dir +
+    f"models/experiment/best/{best_model_filename}"
+)
+
+opt = Adam(learning_rate=best_params["lr"])
+model.compile(optimizer=opt, loss=mean_squared_error)
+
+# Define MPC optimization parameters
+M = P  # control horizon
+N = P  # prediction horizon
+weight_control = 1.0
+weight_output = 50.0
+lr = 1e-1
+alpha_time = 1e-2
+alpha_opt = 1e-2
+cost_tol = 1e-2
+
+# Define TS and width reference
+ts = 8
+ts_scaled = (ts - u_min[1]) / \
+    (u_max[1] - u_min[1])
+
+# Historic data
+u_hist = np.zeros((P, process_inputs))
+u_hist[:, :] = [0.0, ts_scaled]
+y_hist = np.zeros((Q, process_outputs))
+y_hist[-1, 0] = -y_min/(y_max - y_min)
+
+u_forecast = np.full((M, 1), 0.0)
+
+
+# Define plant model
+with open(results_dir + f'models/tf/ts_{ts}.txt', 'r') as f:
+    gain = float(f.read())
+fs = 5.0
+numerator = [0, 0, gain]
+denominator = [0.2, 1.2, 1]
+T = 1 / fs
+G_continuous = control.TransferFunction(numerator, denominator)
+G_discrete = control.sample_system(
+    G_continuous, T, method='tustin')
+ss_discrete = control.tf2ss(G_discrete)
+
+# Data arrays
+u_data = []
+y_data = []
+cost_data = []
+u_forecast_data = []
+y_forecast_data = []
+
 verbose = True
 exp_step = 0
 exp_time = 0.0
-exp_horizon = 200
+
+# exp_horizon = 340/(ts*0.2)
+exp_horizon = 60
 x_row = np.zeros((2, 1))
 y_row_descaled = np.zeros((1, 1))
 mpc_state = False
 time_array = []
+
+# Set reference
+y_ref = sine_reference(9.0, 0.5, 0.1)
+y_ref_scaled = (y_ref - y_min) / \
+    (y_max - y_min)
 while exp_step < exp_horizon:
     if y_row_descaled < 4.0:
         u_opt = 0.0
-
     else:
         mpc_state = True
         u_forecast, y_forecast, cost = optimization_function(u_forecast, lr)
@@ -295,7 +318,7 @@ while exp_step < exp_horizon:
 
     u_opt_descaled = u_opt * \
         (u_max[0] - u_min[0]) + u_min[0]
-    x_row, y_row_descaled = predict_output(x_row, u_opt_descaled)
+    x_row, y_row_descaled = predict_output(x_row, np.sqrt(u_opt_descaled))
     y_row_scaled = (y_row_descaled - y_min) / (y_max - y_min)
     print(
         f"Experiment step {exp_step}({np.round(exp_time, 2)} s): Control {np.round(u_opt_descaled, 2)} Width {np.round(y_row_descaled[0], 3)}")
@@ -315,9 +338,18 @@ while exp_step < exp_horizon:
         u_forecast_data.append(u_forecast.ravel().tolist())
         y_forecast_data.append(y_forecast.ravel().tolist())
 
+# Save
+time_array = np.array(time_array)
 u_data = np.array(u_data)
 y_data = np.array(y_data)
 cost_data = np.array(cost_data)
+mpc_df = pd.DataFrame({'t': time_array, 'u': u_data,
+                      'y': y_data, 'cost': cost_data})
+mpc_df.to_csv(results_dir + "mpc/mpc_data.csv", index=False)
 
-u_forecast_data = np.array(u_forecast_data)
-y_forecast_data = np.array(y_forecast_data)
+forecast_cols = name_forecast_cols()
+u_forecast_data = np.array(u_forecast_data) * (u_max[0] - u_min[0]) + u_min[0]
+y_forecast_data = np.array(y_forecast_data) * (y_max - y_min) + y_min
+forecast_data = np.hstack((u_forecast_data, y_forecast_data))
+forecast_df = pd.DataFrame(forecast_data, columns=forecast_cols)
+forecast_df.to_csv(results_dir + "mpc/mpc_forecast.csv", index=False)

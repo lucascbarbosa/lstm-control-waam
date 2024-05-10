@@ -60,6 +60,7 @@ def predict_data(ss_discrete, u, y_real):
 def compute_metrics(gain, u_real, y_real):
     numerator = [0, 0, gain[0]]
     ss_discrete = create_ss(numerator, denominator)
+    print(ss_discrete)
     y_pred = predict_data(ss_discrete, u_real, y_real)
     return np.sum((y_pred-y_real)**2)
 
@@ -121,6 +122,7 @@ for ts in list_ts:
             wfs_array = pd.read_csv(
                 data_dir + filename + "_wfs_command.csv"
             ).to_numpy()
+            # wfs_array = np.sqrt(wfs_array)
             wfs_train.append(wfs_array)
             ts_array = pd.read_csv(
                 data_dir + filename + "_ts_command.csv"
@@ -135,10 +137,10 @@ for ts in list_ts:
         ts_train = np.concatenate(ts_train, axis=0)
         input_train = np.concatenate([wfs_train, ts_train[:, 1:]], axis=1)
         output_train = np.concatenate(output_train, axis=0)
-        # Load data
 
         time = input_train[:, 0]
         u_train = input_train[:, 1]
+        u_train = np.sqrt(u_train)
         y_train = output_train[:, 1]
 
         # Constant
@@ -146,7 +148,7 @@ for ts in list_ts:
         denominator = [0.2, 1.2, 1]
 
         # Optimization
-        initial_gain = 4.0/ts
+        initial_gain = 1.0
 
         # Minimize MSE function to optimize parameters
         result = minimize(compute_metrics, initial_gain,
@@ -179,6 +181,7 @@ for ts in list_ts:
 
         time = input_test[:, 0]
         u_real = input_test[:, 1]
+        u_real = np.sqrt(u_real)
         y_real = output_test[:, 1]
         # Generate output prediction
         y_pred = predict_data(ss_opt, u_real, y_real)
@@ -206,6 +209,7 @@ for ts in list_ts:
         wfs_array = pd.read_csv(
             data_dir + filename + "_wfs_command.csv"
         ).to_numpy()
+        # wfs_array = np.sqrt(wfs_array)
         wfs_train.append(wfs_array)
         ts_array = pd.read_csv(
             data_dir + filename + "_ts_command.csv"
