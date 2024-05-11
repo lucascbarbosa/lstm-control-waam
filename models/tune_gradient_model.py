@@ -11,8 +11,7 @@ import numpy as np
 import os
 from multiprocess import Pool, cpu_count
 import logging
-
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+import time
 
 #############
 # Filepaths #
@@ -93,16 +92,18 @@ def run_training(
         verbose=verbose_level,
     )
 
-    # Prediction
-    Y_pred = predict_data(model, X_test)
+    A = model.get_weights()[0]
+    b = model.get_weights()[1].reshape((1, num_features_output))
+    Y_pred = X_test.reshape((X_test.shape[0], X_test.shape[1])) @ A + b
+    weights = np.concatenate((A, b))
+    np.savetxt(
+        results_dir +
+        f"models/gradient/hyperparams/run_{run_params['run_id']}.txt",
+        weights)
+
     Y_pred = denormalize_data(
         Y_pred, train_y_min, train_y_max
     )  # Denormalize
-
-    model.save(
-        results_dir
-        + f"models/gradient/hyperparams/run_{run_params['run_id']}.keras"
-    )
 
     # Losses
     train_loss = history.history["loss"][-1]
@@ -130,17 +131,14 @@ def run_training(
 metrics_process = pd.read_csv(
     results_dir + f"models/experiment/hp_metrics.csv"
 )
-best_model_id = 8
+best_model_id = 16
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics_process[metrics_process["run_id"] == int(best_model_id)]
 P = best_params.iloc[0, 1]
 Q = best_params.iloc[0, 2]
 
 # Load database
-source = "experiment"
-X_train, Y_train, X_test, Y_test = load_train_data(
-    data_dir + f"gradient/{source}/"
-)
+X_train, Y_train, X_test, Y_test = load_train_data(data_dir + f"gradient/")
 
 # Scaling
 train_x_min = np.min(X_train, axis=0)
@@ -164,8 +162,8 @@ delete_models(results_dir + "models/gradient/hyperparams/")
 
 # set search space for hp's
 hp_search_space = {
-    "batch_size": [16],
-    "num_epochs": [100],
+    "batch_size": [16, 32, 64],
+    "num_epochs": [200],
     "validation_split": [0.1, 0.2, 0.3],
     # "validation_split": [0.1],
     "lr": [1e-3, 1e-2],
@@ -206,16 +204,17 @@ with Pool(processes=num_processes) as pool:
 metrics_df = (
     pd.DataFrame.from_dict(results)
     .set_index("run_id")
-    .sort_values(by="train_loss")
+    .sort_values(by="test_loss")
 )
 
 metrics_df.to_csv(results_dir + "models/gradient/hp_metrics.csv")
 print(metrics_df)
 
 best_model_id = input("Best model id: ")
-best_model = load_model(
-    results_dir + f"models/gradient/hyperparams/run_{best_model_id}.keras"
+best_model = np.loadtxt(
+    results_dir + f"models/gradient/hyperparams/run_{best_model_id}.txt"
 )
-best_model.save(
-    results_dir + f"models/gradient/best/run_{best_model_id}.keras"
+np.savetxt(
+    results_dir + f"models/gradient/best/run_{best_model_id}.txt",
+    best_model
 )

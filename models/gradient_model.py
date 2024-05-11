@@ -17,8 +17,6 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
 def create_model(
-    P,
-    Q,
     num_features_input,
     num_features_output,
     lr,
@@ -41,10 +39,9 @@ def create_model(
     """
     if random_seed:
         tf.random.set_seed(random_seed)
-    input_sequence_length = P * num_features_input + Q * num_features_output
     model = tf.keras.Sequential([
-        tf.keras.layers.Input(shape=(input_sequence_length,)),
-        tf.keras.layers.Dense(input_sequence_length)
+        tf.keras.layers.Input(shape=(num_features_input,)),
+        tf.keras.layers.Dense(num_features_output)
     ])
 
     # Compile the model

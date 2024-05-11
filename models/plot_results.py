@@ -9,7 +9,33 @@ data_dir = "database/"
 results_dir = "results/"
 
 
-# Plot prediction
+#############
+# Functions #
+def gradient_angle(Y_pred, Y_real):
+    """
+    Compute angle between predicted and real gradients
+    Args:
+        Y_pred (np.array): predicted gradient
+        Y_real (np.array): real gradient
+
+    Returns:
+        angles (np.array): array of angles between each pair of real and predicted gradient
+    """
+
+    angles = np.zeros(Y_real.shape[0])
+    for i in range(Y_real.shape[0]):
+        vec_real = Y_real[i, :]
+        vec_pred = Y_pred[i, :]
+        dot_product = np.dot(vec_real, vec_pred)
+        norm_vec_real = np.linalg.norm(vec_real)
+        norm_vec_pred = np.linalg.norm(vec_pred)
+        angle = np.degrees(
+            np.arccos(dot_product / (norm_vec_real * norm_vec_pred))
+        )
+        angles[i] = angle
+    return angles
+
+
 def plot_prediction(source="simulation", save=False):
     if source == "simulation":
         fig, axs = plt.subplots(2, 1)
@@ -271,9 +297,9 @@ def plot_horizon_metrics(t, y_forecast, y, y_ref):
     return forecast_df, horizon_metrics
 
 
-source = "mpc"
+source = "gradient"
 save = True
-fontsize = 20
+fontsize = 16
 figsize = (10, 6)
 format = "eps"
 weight_control = 1.0
@@ -327,6 +353,33 @@ elif source == "experiment":
     # plot_heatmap(source=source, save=True)
 
     # plot_mpc(mpc_u, mpc_y, y_means,save=False)
+
+elif source == "gradient":
+    Y_real = np.loadtxt(
+        results_dir + "predictions/gradient/y_real.csv", dtype=np.float64
+    )
+    Y_pred = np.loadtxt(
+        results_dir + "predictions/gradient/y_pred.csv", dtype=np.float64
+    )
+
+    # Angles error
+    num_outputs = Y_real.shape[1]
+    angles = gradient_angle(Y_real, Y_pred)
+    print(f"Angular error: {angles.mean():.2f}")
+    fig = plt.figure(figsize=figsize)
+    avg = np.mean(angles)
+    # plt.title("Angular error between real and predicted gradients")
+    plt.xlim(0, 90)
+    plt.xlabel("Error", fontsize=fontsize)
+    plt.ylabel("Count", fontsize=fontsize)
+    sns.histplot(angles, bins=64)
+    plt.axvline(avg, linestyle="--", color="red", label=f"Mean: {avg:.2f}")
+    plt.legend(fontsize=fontsize)
+    plt.tight_layout()
+    if save:
+        plt.savefig(results_dir + f"plots/gradient/angular_eror.{format}")
+    plt.show()
+
 
 elif source == "mpc":
     mpc_data = pd.read_csv(results_dir + "mpc/mpc_data.csv")

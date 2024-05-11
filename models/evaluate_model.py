@@ -114,21 +114,22 @@ def pow2wfs(power_data):
     return (power_data * 9 / 100) + 1.5
 
 
-source = "experiment"
+source = "gradient"
 # Load metrics
 best_model_id = 16
-best_model_filename = f"run_{best_model_id:03d}.keras"
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
-P = int(best_params["P"].iloc[0])
-Q = int(best_params["Q"].iloc[0])
-H = int(best_params["H"].iloc[0])
-
-# Load best model
-model = load_model(results_dir + f"models/{source}/best/{best_model_filename}")
-model.compile(
-    optimizer=Adam(learning_rate=best_params["lr"]), loss=mean_squared_error
-)
+if source in ["simulation", "experiment"]:
+    best_model_filename = f"run_{best_model_id:03d}.keras"
+    P = int(best_params["P"].iloc[0])
+    Q = int(best_params["Q"].iloc[0])
+    H = int(best_params["H"].iloc[0])
+    # Load best model
+    model = load_model(
+        results_dir + f"models/{source}/best/{best_model_filename}")
+    model.compile(
+        optimizer=Adam(learning_rate=best_params["lr"]), loss=mean_squared_error
+    )
 
 # Load and sequence data accordingly
 if source == "simulation":
@@ -256,3 +257,55 @@ elif source == "experiment":
 
         mse = compute_metrics(Y_pred, Y_real)
         print(f"MSE for bead {bead_idx}: we={mse[0]}")
+
+elif source == "gradient":
+
+    # Load  model
+    weights = np.loadtxt(
+        results_dir + f"models/gradient/best/run_{best_model_id:03d}.txt")
+
+    A = weights[:-1, :]
+    b = weights[-1, :]
+
+    # Load database
+    X_train, Y_train, X_test, Y_test = load_train_data(
+        data_dir + "gradient/"
+    )
+
+    # Scaling
+    train_x_max = X_train.max(axis=0)
+    train_x_min = X_train.min(axis=0)
+    train_y_max = Y_train.max(axis=0)
+    train_y_min = Y_train.min(axis=0)
+    X_test = normalize_data(X_test, train_x_min, train_x_max)
+
+    # Predict data
+    Y_pred = X_test @ A + b
+    Y_pred = denormalize_data(
+        Y_pred, train_y_min, train_y_max
+    )  # Denormalize
+
+    Y_real = Y_test
+    np.savetxt(
+        results_dir + f"predictions/gradient/y_real.csv",
+        Y_real)
+    np.savetxt(
+        results_dir + f"predictions/gradient/y_pred.csv",
+        Y_pred)
+
+    angles = gradient_angle(Y_pred, Y_real)
+    print(f"Angular error: {angles.mean():.2f}")
+
+    # num_outputs = Y_real.shape[1]
+    # # Angles error
+    # angles = gradient_angle(Y_real, Y_pred)
+    # print(f"Angular error: {angles.mean():.2f}")
+    # fig = plt.figure(figsize=(20, 9))
+    # avg = np.mean(angles)
+    # plt.title("Angular error between real and predicted gradients")
+    # sns.histplot(angles, bins=128)
+    # plt.axvline(90, linestyle="--", color="black", label="90 deg")
+    # plt.axvline(avg, linestyle="--", color="red", label=f"Mean: {avg:.2f}")
+    # plt.legend()
+    # plt.tight_layout()
+    # plt.show()
