@@ -17,6 +17,8 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
 def create_model(
+    P,
+    Q,
     num_features_input,
     num_features_output,
     lr,
@@ -39,16 +41,11 @@ def create_model(
     """
     if random_seed:
         tf.random.set_seed(random_seed)
-    model = Sequential()
-
-    model.add(
-        LSTM(
-            units=1,
-            activation="relu",
-            input_shape=(num_features_input, 1),
-        )
-    )
-    # model.add(Dense(units=num_features_output, activation="relu"))
+    input_sequence_length = P * num_features_input + Q * num_features_output
+    model = tf.keras.Sequential([
+        tf.keras.layers.Input(shape=(input_sequence_length,)),
+        tf.keras.layers.Dense(input_sequence_length)
+    ])
 
     # Compile the model
     model.compile(optimizer=Adam(learning_rate=lr), loss=mean_squared_error)

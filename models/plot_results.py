@@ -204,8 +204,8 @@ def plot_mpc(t, u, y, cost, y_ref, save=True):
     ax2.plot(t, y, color="#006400", label='Measured width ')
     ax2.set_xlabel("t", fontsize=fontsize)
     ax2.set_ylabel("W (mm)", fontsize=fontsize)
-    ax2.axhline(y_ref, color="#00AA00", linestyle="--",
-                label="Reference width")
+    ax2.plot(t, reference_array, color="#00AA00", linestyle="--",
+             label="Reference width")
     axs[1].set_title("Custo do MPC", fontsize=fontsize)
     axs[1].plot(t, cost, color='r')
     axs[1].set_xlabel("t", fontsize=fontsize)
@@ -272,7 +272,6 @@ def plot_horizon_metrics(t, y_forecast, y, y_ref):
 
 
 source = "mpc"
-y_ref = 9.0
 save = True
 fontsize = 20
 figsize = (10, 6)
@@ -334,10 +333,11 @@ elif source == "mpc":
     time_array = mpc_data['t'].to_numpy()
     control_array = mpc_data['u'].to_numpy()
     output_array = mpc_data['y'].to_numpy()
+    reference_array = mpc_data['r'].to_numpy()
     cost_array = mpc_data['cost'].to_numpy()
 
-    # plot_mpc(time_array, control_array, output_array,
-    #          cost_array, y_ref, save=save)
+    plot_mpc(time_array, control_array, output_array,
+             cost_array, reference_array, save=save)
 
     forecast_data = pd.read_csv(results_dir + "mpc/mpc_forecast.csv")
     u_forecast_data = forecast_data.filter(regex='^u_forecast').to_numpy()

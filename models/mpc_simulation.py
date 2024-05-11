@@ -55,7 +55,7 @@ def build_input_jacobian():
 
 def cost_function(u_forecast, y_forecast):
     u_diff_forecast = create_control_diff(u_forecast)
-    output_error = (y_ref_scaled[exp_step:min(exp_step+N, exp_horizon-exp_step)] - y_forecast[:min(N, exp_horizon-exp_step)]) * \
+    output_error = (y_ref_scaled[exp_step:exp_step+N] - y_forecast) * \
         (y_max-y_min)
 
     output_cost = np.sum(output_error**2 * weight_output)
@@ -113,8 +113,7 @@ def compute_step(u_hist, y_hist, u_forecast):
     input_jacobian = build_input_jacobian()
     steps = np.zeros(u_forecast.shape)
     u_diff_forecast = create_control_diff(u_forecast)
-    output_error = (y_ref_scaled[exp_step:min(
-        exp_step+N, exp_horizon)] - y_forecast[:min(N, exp_horizon-exp_step)])
+    output_error = y_ref_scaled[exp_step:exp_step+N] - y_forecast
     input_diff = u_diff_forecast
     for j in range(M):
         output_step = (
@@ -142,7 +141,7 @@ def optimization_function(u_forecast, lr):
     gradient_hist = np.zeros((input_test.shape[0], M))
     gradient_hist = []
     lr = lr
-    while delta_cost/cost < -cost_tol and opt_step < 50:
+    while delta_cost/cost < -cost_tol and opt_step < 30:
         steps, y_forecast = compute_step(u_hist, y_hist, u_forecast)
         cost = cost_function(u_forecast, y_forecast)
         delta_cost = cost - last_cost
@@ -168,23 +167,23 @@ def optimization_function(u_forecast, lr):
           f"Time per step: {opt_time/opt_step:.2f} " +
           f"Time per grad: {opt_time/(opt_step*N):.3f}")
 
-    print(
-        f"U_F: {u_forecast * (u_max[0] - u_min[0]) + u_min[0]}")
-    print(
-        f"Y_F: {y_forecast * (y_max - y_min) + y_min}")
-    print(
-        f"Y_R: {y_ref_scaled[exp_step:min(exp_step+N, exp_horizon-exp_step)] * (y_max - y_min) + y_min}")
+    # print(
+    #     f"U_F: {u_forecast * (u_max[0] - u_min[0]) + u_min[0]}")
+    # print(
+    #     f"Y_F: {y_forecast * (y_max - y_min) + y_min}")
+    # print(
+    #     f"Y_R: {y_ref_scaled[exp_step:exp_step+N] * (y_max - y_min) + y_min}")
 
     return u_forecast, y_forecast, last_cost
 
 
 def step_reference(amp):
-    return np.full((exp_horizon, 1), amp)
+    return np.full(((exp_horizon+N), 1), amp)
 
 
 def sine_reference(mean, w, amp):
-    y_ref = mean + np.sin(w*np.arange(0, exp_horizon*T, T)) * amp
-    y_ref = y_ref.reshape((exp_horizon, 1))
+    y_ref = mean + np.sin(w*np.arange(0, (exp_horizon+N)*T, T)) * amp
+    y_ref = y_ref.reshape((exp_horizon+N, 1))
     return y_ref
 
 
@@ -267,8 +266,6 @@ y_hist[-1, 0] = -y_min/(y_max - y_min)
 
 u_forecast = np.full((M, 1), 0.0)
 
-
-# Define plant model
 with open(results_dir + f'models/tf/ts_{ts}.txt', 'r') as f:
     gain = float(f.read())
 fs = 5.0
@@ -299,7 +296,7 @@ mpc_state = False
 time_array = []
 
 # Set reference
-y_ref = sine_reference(9.0, 0.5, 0.1)
+y_ref = sine_reference(9.0, 1, 1)
 y_ref_scaled = (y_ref - y_min) / \
     (y_max - y_min)
 while exp_step < exp_horizon:
@@ -344,7 +341,8 @@ u_data = np.array(u_data)
 y_data = np.array(y_data)
 cost_data = np.array(cost_data)
 mpc_df = pd.DataFrame({'t': time_array, 'u': u_data,
-                      'y': y_data, 'cost': cost_data})
+                      'y': y_data, 'r': y_ref.ravel()[-len(y_data)-N:-N],
+                       'cost': cost_data})
 mpc_df.to_csv(results_dir + "mpc/mpc_data.csv", index=False)
 
 forecast_cols = name_forecast_cols()
