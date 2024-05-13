@@ -56,7 +56,7 @@ def build_input_jacobian():
 def cost_function(u_forecast, y_forecast):
     u_diff_forecast = create_control_diff(u_forecast)
     output_error = (y_ref_scaled[exp_step:exp_step+N] - y_forecast) * \
-        (y_max-y_min)
+        (process_y_max-process_y_min)
 
     output_cost = np.sum(output_error**2 * weight_output)
     control_cost = np.sum(u_diff_forecast**2 * weight_control)
@@ -66,7 +66,7 @@ def cost_function(u_forecast, y_forecast):
 def compute_gradient(input_tensor, j):
     with tf.GradientTape() as t:
         t.watch(input_tensor)
-        output_tensor = model(input_tensor)
+        output_tensor = process_model(input_tensor)
         gradient = t.gradient(
             output_tensor[:, j], input_tensor
         ).numpy()[0, :, 0]
@@ -81,6 +81,15 @@ def split_gradient(grad):
     y = grad[process_inputs *
              P:].reshape((Q, process_outputs))
     return u[:, 0], y
+
+
+def predict_gradient(seq):
+    seq = seq[:, :, 0]
+    seq = (seq - gradient_x_min) / (gradient_x_max - gradient_x_min)
+    gradient_pred = seq @ A + b
+    gradient_pred = gradient_pred * \
+        (gradient_y_max - gradient_y_min) + gradient_y_min
+    return gradient_pred.ravel()
 
 
 def compute_step(u_hist, y_hist, u_forecast):
@@ -98,15 +107,18 @@ def compute_step(u_hist, y_hist, u_forecast):
         seq_input = build_sequence(u_hist, y_hist)
         input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
         for j in range(process_outputs):
-            output_tensor, gradient = compute_gradient(
-                input_tensor, j)
-            input_gradient, _ = split_gradient(gradient)
+            # output_tensor, gradient_real = compute_gradient(
+            #     input_tensor, j)
+            # input_gradient, _ = split_gradient(gradient_real)
+            output_tensor = process_model.predict(
+                input_tensor, verbose=0)
+            gradient = predict_gradient(seq_input)
             if i < P - 1:
-                output_jacobian[i, : i + 1] = input_gradient[-min((i + 1), M):]
+                output_jacobian[i, : i + 1] = gradient[-min((i + 1), M):]
             else:
-                output_jacobian[i, :] = input_gradient[-M:]
+                output_jacobian[i, :] = gradient[-M:]
 
-        y_row = output_tensor.numpy().reshape((1, 1))
+        y_row = output_tensor.reshape((1, 1))
         y_forecast[i, :] = y_row
         y_hist = update_hist(y_hist, y_row)
 
@@ -138,7 +150,6 @@ def optimization_function(u_forecast, lr):
     last_cost = cost
     delta_cost = -cost
     # gradient history for adaptive learning rate algorithm
-    gradient_hist = np.zeros((input_test.shape[0], M))
     gradient_hist = []
     lr = lr
     while delta_cost/cost < -cost_tol and opt_step < 30:
@@ -167,12 +178,12 @@ def optimization_function(u_forecast, lr):
           f"Time per step: {opt_time/opt_step:.2f} " +
           f"Time per grad: {opt_time/(opt_step*N):.3f}")
 
-    # print(
-    #     f"U_F: {u_forecast * (u_max[0] - u_min[0]) + u_min[0]}")
-    # print(
-    #     f"Y_F: {y_forecast * (y_max - y_min) + y_min}")
-    # print(
-    #     f"Y_R: {y_ref_scaled[exp_step:exp_step+N] * (y_max - y_min) + y_min}")
+    print(
+        f"U_F: {u_forecast * (process_u_max[0] - process_u_min[0]) + process_u_min[0]}")
+    print(
+        f"Y_F: {y_forecast * (process_y_max - process_y_min) + process_y_min}")
+    print(
+        f"Y_R: {y_ref_scaled[exp_step:exp_step+N] * (process_y_max - process_y_min) + process_y_min}")
 
     return u_forecast, y_forecast, last_cost
 
@@ -201,47 +212,76 @@ def name_forecast_cols():
     return u_forecast_list + y_forecast_list
 
 
+def gradient_angle(grad_real, grad_pred):
+    dot_product = np.dot(grad_real, grad_pred)
+    norm_grad_real = np.linalg.norm(grad_real)
+    norm_grad_pred = np.linalg.norm(grad_pred)
+    angle = np.degrees(
+        np.arccos(dot_product / (norm_grad_real * norm_grad_pred))
+    )
+    return angle
+
+
 # Paths
 data_dir = "database/"
 results_dir = "results/"
 
-# Load data
-(input_train,
- output_train,
- input_test,
+# Load process data
+(process_input_train,
+ process_output_train,
+ _,
  _) = load_train_data(data_dir + "experiment/calibration/")
 
-input_train = input_train[:, 1:]
-output_train = output_train[:, 1:]
+process_input_train = process_input_train[:, 1:]
+process_output_train = process_output_train[:, 1:]
 
-u_min = input_train.min(axis=0)
-u_max = input_train.max(axis=0)
-y_min = output_train.min(axis=0)
-y_max = output_train.max(axis=0)
+process_u_min = process_input_train.min(axis=0)
+process_u_max = process_input_train.max(axis=0)
+process_y_min = process_output_train.min(axis=0)
+process_y_max = process_output_train.max(axis=0)
 
-process_inputs = input_train.shape[1]
-process_outputs = output_train.shape[1]
+process_inputs = process_input_train.shape[1]
+process_outputs = process_output_train.shape[1]
 
-# Load model
+# Load process model
 metrics_process = pd.read_csv(results_dir +
                               f"models/experiment/hp_metrics.csv"
                               )
-best_model_id = 16
-best_model_filename = f"run_{best_model_id:03d}.keras"
+best_process_model_id = 5
+best_process_model_filename = f"run_{best_process_model_id:03d}.keras"
 best_params = metrics_process[
-    metrics_process["run_id"] == int(best_model_id)
+    metrics_process["run_id"] == int(best_process_model_id)
 ]
 P = best_params.iloc[0, 1]
 Q = best_params.iloc[0, 2]
 
-# Load process model
-model = load_model(
+process_model = load_model(
     results_dir +
-    f"models/experiment/best/{best_model_filename}"
+    f"models/experiment/best/{best_process_model_filename}"
 )
 
-opt = Adam(learning_rate=best_params["lr"])
-model.compile(optimizer=opt, loss=mean_squared_error)
+# Load process data
+(gradient_input_train,
+ gradient_output_train,
+ _,
+ _) = load_train_data(data_dir + "gradient/")
+
+gradient_x_min = gradient_input_train.min(axis=0)
+gradient_x_max = gradient_input_train.max(axis=0)
+gradient_y_min = gradient_output_train.min(axis=0)
+gradient_y_max = gradient_output_train.max(axis=0)
+
+gradient_inputs = gradient_input_train.shape[1]
+gradient_outputs = gradient_output_train.shape[1]
+
+# Load gradient model
+best_gradient_model_id = 16
+weights = np.loadtxt(
+    results_dir + f"models/gradient/best/run_{best_gradient_model_id:03d}.txt")
+
+A = weights[:-1, :]
+b = weights[-1, :]
+
 
 # Define MPC optimization parameters
 M = P  # control horizon
@@ -255,14 +295,14 @@ cost_tol = 1e-2
 
 # Define TS and width reference
 ts = 8
-ts_scaled = (ts - u_min[1]) / \
-    (u_max[1] - u_min[1])
+ts_scaled = (ts - process_u_min[1]) / \
+    (process_u_max[1] - process_u_min[1])
 
 # Historic data
 u_hist = np.zeros((P, process_inputs))
 u_hist[:, :] = [0.0, ts_scaled]
 y_hist = np.zeros((Q, process_outputs))
-y_hist[-1, 0] = -y_min/(y_max - y_min)
+y_hist[-1, 0] = -process_y_min/(process_y_max - process_y_min)
 
 u_forecast = np.full((M, 1), 0.0)
 
@@ -297,8 +337,8 @@ time_array = []
 
 # Set reference
 y_ref = sine_reference(9.0, 1, 1)
-y_ref_scaled = (y_ref - y_min) / \
-    (y_max - y_min)
+y_ref_scaled = (y_ref - process_y_min) / \
+    (process_y_max - process_y_min)
 while exp_step < exp_horizon:
     if y_row_descaled < 4.0:
         u_opt = 0.0
@@ -314,9 +354,10 @@ while exp_step < exp_horizon:
         lr = lr * (1.0 - alpha_time)
 
     u_opt_descaled = u_opt * \
-        (u_max[0] - u_min[0]) + u_min[0]
+        (process_u_max[0] - process_u_min[0]) + process_u_min[0]
     x_row, y_row_descaled = predict_output(x_row, np.sqrt(u_opt_descaled))
-    y_row_scaled = (y_row_descaled - y_min) / (y_max - y_min)
+    y_row_scaled = (y_row_descaled - process_y_min) / \
+        (process_y_max - process_y_min)
     print(
         f"Experiment step {exp_step}({np.round(exp_time, 2)} s): Control {np.round(u_opt_descaled, 2)} Width {np.round(y_row_descaled[0], 3)}")
 
@@ -346,8 +387,17 @@ mpc_df = pd.DataFrame({'t': time_array, 'u': u_data,
 mpc_df.to_csv(results_dir + "mpc/mpc_data.csv", index=False)
 
 forecast_cols = name_forecast_cols()
-u_forecast_data = np.array(u_forecast_data) * (u_max[0] - u_min[0]) + u_min[0]
-y_forecast_data = np.array(y_forecast_data) * (y_max - y_min) + y_min
+u_forecast_data = np.array(
+    u_forecast_data) * (process_u_max[0] - process_u_min[0]) + process_u_min[0]
+y_forecast_data = np.array(y_forecast_data) * \
+    (process_y_max - process_y_min) + process_y_min
 forecast_data = np.hstack((u_forecast_data, y_forecast_data))
 forecast_df = pd.DataFrame(forecast_data, columns=forecast_cols)
 forecast_df.to_csv(results_dir + "mpc/mpc_forecast.csv", index=False)
+
+#
+# time1 = time.time()
+# x = np.random.normal(size=(1, 103, 1))
+# y = process_model.predict(x, verbose=0)
+# time2 = time.time()
+# print(time2 - time1)

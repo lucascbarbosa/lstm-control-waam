@@ -174,13 +174,13 @@ delete_models(results_dir + "models/experiment/hyperparams/")
 
 # set search space for hp's
 hp_search_space = {
-    "P": [20, 30, 40, 50],  # np.arange(0, 51, 5)
+    "P": [15, 20, 25, 30],  # np.arange(0, 51, 5)
     "Q": [3],
     "H": [1],
-    "batch_size": [16, 32],  # [16, 32, 64]
+    "batch_size": [16],  # [16, 32, 64]
     "num_epochs": [100],
     "validation_split": [0.1, 0.2],
-    "lr": [1e-2],
+    "lr": [1e-3],
 }
 
 hp_combinations = list(itertools.product(*hp_search_space.values()))

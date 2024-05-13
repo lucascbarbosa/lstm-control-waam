@@ -86,7 +86,7 @@ process_outputs = output_train.shape[1]
 
 # Model parameters
 metrics = pd.read_csv(results_dir + f"models/experiment/hp_metrics.csv")
-best_model_id = 16
+best_model_id = 2
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics[metrics["run_id"] == int(best_model_id)]
 P = best_params.iloc[0, 1]
@@ -101,40 +101,37 @@ opt = Adam(learning_rate=best_params["lr"])
 model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Create steps
-N = 50
+N = 1000
 T = 0.2
 time = np.arange(0.0, N*T, T)
-wfs_steps = np.arange(0.8, 1.1, 0.1)
+wfs_steps = np.arange(0.0, 1.01, 0.1)
 ts_steps = np.arange(0.25, 1.1, 0.25)
 for ts_step in ts_steps:
-    for wfs_step in wfs_steps:
-        input_data = np.zeros((N, process_inputs))
-        input_data[:] = [wfs_step, ts_step]
+    input_data = np.zeros((N, process_inputs))
+    for i in range(len(wfs_steps)):
+        wfs_step = wfs_steps[i]
+        input_data[i * int(N/len(wfs_steps)):(i+1) *
+                   int(N/len(wfs_steps)), :] = [wfs_step, ts_step]
 
-        # Historic data
-        u_hist = np.zeros((P, process_inputs))
-        y_hist = np.zeros((Q, process_outputs))
-        output_data = []
-        for i in range(input_data.shape[0]):
-            u = input_data[i].reshape((1, 2))
-            u_hist = update_hist(u_hist, u)
-            input_seq = build_sequence()
-            input_tensor = tensorflow.convert_to_tensor(
-                input_seq, dtype=tensorflow.float32)
-            y = model(input_tensor).numpy()
-            y_hist = update_hist(y_hist, y)
-            y_descaled = y[0, 0] * (y_max[0] - y_min[0]) + y_min[0]
-            output_data.append(y[0, 0])
+    # Historic data
+    u_hist = np.zeros((P, process_inputs))
+    y_hist = np.zeros((Q, process_outputs))
+    output_data = []
+    for i in range(input_data.shape[0]):
+        u = input_data[i].reshape((1, 2))
+        u_hist = update_hist(u_hist, u)
+        input_seq = build_sequence()
+        input_tensor = tensorflow.convert_to_tensor(
+            input_seq, dtype=tensorflow.float32)
+        y = model(input_tensor).numpy()
+        y_hist = update_hist(y_hist, y)
+        y_descaled = y[0, 0] * (y_max - y_min) + y_min
+        output_data.append(y_descaled)
 
-        input_data = input_data * (u_max - u_min) + u_min
-        output_data = output_data * (y_max - y_min) + y_min
-        print(f"WFS: {input_data[0,0]} TS: {input_data[0,1]}")
-
-        A, B, C, D = compute_ss(output_data)
-        output_pred = predict_output(input_data)
-
-        plt.plot(output_pred, label='Predicted')
-        plt.plot(output_data, label='Measured')
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
+    print(f"TS: {ts_step}")
+    plt.plot(time, input_data[:, 0] * (u_max[0] - u_min[0]) +
+             u_min[0], label='Input')
+    plt.plot(time, output_data, label='Output')
+    plt.legend()
+    plt.tight_layout()
+    plt.show()

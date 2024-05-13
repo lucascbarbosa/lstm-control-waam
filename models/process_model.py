@@ -7,11 +7,6 @@ from tensorflow.keras.layers import LSTM, Dense
 from tensorflow.keras.losses import mean_squared_error
 from tensorflow.keras.optimizers import Adam
 
-import matplotlib.pyplot as plt
-import os
-
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-
 
 def create_model(
     P,
