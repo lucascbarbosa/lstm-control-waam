@@ -178,9 +178,9 @@ N = None  # Horizon plotted
 end_time = None
 scale = False
 save = True
-figsize = (10, 6)
+figsize = (10, 4)
 format = "eps"
-source = "experiment/calibration"
+source = "simulation/calibration"
 if source in ['experiment/control', 'experiment/calibration']:
     experiment_matrix = pd.read_excel(
         data_dir + f'{source}/experiment_matrix.xlsx')

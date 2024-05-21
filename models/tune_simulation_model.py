@@ -123,7 +123,7 @@ def run_training(
 
     model.save(
         results_dir
-        + f"models/experiment/hyperparams/run_{run_params['run_id']}.keras"
+        + f"models/simulation/hyperparams/run_{run_params['run_id']}.keras"
     )
 
     training_loss = history.history["loss"][-1]
@@ -142,10 +142,24 @@ def run_training(
 # beads = np.arange(1, 16)
 # beads_train, beads_test = split_train_test(beads, 4)
 
+list_input_train = []
+list_input_test = []
+list_output_train = []
+list_output_test = []
 for ts in [4, 8, 12, 16, 20]:
     input_train, output_train, input_test, output_test = load_train_data(
-        data_dir + f"simulation/calibration/TS {ts}/"
+        data_dir + f"simulation/TS {ts}/"
     )
+    list_input_train.append(input_train)
+    list_input_test.append(input_test)
+    list_output_train.append(output_train)
+    list_output_test.append(output_test)
+
+input_train = np.concatenate(list_input_train)
+input_test = np.concatenate(list_input_test)
+output_train = np.concatenate(list_output_train)
+output_test = np.concatenate(list_output_test)
+
 # Remove time
 input_train = input_train[:, 1:]
 input_test = input_test[:, 1:]
@@ -167,7 +181,7 @@ output_train = normalize_data(output_train)
 output_test = normalize_data(output_test, train_y_min, train_y_max)
 
 # Remove previous models
-delete_models(results_dir + "models/experiment/hyperparams/")
+delete_models(results_dir + "models/simulation/hyperparams/")
 
 # set search space for hp's
 hp_search_space = {
@@ -217,13 +231,13 @@ metrics_df = (
     .set_index("run_id")
     .sort_values(by="test_loss")
 )
-metrics_df.to_csv(results_dir + "models/experiment/hp_metrics.csv")
+metrics_df.to_csv(results_dir + "models/simulation/hp_metrics.csv")
 print(metrics_df.head(20))
 
 best_model_id = input("Best model id: ")
 best_model = load_model(
-    results_dir + f"models/experiment/hyperparams/run_{best_model_id}.keras"
+    results_dir + f"models/simulation/hyperparams/run_{best_model_id}.keras"
 )
 best_model.save(
-    results_dir + f"models/experiment/best/run_{best_model_id}.keras"
+    results_dir + f"models/simulation/best/run_{best_model_id}.keras"
 )

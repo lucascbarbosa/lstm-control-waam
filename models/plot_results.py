@@ -11,76 +11,27 @@ results_dir = "results/"
 
 #############
 # Functions #
-def gradient_angle(Y_pred, Y_real):
-    """
-    Compute angle between predicted and real gradients
-    Args:
-        Y_pred (np.array): predicted gradient
-        Y_real (np.array): real gradient
-
-    Returns:
-        angles (np.array): array of angles between each pair of real and predicted gradient
-    """
-
-    angles = np.zeros(Y_real.shape[0])
-    for i in range(Y_real.shape[0]):
-        vec_real = Y_real[i, :]
-        vec_pred = Y_pred[i, :]
-        dot_product = np.dot(vec_real, vec_pred)
-        norm_vec_real = np.linalg.norm(vec_real)
-        norm_vec_pred = np.linalg.norm(vec_pred)
-        angle = np.degrees(
-            np.arccos(dot_product / (norm_vec_real * norm_vec_pred))
-        )
-        angles[i] = angle
-    return angles
-
-
-def plot_prediction(source="simulation", save=False):
-    if source == "simulation":
-        fig, axs = plt.subplots(2, 1)
-        fig.set_size_inches(figsize)
-
-        axs[0].plot(Y_real[:, 0] * 1000, color="k", label="Measured")
-        axs[0].plot(Y_pred[:, 0] * 1000, color="r", label="Predicted")
-        axs[0].set_xlabel(r"t (s)")
-        axs[0].set_title(r"$w_e\;(mm)$")
-
-        axs[1].plot(Y_real[:, 1] * 1000, color="k", label="Measured")
-        axs[1].plot(Y_pred[:, 1] * 1000, color="r", label="Predicted")
-        axs[1].set_title(r"$h\;(mm)$")
-
-        fig.suptitle("Outputs prediction")
-        axs[0].legend()
-        axs[1].legend()
-
-    elif source == "experiment":
-        fig = plt.figure(figsize=figsize)
-        # fig.suptitle("Output prediction", fontsize=fontsize)
-        plt.title(r"$W\;(mm)$", fontsize=fontsize)
-        plt.plot(Y_real[:, 0], Y_real[:, 1], color="k", label="Measured")
-        plt.plot(Y_pred[:, 0], Y_pred[:, 1], color="r", label="Predicted")
-        plt.xlabel('t (s)', fontsize=fontsize)
-        plt.ylabel('Value', fontsize=fontsize)
-        plt.legend(fontsize=fontsize)
-
-    elif source == "mpc":
-        fig = plt.figure(figsize=figsize)
-        fig.suptitle("MPC control prediction")
-        plt.title(r"$WFS\;(mm/s)$")
-        plt.step(x=range(len(Y_real)), y=Y_real, color="k", label="Measured")
-        plt.step(x=range(len(Y_pred)), y=Y_pred, color="r", label="Predicted")
-        plt.legend()
+def plot_prediction():
+    fig = plt.figure(figsize=figsize)
+    # fig.suptitle("Output prediction", fontsize=fontsize)
+    plt.title(r"$W\;(mm)$", fontsize=fontsize)
+    plt.plot(Y_real[:, 0], Y_real[:, 1], color="k", label="Measured")
+    plt.plot(Y_pred[:, 0], Y_pred[:, 1], color="r", label="Predicted")
+    plt.xlabel('t (s)', fontsize=fontsize)
+    plt.ylabel('Value', fontsize=fontsize)
+    plt.legend(fontsize=fontsize)
 
     fig.tight_layout()
     if save:
         if source == "simulation":
             plt.savefig(
-                results_dir + f"plots/simulation_lstm_prediction.{format}")
+                results_dir
+                + f"plots/simulation/calibration/simulation_calibration__ts_{ts}__prediction.{format}"
+            )
         elif source == "experiment":
             plt.savefig(
                 results_dir
-                + f"plots/experiment/calibration/calibration_bead{bead_test}_lstm_prediction.{format}"
+                + f"plots/experiment/calibration/experiment_calibration__{bead_test}__prediction.{format}"
             )
         elif source == "mpc":
             plt.savefig(results_dir + f"plots/mpc_lstm_prediction.{format}")
@@ -107,105 +58,40 @@ def plot_heatmap(source, save=False):
     plt.show()
 
 
-def histogram_error(bins, source="simulation", save=False):
+def histogram_error():
     error = Y_pred[:, 1] - Y_real[:, 1]
-    if source == "simulation":
-        fig, axs = plt.subplots(2, 1, figsize=figsize)
-        for i, ax in enumerate(axs):
-            _, p_val = shapiro(error[:, i])
-            sns.histplot(error[:, i], bins=bins, ax=ax)
-            avg = np.mean(error[:, i])
-            std = np.std(error[:, i])
-            ax.axvline(
-                avg,
-                color="red",
-                linestyle="dashed",
-                linewidth=2,
-                label=f"Mean: {avg*1e6:.1f}e-6. Std: {std*1e5:.1f}e-5 P-valor: {p_val*1e10: .1f}e-10",
-            )
-            ax.set_title(r"Prediction error histogram for $w_e$")
-            ax.set_xlabel("Error", fontsize=fontsize)
-            ax.legend(fontsize=fontsize)
+    fig, ax = plt.subplots(figsize=figsize)
+    sns.histplot(error, bins=bins, ax=ax)
+    _, p_val = shapiro(error)
+    avg = np.mean(error)
+    std = np.std(error)
+    ax.axvline(
+        avg,
+        color="red",
+        linestyle="dashed",
+        linewidth=2,
+        label=f"Mean: {avg:.2f} Std: {std:.2f} P-valor: {p_val: .3e}",
+    )
 
-        plt.subplots_adjust(hspace=0.5)
-        if save:
-            plt.savefig(
-                results_dir + f"plots/{source}_error_histogram.{format}")
+    # ax.set_title(r"Prediction error histogram for $w_e$")
+    ax.set_xlabel(r"error")
+    ax.legend()
 
-    elif source == "experiment":
-        fig, ax = plt.subplots(figsize=figsize)
-        sns.histplot(error, bins=bins, ax=ax)
-        _, p_val = shapiro(error)
-        avg = np.mean(error)
-        std = np.std(error)
-        ax.axvline(
-            avg,
-            color="red",
-            linestyle="dashed",
-            linewidth=2,
-            label=f"Mean: {avg:.2f} Std: {std:.2f} P-valor: {p_val: .4f}",
-        )
-
-        # ax.set_title(r"Prediction error histogram for $w_e$")
-        ax.set_xlabel(r"error")
-        ax.legend()
-
-        plt.subplots_adjust(hspace=0.5)
-        if save:
+    plt.subplots_adjust(hspace=0.5)
+    if save:
+        if source == "experiment":
             plt.savefig(
                 results_dir
-                + f"plots/experiment/calibration/{source}_bead{bead_test}_error_histogram.{format}"
+                + f"plots/experiment/calibration/experiment__bead{bead_test}__error_histogram.{format}"
             )
-
+        elif source == "simulation":
+            plt.savefig(
+                results_dir
+                + f"plots/simulation/calibration/simulation__ts_{ts}__error_histogram.{format}"
+            )
     plt.tight_layout()
     plt.show()
 
-
-# def plot_mpc(u, y, y_ref, save=True):
-#     def create_control_diff(u):
-#         u_diff = u.copy()
-#         u_diff[1:] = u_diff[1:] - u_diff[:-1]
-#         return u_diff
-#
-#     u_labels = u.columns
-#     y_labels = y.columns
-#
-#     u = u.to_numpy()
-#     y = y.to_numpy()
-#
-#     overshoots = (y.max(axis=0) / y[-1, :]) - 1.0
-#     du = create_control_diff(u)
-#     du_means = du.mean(axis=0)
-#     rmses = ((y[2:, :] - y_ref) ** 2).mean(axis=0)
-#
-#     print(f"Overshoots: {overshoots}")
-#     print(f"dU Médio: {du_means/u.max(axis=0)}")
-#     print(f"RMSE: {rmses}")
-#     # Plot inputs
-#     fig, axs = plt.subplots(2, 1)
-#     fig.set_size_inches(figsize)
-#     fig.suptitle("MPC Control Signal")
-#
-#     for i in range(2):
-#         axs[i].plot(u[:, i], color="blue")
-#         axs[i].set_xlabel("t (s)")
-#         axs[i].set_ylabel(u_labels[i])
-#
-#     fig, axs = plt.subplots(2, 1)
-#     fig.set_size_inches(figsize)
-#     fig.suptitle("MPC Output")
-#
-#     for i in range(2):
-#         axs[i].plot(y[:, i] * 1000, color="red")
-#         axs[i].set_xlabel("t (s)")
-#         axs[i].set_ylabel(y_labels[i] + " (mm)")
-#         axs[i].axhline(y_ref[i] * 1000, color="black", linestyle="--")
-#
-#     plt.tight_layout()
-#
-#     if save:
-#         plt.savefig(results_dir + f"plots/{source}_mpc_outputs.{format}")
-#     plt.show()
 
 def plot_mpc(t, u, y, cost, y_ref, save=True):
     def create_control_diff(u):
@@ -297,7 +183,7 @@ def plot_horizon_metrics(t, y_forecast, y, y_ref):
     return forecast_df, horizon_metrics
 
 
-source = "experiment"
+source = "simulation"
 save = True
 fontsize = 16
 figsize = (10, 4)
@@ -310,45 +196,48 @@ if source == "experiment" or source == "simulation":
         lambda x: np.nan if x > 1 else x
     )
 
-# mpc_u = pd.read_csv(results_dir + f"mpc/{source}/u.csv")
-# mpc_u = mpc_u.iloc[:-1, :]
-# mpc_y = pd.read_csv(results_dir + f"mpc/{source}/y.csv")
-
 if source == "simulation":
-    Y_real = np.loadtxt(
-        results_dir + f"predictions/{source}/y_real.csv", dtype=np.float64
-    )
-    Y_pred = np.loadtxt(
-        results_dir + f"predictions/{source}/y_pred.csv", dtype=np.float64
-    )
+    for ts in [4, 8, 12, 16, 20]:
+        Y_real = np.loadtxt(
+            results_dir +
+            f"predictions/{source}/calibration/ts__{ts}__y_real.csv",
+            dtype=np.float64
+        )
+        Y_pred = np.loadtxt(
+            results_dir +
+            f"predictions/{source}/calibration/ts__{ts}__y_pred.csv",
+            dtype=np.float64
+        )
 
-    plot_prediction(source=source, save=True)
+        plot_prediction()
 
-    # bins = 32
-    # histogram_error(bins, source=source, save=True)
+        bins = 128
+        histogram_error()
 
-    # batch_sizes = [16, 32, 64]
-    # for batch_size in batch_sizes:
-    #     plot_heatmap(batch_size, source=source, save=True)
+        # batch_sizes = [16, 32, 64]
+        # for batch_size in batch_sizes:
+        #     plot_heatmap(batch_size, source=source, save=True)
 
-    # plot_mpc(mpc_u, mpc_y, y_means,save=False)
+        # plot_mpc(mpc_u, mpc_y, y_means,save=False)
 
 elif source == "experiment":
     beads_test = [3, 6, 10, 15]
     for bead_test in beads_test:
         Y_real = np.loadtxt(
-            results_dir + f"predictions/{source}/bead{bead_test}_y_real.csv",
+            results_dir +
+            f"predictions/{source}/calibration/bead{bead_test}__y_real.csv",
             dtype=np.float64,
         )
         Y_pred = np.loadtxt(
-            results_dir + f"predictions/{source}/bead{bead_test}_y_pred.csv",
+            results_dir +
+            f"predictions/{source}/calibration/bead{bead_test}__y_pred.csv",
             dtype=np.float64,
         )
 
-        plot_prediction(source=source, save=save)
+        plot_prediction()
 
         bins = 32
-        histogram_error(bins, source=source, save=save)
+        histogram_error()
 
     # plot_heatmap(source=source, save=True)
 
