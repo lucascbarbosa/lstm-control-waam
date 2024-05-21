@@ -14,11 +14,10 @@ results_dir = "results/"
 def plot_prediction():
     fig = plt.figure(figsize=figsize)
     # fig.suptitle("Output prediction", fontsize=fontsize)
-    plt.title(r"$W\;(mm)$", fontsize=fontsize)
     plt.plot(Y_real[:, 0], Y_real[:, 1], color="k", label="Measured")
     plt.plot(Y_pred[:, 0], Y_pred[:, 1], color="r", label="Predicted")
     plt.xlabel('t (s)', fontsize=fontsize)
-    plt.ylabel('Value', fontsize=fontsize)
+    plt.ylabel("W (mm)", fontsize=fontsize)
     plt.legend(fontsize=fontsize)
 
     fig.tight_layout()
@@ -31,7 +30,7 @@ def plot_prediction():
         elif source == "experiment":
             plt.savefig(
                 results_dir
-                + f"plots/experiment/calibration/experiment_calibration__{bead_test}__prediction.{format}"
+                + f"plots/experiment/calibration/experiment_calibration__ bead{bead_test}__prediction.{format}"
             )
         elif source == "mpc":
             plt.savefig(results_dir + f"plots/mpc_lstm_prediction.{format}")
@@ -82,12 +81,12 @@ def histogram_error():
         if source == "experiment":
             plt.savefig(
                 results_dir
-                + f"plots/experiment/calibration/experiment__bead{bead_test}__error_histogram.{format}"
+                + f"plots/experiment/calibration/experiment_calibration__bead{bead_test}__error_histogram.{format}"
             )
         elif source == "simulation":
             plt.savefig(
                 results_dir
-                + f"plots/simulation/calibration/simulation__ts_{ts}__error_histogram.{format}"
+                + f"plots/simulation/calibration/simulation_calibraation__ts_{ts}__error_histogram.{format}"
             )
     plt.tight_layout()
     plt.show()
@@ -183,7 +182,7 @@ def plot_horizon_metrics(t, y_forecast, y, y_ref):
     return forecast_df, horizon_metrics
 
 
-source = "simulation"
+source = "experiment"
 save = True
 fontsize = 16
 figsize = (10, 4)
