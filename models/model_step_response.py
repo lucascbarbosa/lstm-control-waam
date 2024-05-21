@@ -56,11 +56,20 @@ def compute_ss(output_data):
         return ss_discrete.A, ss_discrete.B, ss_discrete.C, ss_discrete. D
 
 
+def predict_output(x, u):
+    x = np.dot(ss_discrete.A, x) + \
+        np.dot(ss_discrete.B, np.sqrt(u))
+    y = list(np.dot(ss_discrete.C, x) +
+             np.dot(ss_discrete.D, np.sqrt(u)))[0]
+    return x, y
+
+
 def plot_test(
     time,
     wfs_command_data,
     ts_command,
-    w_data,
+    w_data_lstm,
+    w_data_tf,
     fig_filename=None,
     N=None
 ):
@@ -78,7 +87,7 @@ def plot_test(
 
     """
     if N is None:
-        N = w_data.shape[0]
+        N = w_data_lstm.shape[0]
 
     fig, ax = plt.subplots(1)
     fig.set_size_inches((10, 4))
@@ -95,13 +104,20 @@ def plot_test(
         label="WFS command",
     )
     ax2.plot(time,
-             w_data,
+             w_data_lstm,
              color="#006400",
-             label="Width"
+             label="Width - LSTM"
              )
+    ax2.plot(time,
+             w_data_tf,
+             color="#00AA00",
+             label="Width - TF"
+             )
+
     ax.set_ylabel("WFS (mm/min)")
     ax2.set_ylabel("W (mm)")
 
+    plt.legend()
     plt.tight_layout()
 
     if save:
@@ -110,10 +126,11 @@ def plot_test(
     plt.show()
 
 
-source = "experiment"
+source = "simulation"
 save = True
 format = "eps"
-best_model_id = 16
+best_model_id = 3
+ts_gain = pd.read_csv(results_dir + "models/plant.csv")
 if source == "experiment":
     # Load data
     (input_train,
@@ -173,7 +190,17 @@ time = np.arange(0.0, N*T, T)
 wfs_steps = np.arange(0.0, 1.01, 0.1)
 ts_steps = np.arange(0.0, 1.1, 0.25)
 for ts_step in ts_steps:
+    gain = ts_gain[ts_gain["TS"] ==
+                   ts_step * (u_max[1] - u_min[1]) + u_min[1]].values[0, 1]
+    numerator = [0, 0, gain]
+    denominator = [0.01, 1.5, 0.25]
+    T = 0.2
+    G_continuous = control.TransferFunction(numerator, denominator)
+    G_discrete = control.sample_system(
+        G_continuous, T, method='tustin')
+    ss_discrete = control.tf2ss(G_discrete)
     input_data = np.zeros((N, process_inputs))
+
     for i in range(len(wfs_steps)):
         wfs_step = wfs_steps[i]
         input_data[i * int(N/len(wfs_steps)):(i+1) *
@@ -182,22 +209,32 @@ for ts_step in ts_steps:
     # Historic data
     u_hist = np.zeros((P, process_inputs))
     y_hist = np.zeros((Q, process_outputs))
-    output_data = []
+    output_lstm_data = []
+    output_tf_data = []
+    x = np.zeros((2, 1))
     for i in range(input_data.shape[0]):
-        u = input_data[i].reshape((1, 2))
-        u_hist = update_hist(u_hist, u)
+        u_scaled = input_data[i].reshape((1, 2))
+        u_hist = update_hist(u_hist, u_scaled)
         input_seq = build_sequence()
         input_tensor = tensorflow.convert_to_tensor(
             input_seq, dtype=tensorflow.float32)
-        y = model(input_tensor).numpy()
-        y_hist = update_hist(y_hist, y)
-        y_descaled = y[0, 0] * (y_max - y_min) + y_min
-        output_data.append(y_descaled[0])
+        y_scaled = model(input_tensor).numpy()
+        y_hist = update_hist(y_hist, y_scaled)
+        y_descaled = y_scaled[0, 0] * (y_max - y_min) + y_min
+        output_lstm_data.append(y_descaled[0])
+
+        # Predict output from tf
+        u_scaled = input_data[i, 0].reshape((1, 1))
+        u_descaled = u_scaled * (u_max[0] - u_min[0]) + u_min[0]
+        x, y_descaled = predict_output(x, u_descaled)
+        output_tf_data.append(y_descaled)
 
     # Rescale data
     input_data = input_data * (u_max - u_min) + u_min
-    output_data = np.array(output_data)
+    output_lstm_data = np.array(output_lstm_data)
+    output_tf_data = np.array(output_tf_data)
     print(f"TS: {ts_step}")
 
     # Plot
-    plot_test(time, input_data[:, 0], int(input_data[0, 1]), output_data)
+    plot_test(time, input_data[:, 0], int(input_data[0, 1]),
+              output_lstm_data, output_tf_data)
