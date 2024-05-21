@@ -28,7 +28,7 @@ def pow2wfs(power_data):
 
 def plot_calibration(
     wfs_command_data,
-    ts_command_data,
+    ts_command,
     w_data,
     fig_filename,
     N
@@ -37,8 +37,7 @@ def plot_calibration(
     Plot experiment data of specific welded bead
 
     Args:
-        bead_idx (int): index of welded bead
-        ts_command_data(np.array): ts_command data
+        ts_command (int): ts command
         wfs_command_data(np.array): wfs_command data
         w_data(np.array): width data
         fig_filename (str): figure file name
@@ -55,7 +54,7 @@ def plot_calibration(
     ax.set_xlabel("t")
     ax2 = ax.twinx()
     ax2.set_xlabel("t")
-    plt.title(f"TS: {ts} (mm/s)")
+    plt.title(f"TS: {ts_command} (mm/s)")
     if scale:
         ax.step(
             wfs_command_data[:, 0],
@@ -128,6 +127,7 @@ def plot_control(
     Plot experiment data of specific welded bead
 
     Args:
+        ts_command (int): ts command
         wfs_data(np.array): wfs data
         wfs_command_data(np.array): wfs wfs_command data
         w_data(np.array): width data
@@ -211,10 +211,16 @@ if source == "simulation/calibration":
     for ts in [4, 8, 12, 16, 20]:
         input_train, output_train, input_test, output_test = load_train_data(
             data_dir + f'simulation/TS {ts}/')
+
         fig_filename = f"ts_{ts}__train"
+
         wfs_command_data = np.vstack((input_train[:, 0], input_train[:, 1])).T
+
         ts_command_data = np.vstack((input_train[:, 0], input_train[:, 2])).T
+        ts_command = int(ts_command_data[0, 1])
+
         w_data = output_train
+
         if scale:
             wfs_command_data[:, 1:] = normalize_data(
                 wfs_command_data[:, 1:])
@@ -232,7 +238,10 @@ if source == "simulation/calibration":
 
         fig_filename = f"ts_{ts}__test"
         wfs_command_data = np.vstack((input_train[:, 0], input_train[:, 1])).T
+
         ts_command_data = np.vstack((input_train[:, 0], input_train[:, 2])).T
+        ts_command = int(ts_command_data[0, 1])
+
         w_data = output_test
         if scale:
             wfs_command_data[:, 1:] = normalize_data(
@@ -243,7 +252,7 @@ if source == "simulation/calibration":
 
         plot_calibration(
             wfs_command_data,
-            ts_command_data,
+            ts_command,
             w_data,
             fig_filename,
             N
@@ -253,13 +262,18 @@ if source == "experiment/calibration":
     bead_idxs = list(range(1, 16))
     for bead_idx in bead_idxs:
         bead_filename = data_path + f"series/bead{bead_idx}"
+
         wfs_command_data = pd.read_csv(
             bead_filename + "_wfs_command.csv").to_numpy()
+
         w_data = pd.read_csv(bead_filename + "_w.csv").to_numpy()
+
         ts_command_data = pd.read_csv(
             bead_filename + "_ts_command.csv").to_numpy()
         ts_command = int(ts_command_data[0, 1])
+
         fig_filename = f"bead{bead_idx}"
+
         if scale:
             wfs_command_data[:, 1:] = normalize_data(
                 wfs_command_data[:, 1:])
@@ -280,16 +294,22 @@ if source == "experiment/control":
     bead_idxs = list(range(1, 3))
     for bead_idx in bead_idxs:
         bead_filename = data_path + f"series/bead{bead_idx}"
+
         wfs_command_data = pd.read_csv(
             bead_filename + "_wfs_command.csv").to_numpy()
+
         w_data = pd.read_csv(bead_filename + "_w.csv").to_numpy()
+
         ts_command_data = pd.read_csv(
             bead_filename + "_ts_command.csv").to_numpy()
         ts_command = int(ts_command_data[0, 1])
+
         ref_data = np.zeros(w_data.shape)
         ref_data[:, 0] = w_data[:, 0]
         ref_data[:, 1] = 9.0
+
         fig_filename = f"bead{bead_idx}"
+
         plot_control(
             wfs_command_data,
             ts_command,

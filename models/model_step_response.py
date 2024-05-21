@@ -8,7 +8,7 @@ from tensorflow.keras.optimizers import Adam
 from models.process_data import load_train_data
 from scipy.signal import find_peaks
 import control
-import time
+
 # Data paths
 data_dir = "database/"
 results_dir = "results/"
@@ -56,22 +56,89 @@ def compute_ss(output_data):
         return ss_discrete.A, ss_discrete.B, ss_discrete.C, ss_discrete. D
 
 
-def predict_output(input_data):
-    input_data = input_data[:, 0]
-    predicted_data = np.zeros((input_data.shape[0], 1))
-    x_row = np.zeros((2, 1))
-    for i in range(len(input_data)):
-        u_row = input_data[i].reshape((1, 1))
-        x_row = A @ x_row + B @ u_row
-        predicted_data[i] = C @ x_row + D @ u_row
-    return predicted_data
+def plot_test(
+    time,
+    wfs_command_data,
+    ts_command,
+    w_data,
+    fig_filename=None,
+    N=None
+):
+    """
+    Plot experiment data of specific welded bead.
+
+    Args:
+        ts_command (np.array): ts_command
+        wfs_command_data(np.array): wfs_command data
+        w_data(np.array): width data
+        fig_filename (str): figure file name
+        scale (bool): whether to scale data
+        save (bool): whether to save data
+        N (int): number of samples of data array
+
+    """
+    if N is None:
+        N = w_data.shape[0]
+
+    fig, ax = plt.subplots(1)
+    fig.set_size_inches((10, 4))
+    ax.set_xlabel("t")
+    ax2 = ax.twinx()
+    ax2.set_xlabel("t")
+    plt.title(f"TS: {ts_command} (mm/s)")
+    ax.step(
+        time,
+        wfs_command_data,
+        where="post",
+        color="b",
+        linestyle='--',
+        label="WFS command",
+    )
+    ax2.plot(time,
+             w_data,
+             color="#006400",
+             label="Width"
+             )
+    ax.set_ylabel("WFS (mm/min)")
+    ax2.set_ylabel("W (mm)")
+
+    plt.tight_layout()
+
+    if save:
+        plt.savefig(
+            results_dir + f"plots/{source}/calibration/{source}_calibration__ts_{ts_command}__step_response.{format}")
+    plt.show()
 
 
-# Load data
-(input_train,
- output_train,
- _,
- _) = load_train_data(data_dir + "experiment/calibration/")
+source = "experiment"
+save = True
+format = "eps"
+best_model_id = 16
+if source == "experiment":
+    # Load data
+    (input_train,
+     output_train,
+     _,
+     _) = load_train_data(data_dir + "experiment/calibration/")
+
+elif source == "simulation":
+    list_input_train = []
+    list_input_test = []
+    list_output_train = []
+    list_output_test = []
+    for ts in [4, 8, 12, 16, 20]:
+        input_train, output_train, input_test, output_test = load_train_data(
+            data_dir + f"simulation/TS {ts}/"
+        )
+        list_input_train.append(input_train)
+        list_input_test.append(input_test)
+        list_output_train.append(output_train)
+        list_output_test.append(output_test)
+
+    input_train = np.concatenate(list_input_train)
+    input_test = np.concatenate(list_input_test)
+    output_train = np.concatenate(list_output_train)
+    output_test = np.concatenate(list_output_test)
 
 input_train = input_train[:, 1:]
 output_train = output_train[:, 1:]
@@ -85,17 +152,15 @@ process_inputs = input_train.shape[1]
 process_outputs = output_train.shape[1]
 
 # Model parameters
-metrics = pd.read_csv(results_dir + f"models/experiment/hp_metrics.csv")
-best_model_id = 16
+metrics = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics[metrics["run_id"] == int(best_model_id)]
-# P = best_params.iloc[0, 1]
-P = 50
+P = best_params.iloc[0, 1]
 Q = 3
 
 # Load model
 model = load_model(
-    results_dir + f"models/experiment/best/{best_model_filename}"
+    results_dir + f"models/{source}/best/{best_model_filename}"
 )
 
 opt = Adam(learning_rate=best_params["lr"])
@@ -106,7 +171,7 @@ N = 100
 T = 0.2
 time = np.arange(0.0, N*T, T)
 wfs_steps = np.arange(0.0, 1.01, 0.1)
-ts_steps = np.arange(0.25, 1.1, 0.25)
+ts_steps = np.arange(0.0, 1.1, 0.25)
 for ts_step in ts_steps:
     input_data = np.zeros((N, process_inputs))
     for i in range(len(wfs_steps)):
@@ -127,12 +192,12 @@ for ts_step in ts_steps:
         y = model(input_tensor).numpy()
         y_hist = update_hist(y_hist, y)
         y_descaled = y[0, 0] * (y_max - y_min) + y_min
-        output_data.append(y_descaled)
+        output_data.append(y_descaled[0])
 
+    # Rescale data
+    input_data = input_data * (u_max - u_min) + u_min
+    output_data = np.array(output_data)
     print(f"TS: {ts_step}")
-    plt.plot(time, input_data[:, 0] * (u_max[0] - u_min[0]) +
-             u_min[0], label='Input')
-    plt.plot(time, output_data, label='Output')
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+
+    # Plot
+    plot_test(time, input_data[:, 0], int(input_data[0, 1]), output_data)
