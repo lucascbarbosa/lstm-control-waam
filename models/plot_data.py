@@ -197,7 +197,7 @@ def plot_control(
 N = None  # Horizon plotted
 end_time = None
 scale = False
-save = False
+save = True
 figsize = (10, 4)
 format = "eps"
 source = "experiment/control"
