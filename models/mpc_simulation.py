@@ -149,10 +149,11 @@ def optimization_function(u_forecast, lr):
     cost = 99999999
     last_cost = cost
     delta_cost = -cost
+    initial_cost = cost
     # gradient history for adaptive learning rate algorithm
     gradient_hist = []
     lr = lr
-    while delta_cost/cost < -cost_tol and opt_step < 30:
+    while delta_cost/initial_cost < -cost_tol:
         steps, y_forecast = compute_step(u_hist, y_hist, u_forecast)
         cost = cost_function(u_forecast, y_forecast)
         delta_cost = cost - last_cost
@@ -167,6 +168,8 @@ def optimization_function(u_forecast, lr):
                 u_forecast, a_min=0.0, a_max=1.0)
             lr = lr * (1.0 - alpha_opt)
             last_cost = cost
+            if opt_step == 1:
+                initial_cost = cost
         else:
             if verbose:
                 print("Passed optimal solution")
@@ -188,8 +191,18 @@ def optimization_function(u_forecast, lr):
     return u_forecast, y_forecast, last_cost
 
 
-def step_reference(amp):
-    return np.full(((exp_horizon+N), 1), amp)
+def step_reference(amps):
+    if type(amps) is list:
+        i = 0
+        y_ref = np.zeros((exp_horizon+N, 1))
+        for amp in amps:
+            y_ref[i*int(exp_horizon/len(amps)):
+                  (i+1) * int(exp_horizon/len(amps))] = amp
+            i += 1
+        y_ref[y_ref == 0.0] = amps[-1]
+    else:
+        y_ref = np.full(((exp_horizon+N), 1), amps)
+    return y_ref
 
 
 def sine_reference(mean, w, amp):
@@ -247,13 +260,14 @@ process_outputs = process_output_train.shape[1]
 metrics_process = pd.read_csv(results_dir +
                               f"models/experiment/hp_metrics.csv"
                               )
-best_process_model_id = 5
+best_process_model_id = 16
 best_process_model_filename = f"run_{best_process_model_id:03d}.keras"
 best_params = metrics_process[
     metrics_process["run_id"] == int(best_process_model_id)
 ]
-P = best_params.iloc[0, 1]
-Q = best_params.iloc[0, 2]
+# P = best_params.iloc[0, 1]
+P = 50
+Q = 3
 
 process_model = load_model(
     results_dir +
@@ -288,10 +302,10 @@ M = P  # control horizon
 N = P  # prediction horizon
 weight_control = 1.0
 weight_output = 50.0
-lr = 1e-1
+lr = 1e-3
+cost_tol = 1e-4
 alpha_time = 1e-2
 alpha_opt = 1e-2
-cost_tol = 1e-2
 
 # Define TS and width reference
 ts = 8
@@ -336,7 +350,11 @@ mpc_state = False
 time_array = []
 
 # Set reference
-y_ref = sine_reference(9.0, 1, 1)
+ref_min = gain * process_u_min[0]
+ref_max = gain * process_u_max[0]
+# y_ref = (ref_max + ref_min) / 2
+y_ref = 9.0
+y_ref = step_reference(y_ref)
 y_ref_scaled = (y_ref - process_y_min) / \
     (process_y_max - process_y_min)
 while exp_step < exp_horizon:
@@ -355,7 +373,7 @@ while exp_step < exp_horizon:
 
     u_opt_descaled = u_opt * \
         (process_u_max[0] - process_u_min[0]) + process_u_min[0]
-    x_row, y_row_descaled = predict_output(x_row, np.sqrt(u_opt_descaled))
+    x_row, y_row_descaled = predict_output(x_row, u_opt_descaled)
     y_row_scaled = (y_row_descaled - process_y_min) / \
         (process_y_max - process_y_min)
     print(

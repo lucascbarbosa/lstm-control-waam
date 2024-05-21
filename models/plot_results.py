@@ -43,7 +43,7 @@ def plot_prediction(source="simulation", save=False):
 
         axs[0].plot(Y_real[:, 0] * 1000, color="k", label="Measured")
         axs[0].plot(Y_pred[:, 0] * 1000, color="r", label="Predicted")
-        axs[0].set_xlabel(r"t")
+        axs[0].set_xlabel(r"t (s)")
         axs[0].set_title(r"$w_e\;(mm)$")
 
         axs[1].plot(Y_real[:, 1] * 1000, color="k", label="Measured")
@@ -60,7 +60,7 @@ def plot_prediction(source="simulation", save=False):
         plt.title(r"$W\;(mm)$", fontsize=fontsize)
         plt.plot(Y_real[:, 0], Y_real[:, 1], color="k", label="Measured")
         plt.plot(Y_pred[:, 0], Y_pred[:, 1], color="r", label="Predicted")
-        plt.xlabel('t', fontsize=fontsize)
+        plt.xlabel('t (s)', fontsize=fontsize)
         plt.ylabel('Value', fontsize=fontsize)
         plt.legend(fontsize=fontsize)
 
@@ -188,7 +188,7 @@ def histogram_error(bins, source="simulation", save=False):
 #
 #     for i in range(2):
 #         axs[i].plot(u[:, i], color="blue")
-#         axs[i].set_xlabel("t")
+#         axs[i].set_xlabel("t (s)")
 #         axs[i].set_ylabel(u_labels[i])
 #
 #     fig, axs = plt.subplots(2, 1)
@@ -197,7 +197,7 @@ def histogram_error(bins, source="simulation", save=False):
 #
 #     for i in range(2):
 #         axs[i].plot(y[:, i] * 1000, color="red")
-#         axs[i].set_xlabel("t")
+#         axs[i].set_xlabel("t (s)")
 #         axs[i].set_ylabel(y_labels[i] + " (mm)")
 #         axs[i].axhline(y_ref[i] * 1000, color="black", linestyle="--")
 #
@@ -224,17 +224,17 @@ def plot_mpc(t, u, y, cost, y_ref, save=True):
     fig.set_size_inches(figsize)
     axs[0].set_title("Simulação do MPC", fontsize=fontsize)
     axs[0].plot(t, u, label='WFS command', color='#6B66EC')
-    axs[0].set_xlabel("t", fontsize=fontsize)
+    axs[0].set_xlabel("t (s)", fontsize=fontsize)
     axs[0].set_ylabel("WFS (mm/min)", fontsize=fontsize)
     ax2 = axs[0].twinx()
     ax2.plot(t, y, color="#006400", label='Measured width ')
-    ax2.set_xlabel("t", fontsize=fontsize)
+    ax2.set_xlabel("t (s)", fontsize=fontsize)
     ax2.set_ylabel("W (mm)", fontsize=fontsize)
     ax2.plot(t, reference_array, color="#00AA00", linestyle="--",
              label="Reference width")
     axs[1].set_title("Custo do MPC", fontsize=fontsize)
     axs[1].plot(t, cost, color='r')
-    axs[1].set_xlabel("t", fontsize=fontsize)
+    axs[1].set_xlabel("t (s)", fontsize=fontsize)
     fig.legend(bbox_to_anchor=(0.94, 0.9))
 
     plt.tight_layout()
@@ -297,10 +297,10 @@ def plot_horizon_metrics(t, y_forecast, y, y_ref):
     return forecast_df, horizon_metrics
 
 
-source = "gradient"
+source = "experiment"
 save = True
 fontsize = 16
-figsize = (10, 6)
+figsize = (10, 4)
 format = "eps"
 weight_control = 1.0
 weight_output = 1.0
@@ -397,4 +397,4 @@ elif source == "mpc":
     y_forecast_data = forecast_data.filter(regex='^y_forecast').to_numpy()
 
     forecast_df, horizon_metrics = plot_horizon_metrics(
-        time_array, y_forecast_data, output_array, y_ref)
+        time_array, y_forecast_data, output_array, reference_array[0])

@@ -60,7 +60,6 @@ def predict_data(ss_discrete, u, y_real):
 def compute_metrics(gain, u_real, y_real):
     numerator = [0, 0, gain[0]]
     ss_discrete = create_ss(numerator, denominator)
-    print(ss_discrete)
     y_pred = predict_data(ss_discrete, u_real, y_real)
     return np.sum((y_pred-y_real)**2)
 
@@ -140,7 +139,7 @@ for ts in list_ts:
 
         time = input_train[:, 0]
         u_train = input_train[:, 1]
-        u_train = np.sqrt(u_train)
+        # u_train = np.sqrt(u_train)
         y_train = output_train[:, 1]
 
         # Constant
@@ -181,7 +180,7 @@ for ts in list_ts:
 
         time = input_test[:, 0]
         u_real = input_test[:, 1]
-        u_real = np.sqrt(u_real)
+        # u_real = np.sqrt(u_real)
         y_real = output_test[:, 1]
         # Generate output prediction
         y_pred = predict_data(ss_opt, u_real, y_real)

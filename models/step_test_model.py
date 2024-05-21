@@ -86,11 +86,12 @@ process_outputs = output_train.shape[1]
 
 # Model parameters
 metrics = pd.read_csv(results_dir + f"models/experiment/hp_metrics.csv")
-best_model_id = 2
+best_model_id = 16
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics[metrics["run_id"] == int(best_model_id)]
-P = best_params.iloc[0, 1]
-Q = best_params.iloc[0, 2]
+# P = best_params.iloc[0, 1]
+P = 50
+Q = 3
 
 # Load model
 model = load_model(
@@ -101,7 +102,7 @@ opt = Adam(learning_rate=best_params["lr"])
 model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Create steps
-N = 1000
+N = 100
 T = 0.2
 time = np.arange(0.0, N*T, T)
 wfs_steps = np.arange(0.0, 1.01, 0.1)
