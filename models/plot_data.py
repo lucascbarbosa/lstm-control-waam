@@ -26,160 +26,9 @@ def pow2wfs(power_data):
     return (power_data * 9 / 100) + 1.5
 
 
-def plot_simulation(
-    wfs_data,
-    w_data,
-    fig_filename,
-    N
-):
-    """
-    Plot experiment data of specific welded bead
-
-    Args:
-        bead_idx (int): index of welded bead
-        wfs_data(np.array): wfs data
-        wfs_command_data(np.array): wfs wfs_command data
-        w_data(np.array): width data
-        fig_filename (str): figure file name
-        scale (bool): whether to scale data
-        save (bool): whether to save data
-        N (int): number of samples of data array
-
-    """
-    if N == None:
-        N = w_data.shape[0]
-
-    fig, ax1 = plt.subplots()
-    fig.set_size_inches((10, 6))
-    ax1.set_xlabel("t")
-
-    ax2 = ax1.twinx()
-    if scale:
-        ax1.step(
-            wfs_data[:, 0],
-            wfs_data[:, 1],
-            where="post",
-            linestyle="--",
-            color="#6B66EC",
-            label="Scaled WFS wfs_command",
-        )
-        ax2.plot(w_data[:, 0], w_data[:, 1],
-                 color="#006400", label="Scaled width")
-        ax1.set_ylabel("WFS")
-        ax2.set_ylabel("W")
-    else:
-        ax1.step(
-            wfs_data[:, 0],
-            wfs_data[:, 1],
-            where="post",
-            linestyle="--",
-            color="#6B66EC",
-            label="WFS wfs_command",
-        )
-        ax2.plot(w_data[:, 0], w_data[:, 1],
-                 color="#006400", label="Width")
-        ax1.set_ylabel("WFS (m/min)")
-        ax2.set_ylabel("W (mm)")
-
-    fig.tight_layout()
-    fig.legend(bbox_to_anchor=(0.94, 0.92))
-    fig.show()
-
-    if save:
-        if scale:
-            fig.savefig(results_dir + f"plots/{source}_{fig_filename}.png")
-        else:
-            fig.savefig(results_dir + f"plots/{source}_{fig_filename}_raw.png")
-
-
-# def plot_experiment(
-#     bead_idx,
-#     wfs_data,
-#     wfs_command_data,
-#     w_data,
-#     fig_filename,
-#     N
-# ):
-#     """
-#     Plot experiment data of specific welded bead
-#
-#     Args:
-#         bead_idx (int): index of welded bead
-#         wfs_data(np.array): wfs data
-#         wfs_command_data(np.array): wfs wfs_command data
-#         w_data(np.array): width data
-#         fig_filename (str): figure file name
-#         scale (bool): whether to scale data
-#         save (bool): whether to save data
-#         N (int): number of samples of data array
-#
-#     """
-#     if N == None:
-#         N = w_data.shape[0]
-#
-#     fig, ax1 = plt.subplots()
-#     fig.set_size_inches((10, 6))
-#     ax1.set_xlabel("t")
-#
-#     ax2 = ax1.twinx()
-#
-#     if scale:
-#         ax1.step(
-#             wfs_data[:, 0],
-#             wfs_data[:, 1],
-#             where="post",
-#             color="#000080",
-#             label="Scaled WFS value",
-#         )
-#         ax1.step(
-#             wfs_command_data[:, 0],
-#             wfs_command_data[:, 1],
-#             where="post",
-#             linestyle="--",
-#             color="#6B66EC",
-#             label="Scaled WFS wfs_command",
-#         )
-#         ax1.set_ylabel("WFS")
-#         ax2.plot(w_data[:, 0], w_data[:, 1],
-#                  color="#006400", label="Scaled width")
-#         ax2.set_ylabel("W")
-#     else:
-#         ax1.step(
-#             wfs_data[:, 0],
-#             wfs_data[:, 1],
-#             where="post",
-#             color="#000080",
-#             label="WFS value",
-#         )
-#         ax1.step(
-#             wfs_command_data[:, 0],
-#             wfs_command_data[:, 1],
-#             where="post",
-#             linestyle="--",
-#             color="#6B66EC",
-#             label="WFS wfs_command",
-#         )
-#         ax2.plot(w_data[:, 0], w_data[:, 1] * 1000,
-#                  color="#006400", label="Width")
-#         ax2.set_ylabel("W (mm)")
-#         ax1.set_ylabel("WFS (m/min)")
-#
-#     fig.tight_layout()
-#     fig.legend(bbox_to_anchor=(0.94, 0.92))
-#     fig.show()
-#
-#     if save:
-#         if scale:
-#             fig.savefig(results_dir + f"plots/{source}_{fig_filename}.png")
-#         else:
-#             fig.savefig(results_dir + f"plots/{source}_{fig_filename}_raw.png")
-
 def plot_calibration(
-    bead_idx,
     wfs_command_data,
-    wfs_data,
     ts_command_data,
-    ts_data,
     w_data,
     fig_filename,
     N
@@ -189,8 +38,8 @@ def plot_calibration(
 
     Args:
         bead_idx (int): index of welded bead
-        wfs_data(np.array): wfs data
-        wfs_command_data(np.array): wfs wfs_command data
+        ts_command_data(np.array): ts_command data
+        wfs_command_data(np.array): wfs_command data
         w_data(np.array): width data
         fig_filename (str): figure file name
         scale (bool): whether to scale data
@@ -201,86 +50,73 @@ def plot_calibration(
     if N is None:
         N = w_data.shape[0]
 
-    fig, axs = plt.subplots(2)
-    fig.set_size_inches((10, 6))
-    axs[0].set_xlabel("t")
-    ax2 = axs[0].twinx()
-    axs[1].set_xlabel("t")
-
+    fig, ax = plt.subplots(1)
+    fig.set_size_inches(figsize)
+    ax.set_xlabel("t")
+    ax2 = ax.twinx()
+    ax2.set_xlabel("t")
+    plt.title(f"TS: {ts} (mm/s)")
     if scale:
-        ax2.plot(ts_data[:, 0], ts_data[:, 1],
-                 color='#CC5500', label=' Scaled TS')
-        ax2.plot(ts_command_data[:, 0], ts_command_data[:, 1],
-                 color='#FFA500', linestyle='--', label='Scaled TS command')
-        axs[0].step(
-            wfs_data[:, 0],
-            wfs_data[:, 1],
-            where="post",
-            color="#000080",
-            label="Scaled WFS",
-        )
-        axs[0].step(
+        ax.step(
             wfs_command_data[:, 0],
             wfs_command_data[:, 1],
             where="post",
-            linestyle="--",
-            color="#6B66EC",
+            color="b",
+            linestyle='--',
             label="Scaled WFS command",
         )
-        axs[1].plot(w_data[:, 0], w_data[:, 1],
-                    color="#006400")
-        axs[0].set_ylabel("WFS")
-        ax2.set_ylabel("TS")
-        axs[1].set_ylabel("W")
+        ax2.plot(w_data[:, 0],
+                 w_data[:, 1],
+                 color="#006400",
+                 label="Scaled Width"
+                 )
+        ax.set_ylabel("WFS")
+        ax2.set_ylabel("W")
     else:
-        ax2.plot(ts_data[:, 0], ts_data[:, 1],
-                 color='#CC5500', label='TS')
-        ax2.plot(ts_command_data[:, 0], ts_command_data[:, 1],
-                 color='#FFA500', linestyle='--', label='TS command')
-        axs[0].step(
-            wfs_data[:, 0],
-            wfs_data[:, 1],
-            where="post",
-            color="#000080",
-            label="WFS",
-        )
-        axs[0].step(
+        ax.step(
             wfs_command_data[:, 0],
             wfs_command_data[:, 1],
             where="post",
-            linestyle="--",
-            color="#6B66EC",
+            color="b",
+            linestyle='--',
             label="WFS command",
         )
-        axs[1].plot(w_data[:, 0], w_data[:, 1],
-                    color="#006400")
-        axs[0].set_ylabel("WFS (m/min)")
-        ax2.set_ylabel("TS (mm/s)")
-        axs[1].set_ylabel("W (mm)")
+        ax2.plot(w_data[:, 0],
+                 w_data[:, 1],
+                 color="#006400",
+                 label="Width")
+        ax.set_ylabel("WFS (mm/min)")
+        ax2.set_ylabel("W (mm)")
 
     fig.tight_layout()
     fig.legend(bbox_to_anchor=(0.94, 0.92))
 
-    if end_time is not None:
-        axs[0].set_xlim(5.0, end_time)
-        axs[0].set_xticks(np.arange(5.0, end_time+0.1, 0.5))
-        axs[1].set_xlim(5.0, end_time)
-        axs[1].set_xticks(np.arange(5.0, end_time+0.1, 0.5))
+    if source == "experiment/calibration" and end_time is not None:
+        ax.set_xlim(5.0, end_time)
+        ax.set_xticks(np.arange(5.0, end_time+0.1, 0.5))
+        # ax2.set_xlim(5.0, end_time)
+        # ax2.set_xticks(np.arange(5.0, end_time+0.1, 0.5))
+
+    if source == "simulation/calibration":
+        ax.set_xlim(0.2, w_data[-1, 0])
+        ax.set_xticks(np.arange(0, w_data[-1, 0]+0.3, 10))
+        # ax2.set_xlim(0.2, w_data[-1, 0])
+        # ax2.set_ylim(w_data[1:, 1].min(), w_data[1:, 1].max())
+        # ax2.set_xticks(np.arange(0, w_data[-1, 0]+0.3, 10))
 
     if save:
         if scale:
             fig.savefig(
-                results_dir + f"plots/experiment/{source}/calibration_{fig_filename}.{format}")
+                results_dir + f"plots/{source}/{source.split('/')[0]}_calibration__{fig_filename}.{format}")
         else:
             fig.savefig(
-                results_dir + f"plots/experiment/{source}/calibration_{fig_filename}_raw.{format}")
+                results_dir + f"plots/{source}/{source.split('/')[0]}_calibration__{fig_filename}__raw.{format}")
         plt.close()
     else:
         fig.show()
 
 
 def plot_control(
-    bead_idx,
     wfs_command_data,
     ts_command_data,
     w_data,
@@ -292,7 +128,6 @@ def plot_control(
     Plot experiment data of specific welded bead
 
     Args:
-        bead_idx (int): index of welded bead
         wfs_data(np.array): wfs data
         wfs_command_data(np.array): wfs wfs_command data
         w_data(np.array): width data
@@ -306,7 +141,7 @@ def plot_control(
         N = w_data.shape[0]
 
     fig, axs = plt.subplots(2)
-    fig.set_size_inches((10, 6))
+    fig.set_size_inches(figsize)
     axs[0].set_xlabel("t")
     ax2 = axs[0].twinx()
     axs[1].set_xlabel("t")
@@ -317,7 +152,7 @@ def plot_control(
         wfs_command_data[:, 0],
         wfs_command_data[:, 1],
         where="post",
-        color="#6B66EC",
+        color="b",
         label="WFS command",
     )
     axs[1].plot(w_data[:, 0], w_data[:, 1],
@@ -333,68 +168,95 @@ def plot_control(
 
     if save:
         fig.savefig(
-            results_dir + f"plots/experiment/control/control_{fig_filename}.{format}")
+            results_dir + f"plots/{source}/{source.split('/')[0]}_control__{fig_filename}.{format}")
         plt.close()
     else:
         fig.show()
 
 
 N = None  # Horizon plotted
-end_time = 16
+end_time = None
 scale = False
 save = True
+figsize = (10, 6)
 format = "eps"
-source = "control"
-experiment_matrix = pd.read_excel(
-    data_dir + f'experiment/{source}/experiment_matrix.xlsx')
-ts_min = experiment_matrix['TS (mm/s)'].min()
-ts_max = experiment_matrix['TS (mm/s)'].max()
-data_path = data_dir + f"experiment/{source}/"
-if source == "simulation":
-    input_train, output_train, input_test, output_test = load_train_data(
-        data_dir + 'simulation/')
-    fig_filename = "train"
-    plot_simulation(
-        input_train,
-        output_train,
-        fig_filename,
-        N
-    )
+source = "experiment/calibration"
+if source in ['experiment/control', 'experiment/calibration']:
+    experiment_matrix = pd.read_excel(
+        data_dir + f'{source}/experiment_matrix.xlsx')
+    data_path = data_dir + f"{source}/"
 
-if source == "calibration":
-    bead_idxs = list(range(1, 16))
-    for bead_idx in bead_idxs:
-        bead_filename = data_path + f"series/bead{bead_idx}"
-        wfs_command_data = pd.read_csv(
-            bead_filename + "_wfs_command.csv").to_numpy()
-        wfs_data = pd.read_csv(bead_filename + "_wfs.csv").to_numpy()
-        w_data = pd.read_csv(bead_filename + "_w.csv").to_numpy()
-        ts_data = pd.read_csv(bead_filename + "_ts.csv").to_numpy()
-        ts_command_data = pd.read_csv(
-            bead_filename + "_ts_command.csv").to_numpy()
-        fig_filename = f"bead{bead_idx}"
+ts_min, ts_max = 4, 20
+if source == "simulation/calibration":
+    for ts in [4, 8, 12, 16, 20]:
+        input_train, output_train, input_test, output_test = load_train_data(
+            data_dir + f'simulation/TS {ts}/')
+        fig_filename = f"ts_{ts}__train"
+        wfs_command_data = np.vstack((input_train[:, 0], input_train[:, 1])).T
+        ts_command_data = np.vstack((input_train[:, 0], input_train[:, 2])).T
+        w_data = output_train
         if scale:
-            wfs_data[:, 1:] = normalize_data(wfs_data[:, 1:])
             wfs_command_data[:, 1:] = normalize_data(
                 wfs_command_data[:, 1:])
             w_data[:, 1:] = normalize_data(w_data[:, 1:])
             ts_command_data[:, 1:] = normalize_data(
                 ts_command_data[:, 1:], ts_min, ts_max)
-            ts_data[:, 1:] = normalize_data(ts_data[:, 1:], ts_min, ts_max)
 
         plot_calibration(
-            bead_idx,
             wfs_command_data,
-            wfs_data,
             ts_command_data,
-            ts_data,
+            w_data,
+            fig_filename,
+            N
+        )
+
+        fig_filename = f"ts_{ts}__test"
+        wfs_command_data = np.vstack((input_train[:, 0], input_train[:, 1])).T
+        ts_command_data = np.vstack((input_train[:, 0], input_train[:, 2])).T
+        w_data = output_test
+        if scale:
+            wfs_command_data[:, 1:] = normalize_data(
+                wfs_command_data[:, 1:])
+            w_data[:, 1:] = normalize_data(w_data[:, 1:])
+            ts_command_data[:, 1:] = normalize_data(
+                ts_command_data[:, 1:], ts_min, ts_max)
+
+        plot_calibration(
+            wfs_command_data,
+            ts_command_data,
+            w_data,
+            fig_filename,
+            N
+        )
+
+if source == "experiment/calibration":
+    bead_idxs = list(range(1, 16))
+    for bead_idx in bead_idxs:
+        bead_filename = data_path + f"series/bead{bead_idx}"
+        wfs_command_data = pd.read_csv(
+            bead_filename + "_wfs_command.csv").to_numpy()
+        w_data = pd.read_csv(bead_filename + "_w.csv").to_numpy()
+        ts_command_data = pd.read_csv(
+            bead_filename + "_ts_command.csv").to_numpy()
+        ts = int(ts_command_data[0, 1])
+        fig_filename = f"bead{bead_idx}"
+        if scale:
+            wfs_command_data[:, 1:] = normalize_data(
+                wfs_command_data[:, 1:])
+            w_data[:, 1:] = normalize_data(w_data[:, 1:])
+            ts_command_data[:, 1:] = normalize_data(
+                ts_command_data[:, 1:], ts_min, ts_max)
+
+        plot_calibration(
+            wfs_command_data,
+            ts_command_data,
             w_data,
             fig_filename,
             N
         )
 
 
-if source == "control":
+if source == "experiment/control":
     bead_idxs = list(range(1, 3))
     for bead_idx in bead_idxs:
         bead_filename = data_path + f"series/bead{bead_idx}"

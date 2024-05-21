@@ -66,7 +66,7 @@ def generate_w():
         y[:, 0] = wfs_array[:, 0]
         for i in range(1, len(wfs_array)):
             # WFS value
-            u_k = wfs_array[i, 1]
+            u_k = np.sqrt(wfs_array[i, 1])
             x_k = np.dot(ss_discrete.A, x_k) + np.dot(ss_discrete.B, u_k)
             y[i, 1] = np.dot(ss_discrete.C, x_k) + \
                 np.dot(ss_discrete.D, u_k)
@@ -75,7 +75,7 @@ def generate_w():
 
 
 # Simulation parameters
-sampling_time = 1e-02  # Simulation step time
+sampling_time = 2e-1  # Simulation step time
 step_time = 5
 sim_time = 100  # Simulation time in seconds
 
@@ -100,11 +100,11 @@ input_test = generate_wfs(step_time_test, test_size, input_bounds, 11)
 
 # Resample to sampling_time
 sampling_time_train = np.arange(0, sim_time + sampling_time, sampling_time).round(
-    int(np.log10(1 / sampling_time))
+    int(np.round(np.log10(1 / sampling_time)))
 )
 train_size = len(sampling_time_train)
 sampling_time_test = np.arange(0, sim_time + sampling_time, sampling_time).round(
-    int(np.log10(1 / sampling_time))
+    int(np.round(np.log10(1 / sampling_time)))
 )
 test_size = len(sampling_time_test)
 
@@ -118,37 +118,52 @@ sampling_times = [sampling_time_train, sampling_time_test]
 input_train, input_test = resample_wfs()
 resampled_arrays = [input_train, input_test]
 
-# Create tf
-numerator = [0, 0, 0.8]
-denominator = [0.2, 1.2, 1]
-G_continuous = control.TransferFunction(numerator, denominator)
+ts_gain = {4: 1.2, 8: 1.1, 12: 1.0, 16: 0.9, 20: 0.8}
+plant_df = pd.DataFrame()
+plant_df['TS'] = ts_gain.keys()
+plant_df['Ganho'] = ts_gain.values()
+plant_df.to_csv('results/models/plant.csv', index=False)
+for ts in [4, 8, 12, 16, 20]:
+    # Create tf
+    gain = ts_gain[ts]
+    numerator = [0, 0, gain]
+    denominator = [0.01, 1.5, 0.25]
+    G_continuous = control.TransferFunction(numerator, denominator)
 
-# Discretize the transfer function using Tustin's method
-G_discrete = control.sample_system(G_continuous, step_time, method='tustin')
+    # Discretize the transfer function using Tustin's method
+    G_discrete = control.sample_system(
+        G_continuous, step_time, method='tustin')
 
-# Convert to ss
-ss_discrete = control.tf2ss(G_discrete)
+    # Convert to ss
+    ss_discrete = control.tf2ss(G_discrete)
 
-# Generate outputs
-output_train, output_test = generate_w()
+    # Generate outputs
+    output_train, output_test = generate_w()
 
+    # Random noise
+    output_train[:, 1] += np.random.normal(loc=0,
+                                           scale=output_train[-1, 1]/100,
+                                           size=output_train.shape[0])
 
-# Random noise
-output_train[:, 1] += np.random.normal(loc=0,
-                                       scale=output_train[-1, 1]/100,
-                                       size=output_train.shape[0])
+    output_test[:, 1] += np.random.normal(loc=0,
+                                          scale=output_test[-1, 1]/100,
+                                          size=output_test.shape[0])
 
-output_test[:, 1] += np.random.normal(loc=0,
-                                      scale=output_test[-1, 1]/100,
-                                      size=output_test.shape[0])
+    # Generate datafranes
+    input_train = pd.DataFrame(input_train, columns=['t', 'wfs'])
+    output_train = pd.DataFrame(output_train, columns=['t', 'w'])
+    input_test = pd.DataFrame(input_test, columns=['t', 'wfs'])
+    output_test = pd.DataFrame(output_test, columns=['t', 'w'])
 
-# Generate datafranes
-input_train = pd.DataFrame(input_train, columns=['t', 'f'])
-output_train = pd.DataFrame(output_train, columns=['t', 'w'])
-input_test = pd.DataFrame(input_test, columns=['t', 'f'])
-output_test = pd.DataFrame(output_test, columns=['t', 'w'])
+    # Add TS to inputs
+    input_train['ts'] = ts
+    input_test['ts'] = ts
 
-input_train.to_csv(data_dir + f"simulation/input_train.csv", index=False)
-input_test.to_csv(data_dir + f"simulation/input_test.csv", index=False)
-output_train.to_csv(data_dir + f"simulation/output_train.csv", index=False)
-output_test.to_csv(data_dir + f"simulation/output_test.csv", index=False)
+    input_train.to_csv(
+        data_dir + f"simulation/TS {ts}/input_train.csv", index=False)
+    input_test.to_csv(
+        data_dir + f"simulation/TS {ts}/input_test.csv", index=False)
+    output_train.to_csv(
+        data_dir + f"simulation/TS {ts}/output_train.csv", index=False)
+    output_test.to_csv(
+        data_dir + f"simulation/TS {ts}/output_test.csv", index=False)

@@ -141,14 +141,11 @@ def run_training(
 # Load database
 # beads = np.arange(1, 16)
 # beads_train, beads_test = split_train_test(beads, 4)
-beads_test = [3, 6, 10, 15]
-beads_train = [1, 2, 4, 5, 7, 8, 9, 11, 12, 13, 14]
 
-build_train_data(data_dir + "experiment/calibration/", beads_train, beads_test)
-input_train, output_train, input_test, output_test = load_train_data(
-    data_dir + "experiment/calibration/"
-)
-
+for ts in [4, 8, 12, 16, 20]:
+    input_train, output_train, input_test, output_test = load_train_data(
+        data_dir + f"simulation/calibration/TS {ts}/"
+    )
 # Remove time
 input_train = input_train[:, 1:]
 input_test = input_test[:, 1:]
