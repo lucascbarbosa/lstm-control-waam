@@ -270,7 +270,7 @@ M = P  # control horizon
 N = P  # prediction horizon
 weight_control = 0.0
 weight_output = 100
-lr = 1e-1
+lr = 5e-2
 cost_tol = 1e-4
 alpha = 0.1
 
