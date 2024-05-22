@@ -200,7 +200,7 @@ scale = False
 save = True
 figsize = (10, 4)
 format = "eps"
-source = "experiment/control"
+source = "simulation/calibration"
 if source in ['experiment/control', 'experiment/calibration']:
     experiment_matrix = pd.read_excel(
         data_dir + f'{source}/experiment_matrix.xlsx')
@@ -218,7 +218,6 @@ if source == "simulation/calibration":
 
         ts_command_data = np.vstack((input_train[:, 0], input_train[:, 2])).T
         ts_command = int(ts_command_data[0, 1])
-
         w_data = output_train
 
         if scale:
@@ -230,7 +229,7 @@ if source == "simulation/calibration":
 
         plot_calibration(
             wfs_command_data,
-            ts_command_data,
+            ts_command,
             w_data,
             fig_filename,
             N

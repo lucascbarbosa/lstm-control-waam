@@ -193,7 +193,7 @@ for ts_step in ts_steps:
     gain = ts_gain[ts_gain["TS"] ==
                    ts_step * (u_max[1] - u_min[1]) + u_min[1]].values[0, 1]
     numerator = [0, 0, gain]
-    denominator = [0.01, 1.5, 0.25]
+    denominator = [0.2, 1.2, 1]
     T = 0.2
     G_continuous = control.TransferFunction(numerator, denominator)
     G_discrete = control.sample_system(
@@ -224,7 +224,7 @@ for ts_step in ts_steps:
         output_lstm_data.append(y_descaled[0])
 
         # Predict output from tf
-        u_scaled = input_data[i, 0].reshape((1, 1))
+        u_scaled = input_data[i, 0]
         u_descaled = u_scaled * (u_max[0] - u_min[0]) + u_min[0]
         x, y_descaled = predict_output(x, u_descaled)
         output_tf_data.append(y_descaled)

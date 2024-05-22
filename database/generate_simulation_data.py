@@ -118,7 +118,7 @@ sampling_times = [sampling_time_train, sampling_time_test]
 input_train, input_test = resample_wfs()
 resampled_arrays = [input_train, input_test]
 
-ts_gain = {4: 1.2, 8: 1.1, 12: 1.0, 16: 0.9, 20: 0.8}
+ts_gain = {4: 5, 8: 4, 12: 3, 16: 2, 20: 1}
 plant_df = pd.DataFrame()
 plant_df['TS'] = ts_gain.keys()
 plant_df['Ganho'] = ts_gain.values()
@@ -127,13 +127,14 @@ for ts in [4, 8, 12, 16, 20]:
     # Create tf
     gain = ts_gain[ts]
     numerator = [0, 0, gain]
-    denominator = [0.01, 1.5, 0.25]
+    denominator = [0.2, 1.2, 1]
     G_continuous = control.TransferFunction(numerator, denominator)
 
     # Discretize the transfer function using Tustin's method
     G_discrete = control.sample_system(
-        G_continuous, step_time, method='tustin')
+        G_continuous, sampling_time, method='tustin')
 
+    print(G_discrete)
     # Convert to ss
     ss_discrete = control.tf2ss(G_discrete)
 

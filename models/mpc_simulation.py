@@ -124,7 +124,6 @@ def compute_step(u_hist, y_hist, u_forecast):
         input_step = (
             2 * input_jacobian[:, j].T @ input_diff * weight_control
         )
-
         total_step = output_step + input_step
         steps[j, 0] = total_step
 
@@ -154,7 +153,6 @@ def optimization_function(u_forecast, lr):
             u_forecast += (-lr/ada_grad)*steps
             u_forecast = np.clip(
                 u_forecast, a_min=0.0, a_max=1.0)
-            lr = lr * (1.0 - alpha_opt)
             last_cost = cost
             if opt_step == 1:
                 initial_cost = cost
@@ -269,15 +267,14 @@ process_model = load_model(
 # Define MPC optimization parameters
 M = P  # control horizon
 N = P  # prediction horizon
-weight_control = 1.0
-weight_output = 50.0
-lr = 1e-3
-cost_tol = 1e-4
-alpha_time = 1e-2
-alpha_opt = 1e-2
+weight_control = 0.0
+weight_output = 1e2
+lr = 1e-1
+cost_tol = 1e-5
+alpha = 1e-1
 
 # Define TS and width reference
-ts = 8
+ts = 4
 ts_scaled = (ts - u_min[1]) / \
     (u_max[1] - u_min[1])
 
@@ -293,7 +290,7 @@ ts_gain = pd.read_csv(results_dir + "models/plant.csv")
 gain = ts_gain[ts_gain["TS"] == ts].values[0, 1]
 fs = 5.0
 numerator = [0, 0, gain]
-denominator = [0.01, 1.5, 0.25]
+denominator = [0.2, 1.2, 1]
 T = 1 / fs
 G_continuous = control.TransferFunction(numerator, denominator)
 G_discrete = control.sample_system(
@@ -312,22 +309,22 @@ exp_step = 0
 exp_time = 0.0
 
 # exp_horizon = 340/(ts*0.2)
-exp_horizon = 60
+exp_horizon = 50
 x_row = np.zeros((2, 1))
 y_row_descaled = np.zeros((1, 1))
 mpc_state = False
 time_array = []
 
 # Set reference
-ref_min = gain * u_min[0]
-ref_max = gain * u_max[0]
+ref_min = gain * np.sqrt(u_min[0])
+ref_max = gain * np.sqrt(u_max[0])
 # y_ref = (ref_max + ref_min) / 2
-y_ref = 9.0
+y_ref = 13
 y_ref = step_reference(y_ref)
 y_ref_scaled = (y_ref - y_min) / \
     (y_max - y_min)
 while exp_step < exp_horizon:
-    if y_row_descaled < 4.0:
+    if y_row_descaled < ref_min - 0.5:
         u_opt = 0.0
     else:
         mpc_state = True
@@ -338,7 +335,7 @@ while exp_step < exp_horizon:
         u_forecast[:-1] = u_forecast[1:]
 
         # Updates learning rate
-        lr = lr * (1.0 - alpha_time)
+        lr = lr * (1.0 - alpha)
 
     u_opt_descaled = u_opt * \
         (u_max[0] - u_min[0]) + u_min[0]
