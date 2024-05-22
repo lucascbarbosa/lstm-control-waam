@@ -200,7 +200,7 @@ scale = False
 save = True
 figsize = (10, 4)
 format = "eps"
-source = "simulation/calibration"
+source = "simulation/control"
 if source in ['experiment/control', 'experiment/calibration']:
     experiment_matrix = pd.read_excel(
         data_dir + f'{source}/experiment_matrix.xlsx')
@@ -316,4 +316,37 @@ if source == "experiment/control":
             ref_data,
             fig_filename,
             N
+        )
+
+if source == "simulation/control":
+    # for ts in [4, 8, 12, 16, 20]:
+    for ts in [4]:
+        wfs_command_data = pd.read_csv(
+            data_dir + f"simulation/control/ts_{ts}__step__wfs_command.csv"
+        ).to_numpy()
+        ts_command_data = pd.read_csv(
+            data_dir + f"simulation/control/ts_{ts}__step__ts_command.csv"
+        ).to_numpy()
+        w_data = pd.read_csv(
+            data_dir + f"simulation/control/ts_{ts}__step__w.csv"
+        ).to_numpy()
+        ref_data = pd.read_csv(
+            data_dir + f"simulation/control/ts_{ts}__step__reference.csv"
+        ).to_numpy()
+        fig_filename = f"ts_{ts}__step"
+        plot_control(
+            wfs_command_data,
+            ts,
+            w_data,
+            ref_data,
+            fig_filename,
+            N
+        )
+
+        u_forecast = pd.read_csv(
+            results_dir + f"simulation/control/ts_{ts}__step__u_forecast.csv"
+        )
+
+        y_forecast = pd.read_csv(
+            results_dir + f"simulation/control/ts_{ts}__step__y_forecast.csv"
         )

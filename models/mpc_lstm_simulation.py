@@ -1,14 +1,11 @@
+"""MPC Simulation."""
 import tensorflow as tf
 from keras.models import load_model
-from tensorflow.keras.losses import mean_squared_error
-from tensorflow.keras.optimizers import Adam
-
 from models.process_data import load_train_data
 import pandas as pd
 import numpy as np
-import time
 import control
-
+import time
 #############
 # Functions #
 
@@ -207,9 +204,13 @@ def predict_output(x, u):
 
 
 def name_forecast_cols():
-    u_forecast_list = ["u_forecast_" + str(i).zfill(2) for i in range(1, M+1)]
-    y_forecast_list = ["y_forecast_" + str(i).zfill(2) for i in range(1, N+1)]
-    return u_forecast_list + y_forecast_list
+    u_forecast_list = ['t'] + ["u_forecast_" +
+                               str(i).zfill(2)
+                               for i in range(1, M+1)]
+    y_forecast_list = ['t'] + ["y_forecast_" +
+                               str(i).zfill(2)
+                               for i in range(1, N+1)]
+    return u_forecast_list, y_forecast_list
 
 
 # Paths
@@ -268,7 +269,7 @@ process_model = load_model(
 M = P  # control horizon
 N = P  # prediction horizon
 weight_control = 0.0
-weight_output = 50
+weight_output = 100
 lr = 1e-1
 cost_tol = 1e-4
 alpha = 0.1
@@ -298,8 +299,9 @@ G_discrete = control.sample_system(
 ss_discrete = control.tf2ss(G_discrete)
 
 # Data arrays
-u_data = []
-y_data = []
+wfs_data = []
+ts_data = []
+w_data = []
 cost_data = []
 u_forecast_data = []
 y_forecast_data = []
@@ -318,8 +320,7 @@ time_array = []
 # Set reference
 ref_min = gain * np.sqrt(u_min[0])
 ref_max = gain * np.sqrt(u_max[0])
-# y_ref = (ref_max + ref_min) / 2
-y_ref = 13
+y_ref = (ref_max + ref_min) / 2
 y_ref = step_reference(y_ref)
 y_ref_scaled = (y_ref - y_min) / \
     (y_max - y_min)
@@ -349,44 +350,61 @@ while exp_step < exp_horizon:
     exp_step += 1
 
     # Save data
-    time_array.append(np.round(exp_time, 2))
-    u_data.append(u_opt_descaled)
-    y_data.append(y_row_descaled[0])
+    t = np.round(exp_time, 2)
+    wfs_data.append({'t': t, 'wfs_command': u_opt_descaled})
+    ts_data.append({'t': t, 'ts_command': ts})
+    w_data.append({'t': t, 'w': y_row_descaled[0]})
     if mpc_state:
-        cost_data.append(cost)
+        cost_data.append({'t': t, 'cost': cost})
         u_forecast_data.append(u_forecast.ravel().tolist())
         y_forecast_data.append(y_forecast.ravel().tolist())
 
         # Updates forecast
         u_forecast[:-1] = u_forecast[1:]
 
-    else:
-        cost_data.append(None)
-        u_forecast_data.append([None for i in range(M)])
-        y_forecast_data.append([None for i in range(N)])
 
-# Save
-time_array = np.array(time_array)
-u_data = np.array(u_data)
-y_data = np.array(y_data)
-cost_data = np.array(cost_data)
-mpc_df = pd.DataFrame({'t': time_array, 'u': u_data,
-                      'y': y_data, 'r': y_ref.ravel()[-len(y_data)-N:-N],
-                       'cost': cost_data})
-mpc_df.to_csv(results_dir + "mpc/mpc_data.csv", index=False)
+# Time series data
+wfs_df = pd.DataFrame(wfs_data)
+wfs_df.to_csv(data_dir + f'simulation/control/ts_{ts}__step__wfs_command.csv',
+              index=False)
+ts_df = pd.DataFrame(ts_data)
+ts_df.to_csv(data_dir + f'simulation/control/ts_{ts}__step__ts_command.csv',
+             index=False)
+w_df = pd.DataFrame(w_data)
+w_df.to_csv(data_dir + f'simulation/control/ts_{ts}__step__w.csv',
+            index=False)
 
-forecast_cols = name_forecast_cols()
-u_forecast_data = np.array(
-    u_forecast_data) * (u_max[0] - u_min[0]) + u_min[0]
-y_forecast_data = np.array(y_forecast_data) * \
-    (y_max - y_min) + y_min
-forecast_data = np.hstack((u_forecast_data, y_forecast_data))
-forecast_df = pd.DataFrame(forecast_data, columns=forecast_cols)
-forecast_df.to_csv(results_dir + "mpc/mpc_forecast.csv", index=False)
+ref_df = pd.DataFrame()
+ref_df['t'] = w_df['t']
+ref_df['r'] = y_ref[0, 0]
+ref_df.to_csv(
+    data_dir + f'simulation/control/ts_{ts}__step__reference.csv',
+    index=False)
 
-#
-# time1 = time.time()
-# x = np.random.normal(size=(1, 103, 1))
-# y = process_model.predict(x, verbose=0)
-# time2 = time.time()
-# print(time2 - time1)
+# MPC data
+cost_df = pd.DataFrame(cost_data)
+mpc_time = cost_df['t'].to_numpy().reshape((-1, 1))
+
+u_forecast_cols, y_forecast_cols = name_forecast_cols()
+u_forecast_array = np.array(u_forecast_data)
+u_forecast_array = u_forecast_array * (
+    u_max[0] - u_min[0]) + u_min[0]
+u_forecast_array = np.hstack((mpc_time, u_forecast_array))
+u_forecast_df = pd.DataFrame(u_forecast_array,
+                             columns=u_forecast_cols)
+u_forecast_df.to_csv(
+    results_dir +
+    'predictions/simulation/control/ts_{ts}__step__u_forecast.csv',
+    index=False)
+
+y_forecast_array = np.array(y_forecast_data)
+y_forecast_array = y_forecast_array * (
+    y_max[0] - y_min[0]) + y_min[0]
+y_forecast_array = np.hstack((mpc_time, y_forecast_array))
+
+y_forecast_df = pd.DataFrame(y_forecast_array,
+                             columns=y_forecast_cols)
+y_forecast_df.to_csv(
+    results_dir +
+    'predictions/simulation/control/ts_{ts}__step__y_forecast.csv',
+    index=False)
