@@ -184,7 +184,7 @@ opt = Adam(learning_rate=best_params["lr"])
 model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Create steps
-N = 100
+N = 275
 T = 0.2
 time = np.arange(0.0, N*T, T)
 wfs_steps = np.arange(0.0, 1.01, 0.1)

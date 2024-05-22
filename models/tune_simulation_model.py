@@ -148,7 +148,7 @@ list_output_train = []
 list_output_test = []
 for ts in [4, 8, 12, 16, 20]:
     input_train, output_train, input_test, output_test = load_train_data(
-        data_dir + f"simulation/TS {ts}/"
+        data_dir + f"simulation/calibration/TS {ts}/"
     )
     list_input_train.append(input_train)
     list_input_test.append(input_test)

@@ -210,7 +210,7 @@ ts_min, ts_max = 4, 20
 if source == "simulation/calibration":
     for ts in [4, 8, 12, 16, 20]:
         input_train, output_train, input_test, output_test = load_train_data(
-            data_dir + f'simulation/TS {ts}/')
+            data_dir + f'simulation/calibration/TS {ts}/')
 
         fig_filename = f"ts_{ts}__train"
 

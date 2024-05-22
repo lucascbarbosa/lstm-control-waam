@@ -140,7 +140,7 @@ def optimization_function(u_forecast, lr):
     # gradient history for adaptive learning rate algorithm
     gradient_hist = []
     lr = lr
-    while delta_cost/initial_cost < -cost_tol:
+    while delta_cost/initial_cost < -cost_tol and opt_step <= 30:
         steps, y_forecast = compute_step(u_hist, y_hist, u_forecast)
         cost = cost_function(u_forecast, y_forecast)
         delta_cost = cost - last_cost
@@ -223,7 +223,7 @@ list_output_train = []
 list_output_test = []
 for ts in [4, 8, 12, 16, 20]:
     input_train, output_train, input_test, output_test = load_train_data(
-        data_dir + f"simulation/TS {ts}/"
+        data_dir + f"simulation/calibration/TS {ts}/"
     )
     list_input_train.append(input_train)
     list_input_test.append(input_test)
@@ -250,7 +250,7 @@ process_outputs = output_train.shape[1]
 metrics_process = pd.read_csv(
     results_dir + "models/simulation/hp_metrics.csv"
 )
-best_process_model_id = 3
+best_process_model_id = 6
 best_process_model_filename = f"run_{best_process_model_id:03d}.keras"
 best_params = metrics_process[
     metrics_process["run_id"] == int(best_process_model_id)
@@ -268,10 +268,10 @@ process_model = load_model(
 M = P  # control horizon
 N = P  # prediction horizon
 weight_control = 0.0
-weight_output = 1e2
+weight_output = 50
 lr = 1e-1
-cost_tol = 1e-5
-alpha = 1e-1
+cost_tol = 1e-4
+alpha = 0.1
 
 # Define TS and width reference
 ts = 4
@@ -324,15 +324,12 @@ y_ref = step_reference(y_ref)
 y_ref_scaled = (y_ref - y_min) / \
     (y_max - y_min)
 while exp_step < exp_horizon:
-    if y_row_descaled < ref_min - 0.5:
+    if y_row_descaled < 6.0:
         u_opt = 0.0
     else:
         mpc_state = True
         u_forecast, y_forecast, cost = optimization_function(u_forecast, lr)
         u_opt = u_forecast[0, 0]
-
-        # Updates forecast
-        u_forecast[:-1] = u_forecast[1:]
 
         # Updates learning rate
         lr = lr * (1.0 - alpha)
@@ -343,7 +340,7 @@ while exp_step < exp_horizon:
     y_row_scaled = (y_row_descaled - y_min) / \
         (y_max - y_min)
     print(
-        f"Experiment step {exp_step}({np.round(exp_time, 2)} s): Control {np.round(u_opt_descaled, 2)} Width {np.round(y_row_descaled[0], 3)}")
+        f"Experiment step {exp_step}({np.round(exp_time, 2)} s): Control {np.round(u_opt_descaled, 2)} Width {np.round(y_row_descaled[0], 3)} \n\n")
 
     # Updates hists
     u_hist = update_hist(u_hist, np.array([[u_opt, ts_scaled]]))
@@ -352,13 +349,21 @@ while exp_step < exp_horizon:
     exp_step += 1
 
     # Save data
+    time_array.append(np.round(exp_time, 2))
+    u_data.append(u_opt_descaled)
+    y_data.append(y_row_descaled[0])
     if mpc_state:
-        time_array.append(np.round(exp_time, 2))
-        u_data.append(u_opt_descaled)
-        y_data.append(y_row_descaled[0])
         cost_data.append(cost)
         u_forecast_data.append(u_forecast.ravel().tolist())
         y_forecast_data.append(y_forecast.ravel().tolist())
+
+        # Updates forecast
+        u_forecast[:-1] = u_forecast[1:]
+
+    else:
+        cost_data.append(None)
+        u_forecast_data.append([None for i in range(M)])
+        y_forecast_data.append([None for i in range(N)])
 
 # Save
 time_array = np.array(time_array)
