@@ -271,10 +271,10 @@ process_model = load_model(
 M = P  # control horizon
 N = P  # prediction horizon
 weight_control = 1.0
-weight_output = 10.0
+weight_output = 100
 lr = 1e-1
 cost_tol = 1e-6
-alpha = 0.66
+alpha = 0.33
 
 # Define TS and width reference
 for ts in [4, 8, 12, 16, 20]:
