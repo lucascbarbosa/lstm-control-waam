@@ -57,7 +57,7 @@ def cost_function(u_forecast, y_forecast):
 
     output_cost = np.sum(output_error**2 * weight_output)
     control_cost = np.sum(u_diff_forecast**2 * weight_control)
-    return output_cost + control_cost
+    return output_cost,  control_cost
 
 
 def compute_gradient(input_tensor, j):
@@ -135,15 +135,15 @@ def optimization_function(u_forecast, lr):
     delta_cost = -cost
     initial_cost = cost
     # gradient history for adaptive learning rate algorithm
-    gradient_hist = []
+    gradient_hist = np.zeros((M, 1))
     lr = lr
     while delta_cost/initial_cost < -cost_tol and opt_step <= 30:
         steps, y_forecast = compute_step(u_hist, y_hist, u_forecast)
-        cost = cost_function(u_forecast, y_forecast)
+        output_cost, input_cost = cost_function(u_forecast, y_forecast)
+        cost = output_cost + input_cost
         delta_cost = cost - last_cost
-        gradient_hist.append(steps[:, 0].ravel().tolist())
-        ada_grad = np.sqrt(np.sum(np.array(gradient_hist)[
-            :opt_step, :]**2, axis=0)+1e-10).reshape((M, 1))
+        gradient_hist += steps ** 2
+        ada_grad = np.sqrt(gradient_hist + 1e-10)
         if verbose:
             print(f"Opt step: {opt_step} Cost: {cost}")
         if delta_cost < 0:
@@ -151,6 +151,8 @@ def optimization_function(u_forecast, lr):
             u_forecast = np.clip(
                 u_forecast, a_min=0.0, a_max=1.0)
             last_cost = cost
+            last_input_cost = input_cost
+            last_output_cost = output_cost
             if opt_step == 1:
                 initial_cost = cost
         else:
@@ -171,7 +173,8 @@ def optimization_function(u_forecast, lr):
     print(
         f"Y_R: {y_ref_scaled[exp_step:exp_step+N] * (y_max - y_min) + y_min}")
 
-    return u_forecast, y_forecast, last_cost
+    return (u_forecast, y_forecast,
+            last_input_cost, last_output_cost)
 
 
 def step_reference(amps):
@@ -251,160 +254,156 @@ process_outputs = output_train.shape[1]
 metrics_process = pd.read_csv(
     results_dir + "models/simulation/hp_metrics.csv"
 )
-best_process_model_id = 6
+best_process_model_id = 11
 best_process_model_filename = f"run_{best_process_model_id:03d}.keras"
 best_params = metrics_process[
     metrics_process["run_id"] == int(best_process_model_id)
 ]
 P = best_params.iloc[0, 1]
-Q = 3
+Q = best_params.iloc[0, 2]
 
 process_model = load_model(
     results_dir +
     f"models/simulation/best/{best_process_model_filename}"
 )
 
-
 # Define MPC optimization parameters
 M = P  # control horizon
 N = P  # prediction horizon
-weight_control = 0.0
+weight_control = 0.1
 weight_output = 100
-lr = 5e-2
-cost_tol = 1e-4
-alpha = 0.1
+lr = 1e-1
+cost_tol = 1e-6
+alpha = 0.9
 
 # Define TS and width reference
-ts = 4
-ts_scaled = (ts - u_min[1]) / \
-    (u_max[1] - u_min[1])
+for ts in [4, 8, 12, 16, 20]:
+    ts_scaled = (ts - u_min[1]) / \
+        (u_max[1] - u_min[1])
 
-# Historic data
-u_hist = np.zeros((P, process_inputs))
-u_hist[:, :] = [0.0, ts_scaled]
-y_hist = np.zeros((Q, process_outputs))
-y_hist[-1, 0] = -y_min/(y_max - y_min)
+    # Historic data
+    u_hist = np.zeros((P, process_inputs))
+    u_hist[:, :] = [0.0, ts_scaled]
+    y_hist = np.zeros((Q, process_outputs))
+    y_hist[-1, 0] = -y_min/(y_max - y_min)
 
-u_forecast = np.full((M, 1), 0.0)
+    u_forecast = np.full((M, 1), 0.0)
 
-ts_gain = pd.read_csv(results_dir + "models/plant.csv")
-gain = ts_gain[ts_gain["TS"] == ts].values[0, 1]
-fs = 5.0
-numerator = [0, 0, gain]
-denominator = [0.2, 1.2, 1]
-T = 1 / fs
-G_continuous = control.TransferFunction(numerator, denominator)
-G_discrete = control.sample_system(
-    G_continuous, T, method='tustin')
-ss_discrete = control.tf2ss(G_discrete)
+    ts_gain = pd.read_csv(results_dir + "models/plant.csv")
+    gain = ts_gain[ts_gain["TS"] == ts].values[0, 1]
+    fs = 5.0
+    numerator = [0, 0, gain]
+    denominator = [0.2, 1.2, 1]
+    T = 1 / fs
+    G_continuous = control.TransferFunction(numerator, denominator)
+    G_discrete = control.sample_system(
+        G_continuous, T, method='tustin')
+    ss_discrete = control.tf2ss(G_discrete)
 
-# Data arrays
-wfs_data = []
-ts_data = []
-w_data = []
-cost_data = []
-u_forecast_data = []
-y_forecast_data = []
+    # Data arrays
+    wfs_data = []
+    ts_data = []
+    w_data = []
+    cost_data = []
+    u_forecast_data = []
+    y_forecast_data = []
 
-verbose = True
-exp_step = 0
-exp_time = 0.0
+    verbose = True
+    exp_step = 1
+    exp_time = 0.0
 
-# exp_horizon = 340/(ts*0.2)
-exp_horizon = 50
-x_row = np.zeros((2, 1))
-y_row_descaled = np.zeros((1, 1))
-mpc_state = False
-time_array = []
+    # exp_horizon = 340/(ts*0.2)
+    exp_horizon = 50
+    x_row = np.zeros((2, 1))
+    y_row_descaled = np.zeros((1, 1))
+    mpc_state = False
+    time_array = []
 
-# Set reference
-ref_min = gain * np.sqrt(u_min[0])
-ref_max = gain * np.sqrt(u_max[0])
-y_ref = (ref_max + ref_min) / 2
-y_ref = step_reference(y_ref)
-y_ref_scaled = (y_ref - y_min) / \
-    (y_max - y_min)
-while exp_step < exp_horizon:
-    if y_row_descaled < 6.0:
-        u_opt = 0.0
-    else:
-        mpc_state = True
-        u_forecast, y_forecast, cost = optimization_function(u_forecast, lr)
+    # Set reference
+    ref_min = gain * np.sqrt(u_min[0])
+    ref_max = gain * np.sqrt(u_max[0])
+    y_ref = (ref_max + ref_min) / 2
+    y_ref = step_reference(y_ref)
+    y_ref_scaled = (y_ref - y_min) / \
+        (y_max - y_min)
+    while exp_step <= exp_horizon:
+        u_forecast, y_forecast, input_cost, output_cost = optimization_function(
+            u_forecast, lr)
+        cost = input_cost + output_cost
         u_opt = u_forecast[0, 0]
 
         # Updates learning rate
         lr = lr * (1.0 - alpha)
 
-    u_opt_descaled = u_opt * \
-        (u_max[0] - u_min[0]) + u_min[0]
-    x_row, y_row_descaled = predict_output(x_row, u_opt_descaled)
-    y_row_scaled = (y_row_descaled - y_min) / \
-        (y_max - y_min)
-    print(
-        f"Experiment step {exp_step}({np.round(exp_time, 2)} s): Control {np.round(u_opt_descaled, 2)} Width {np.round(y_row_descaled[0], 3)} \n\n")
+        u_opt_descaled = u_opt * \
+            (u_max[0] - u_min[0]) + u_min[0]
+        x_row, y_row_descaled = predict_output(x_row, u_opt_descaled)
+        y_row_scaled = (y_row_descaled - y_min) / \
+            (y_max - y_min)
+        print(
+            f"Experiment step {exp_step}({np.round(exp_time, 2)} s): Control {np.round(u_opt_descaled, 2)} Width {np.round(y_row_descaled[0], 3)} \n\n")
 
-    # Updates hists
-    u_hist = update_hist(u_hist, np.array([[u_opt, ts_scaled]]))
-    y_hist = update_hist(y_hist, np.array([[y_row_scaled]]))
-    exp_time += np.round(T, 1)
-    exp_step += 1
+        # Updates hists
+        u_hist = update_hist(u_hist, np.array([[u_opt, ts_scaled]]))
+        y_hist = update_hist(y_hist, np.array([[y_row_scaled]]))
+        exp_time += np.round(T, 1)
+        exp_step += 1
 
-    # Save data
-    t = np.round(exp_time, 2)
-    wfs_data.append({'t': t, 'wfs_command': u_opt_descaled})
-    ts_data.append({'t': t, 'ts_command': ts})
-    w_data.append({'t': t, 'w': y_row_descaled[0]})
-    if mpc_state:
-        cost_data.append({'t': t, 'cost': cost})
+        # Save data
+        t = np.round(exp_time, 2)
+        wfs_data.append({'t': t, 'wfs_command': u_opt_descaled})
+        ts_data.append({'t': t, 'ts_command': ts})
+        w_data.append({'t': t, 'w': y_row_descaled[0]})
+        cost_data.append({'t': t, 'input_cost': input_cost,
+                          'output_cost': output_cost})
         u_forecast_data.append(u_forecast.ravel().tolist())
         y_forecast_data.append(y_forecast.ravel().tolist())
 
         # Updates forecast
         u_forecast[:-1] = u_forecast[1:]
 
+    # Time series data
+    wfs_df = pd.DataFrame(wfs_data)
+    wfs_df.to_csv(data_dir + f'simulation/control/ts_{ts}__step__wfs_command.csv',
+                  index=False)
+    ts_df = pd.DataFrame(ts_data)
+    ts_df.to_csv(data_dir + f'simulation/control/ts_{ts}__step__ts_command.csv',
+                 index=False)
+    w_df = pd.DataFrame(w_data)
+    w_df.to_csv(data_dir + f'simulation/control/ts_{ts}__step__w.csv',
+                index=False)
 
-# Time series data
-wfs_df = pd.DataFrame(wfs_data)
-wfs_df.to_csv(data_dir + f'simulation/control/ts_{ts}__step__wfs_command.csv',
-              index=False)
-ts_df = pd.DataFrame(ts_data)
-ts_df.to_csv(data_dir + f'simulation/control/ts_{ts}__step__ts_command.csv',
-             index=False)
-w_df = pd.DataFrame(w_data)
-w_df.to_csv(data_dir + f'simulation/control/ts_{ts}__step__w.csv',
-            index=False)
+    ref_df = pd.DataFrame()
+    ref_df['t'] = w_df['t']
+    ref_df['r'] = y_ref[0, 0]
+    ref_df.to_csv(
+        data_dir + f'simulation/control/ts_{ts}__step__reference.csv',
+        index=False)
 
-ref_df = pd.DataFrame()
-ref_df['t'] = w_df['t']
-ref_df['r'] = y_ref[0, 0]
-ref_df.to_csv(
-    data_dir + f'simulation/control/ts_{ts}__step__reference.csv',
-    index=False)
+    # MPC data
+    cost_df = pd.DataFrame(cost_data)
+    mpc_time = cost_df['t'].to_numpy().reshape((-1, 1))
 
-# MPC data
-cost_df = pd.DataFrame(cost_data)
-mpc_time = cost_df['t'].to_numpy().reshape((-1, 1))
+    u_forecast_cols, y_forecast_cols = name_forecast_cols()
+    u_forecast_array = np.array(u_forecast_data)
+    u_forecast_array = u_forecast_array * (
+        u_max[0] - u_min[0]) + u_min[0]
+    u_forecast_array = np.hstack((mpc_time, u_forecast_array))
+    u_forecast_df = pd.DataFrame(u_forecast_array,
+                                 columns=u_forecast_cols)
+    u_forecast_df.to_csv(
+        results_dir +
+        f'predictions/simulation/control/ts_{ts}__step__u_forecast.csv',
+        index=False)
 
-u_forecast_cols, y_forecast_cols = name_forecast_cols()
-u_forecast_array = np.array(u_forecast_data)
-u_forecast_array = u_forecast_array * (
-    u_max[0] - u_min[0]) + u_min[0]
-u_forecast_array = np.hstack((mpc_time, u_forecast_array))
-u_forecast_df = pd.DataFrame(u_forecast_array,
-                             columns=u_forecast_cols)
-u_forecast_df.to_csv(
-    results_dir +
-    'predictions/simulation/control/ts_{ts}__step__u_forecast.csv',
-    index=False)
+    y_forecast_array = np.array(y_forecast_data)
+    y_forecast_array = y_forecast_array * (
+        y_max[0] - y_min[0]) + y_min[0]
+    y_forecast_array = np.hstack((mpc_time, y_forecast_array))
 
-y_forecast_array = np.array(y_forecast_data)
-y_forecast_array = y_forecast_array * (
-    y_max[0] - y_min[0]) + y_min[0]
-y_forecast_array = np.hstack((mpc_time, y_forecast_array))
-
-y_forecast_df = pd.DataFrame(y_forecast_array,
-                             columns=y_forecast_cols)
-y_forecast_df.to_csv(
-    results_dir +
-    'predictions/simulation/control/ts_{ts}__step__y_forecast.csv',
-    index=False)
+    y_forecast_df = pd.DataFrame(y_forecast_array,
+                                 columns=y_forecast_cols)
+    y_forecast_df.to_csv(
+        results_dir +
+        f'predictions/simulation/control/ts_{ts}__step__y_forecast.csv',
+        index=False)

@@ -137,8 +137,20 @@ def plot_control(
         N (int): number of samples of data array
 
     """
+    def create_control_diff(u):
+        u_diff = u.copy()
+        u_diff[1:] = u_diff[1:] - u_diff[:-1]
+        return u_diff
+
     if N is None:
         N = w_data.shape[0]
+
+    overshoots = (w_data[:, 1].max() / w_data[-1, 1]) - 1.0
+    du = create_control_diff(wfs_command_data[:, 1])
+    du_mean = du.mean(axis=0)
+
+    print(f"Overshoots: {overshoots*100:.2f}%")
+    print(f"dU Médio: {du_mean/wfs_command_data[:, 1].max(axis=0)}")
 
     fig, ax = plt.subplots(1)
     fig.set_size_inches(figsize)
@@ -184,7 +196,7 @@ def plot_control(
                  label="Reference width")
 
     fig.tight_layout()
-    fig.legend(bbox_to_anchor=(0.94, 0.98))
+    fig.legend(bbox_to_anchor=(0.94, 0.92))
 
     if save:
         fig.savefig(
@@ -197,7 +209,7 @@ def plot_control(
 N = None  # Horizon plotted
 end_time = None
 scale = False
-save = True
+save = False
 figsize = (10, 4)
 format = "eps"
 source = "simulation/control"
@@ -344,9 +356,11 @@ if source == "simulation/control":
         )
 
         u_forecast = pd.read_csv(
-            results_dir + f"simulation/control/ts_{ts}__step__u_forecast.csv"
+            results_dir +
+            f"predictions/simulation/control/ts_{ts}__step__u_forecast.csv"
         )
 
         y_forecast = pd.read_csv(
-            results_dir + f"simulation/control/ts_{ts}__step__y_forecast.csv"
+            results_dir +
+            f"predictions/simulation/control/ts_{ts}__step__y_forecast.csv"
         )

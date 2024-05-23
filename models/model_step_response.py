@@ -101,25 +101,22 @@ def plot_test(
         where="post",
         color="b",
         linestyle='--',
-        label="WFS command",
     )
     ax2.plot(time,
              w_data_lstm,
              color="#006400",
-             label="Width - LSTM"
              )
     ax2.plot(time,
              w_data_tf,
              color="#00AA00",
-             label="Width - TF"
              )
 
     ax.set_ylabel("WFS (mm/min)")
     ax2.set_ylabel("W (mm)")
 
-    plt.legend()
+    fig.legend(['WFS command', 'Width - LSTM', 'Width - TF'],
+               bbox_to_anchor=(0.94, 0.8))
     plt.tight_layout()
-
     if save:
         plt.savefig(
             results_dir + f"plots/{source}/calibration/{source}_calibration__ts_{ts_command}__step_response.{format}")
@@ -129,7 +126,7 @@ def plot_test(
 source = "simulation"
 save = True
 format = "eps"
-best_model_id = 3
+best_model_id = 1
 ts_gain = pd.read_csv(results_dir + "models/plant.csv")
 if source == "experiment":
     # Load data
@@ -145,7 +142,7 @@ elif source == "simulation":
     list_output_test = []
     for ts in [4, 8, 12, 16, 20]:
         input_train, output_train, input_test, output_test = load_train_data(
-            data_dir + f"simulation/TS {ts}/"
+            data_dir + f"simulation/calibration/TS {ts}/"
         )
         list_input_train.append(input_train)
         list_input_test.append(input_test)
@@ -173,7 +170,7 @@ metrics = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_model_filename = f"run_{best_model_id:03d}.keras"
 best_params = metrics[metrics["run_id"] == int(best_model_id)]
 P = best_params.iloc[0, 1]
-Q = 3
+Q = best_params.iloc[0, 2]
 
 # Load model
 model = load_model(

@@ -92,43 +92,6 @@ def histogram_error():
     plt.show()
 
 
-def plot_mpc(t, u, y, cost, y_ref, save=True):
-    def create_control_diff(u):
-        u_diff = u.copy()
-        u_diff[1:] = u_diff[1:] - u_diff[:-1]
-        return u_diff
-
-    overshoots = (y.max() / y[-1]) - 1.0
-    du = create_control_diff(u)
-    du_means = du.mean(axis=0)
-
-    print(f"Overshoots: {overshoots*100:.2f}%")
-    print(f"dU Médio: {du_means/u.max(axis=0)}")
-    # Plot inputs
-    fig, axs = plt.subplots(2, 1)
-    fig.set_size_inches(figsize)
-    axs[0].set_title("Simulação do MPC", fontsize=fontsize)
-    axs[0].plot(t, u, label='WFS command', color='#6B66EC')
-    axs[0].set_xlabel("t (s)", fontsize=fontsize)
-    axs[0].set_ylabel("WFS (mm/min)", fontsize=fontsize)
-    ax2 = axs[0].twinx()
-    ax2.plot(t, y, color="#006400", label='Measured width ')
-    ax2.set_xlabel("t (s)", fontsize=fontsize)
-    ax2.set_ylabel("W (mm)", fontsize=fontsize)
-    ax2.plot(t, reference_array, color="#00AA00", linestyle="--",
-             label="Reference width")
-    axs[1].set_title("Custo do MPC", fontsize=fontsize)
-    axs[1].plot(t, cost, color='r')
-    axs[1].set_xlabel("t (s)", fontsize=fontsize)
-    fig.legend(bbox_to_anchor=(0.94, 0.9))
-
-    plt.tight_layout()
-
-    if save:
-        plt.savefig(results_dir + f"plots/mpc/mpc_data.{format}")
-    plt.show()
-
-
 def plot_horizon_metrics(t, y_forecast, y, y_ref):
     def colors_from_values(values, palette_name):
         # normalize the values to range [0, 1]
@@ -182,7 +145,7 @@ def plot_horizon_metrics(t, y_forecast, y, y_ref):
     return forecast_df, horizon_metrics
 
 
-source = "simulation"
+source = "simulation/calibration"
 save = True
 fontsize = 16
 figsize = (10, 4)
@@ -195,16 +158,16 @@ if source == "experiment" or source == "simulation":
         lambda x: np.nan if x > 1 else x
     )
 
-if source == "simulation":
+if source == "simulation/calibration":
     for ts in [4, 8, 12, 16, 20]:
         Y_real = np.loadtxt(
             results_dir +
-            f"predictions/{source}/calibration/ts__{ts}__y_real.csv",
+            f"predictions/{source.split('/')[0]}/calibration/ts__{ts}__y_real.csv",
             dtype=np.float64
         )
         Y_pred = np.loadtxt(
             results_dir +
-            f"predictions/{source}/calibration/ts__{ts}__y_pred.csv",
+            f"predictions/{source.split('/')[0]}/calibration/ts__{ts}__y_pred.csv",
             dtype=np.float64
         )
 
@@ -224,12 +187,12 @@ elif source == "experiment":
     for bead_test in beads_test:
         Y_real = np.loadtxt(
             results_dir +
-            f"predictions/{source}/calibration/bead{bead_test}__y_real.csv",
+            f"predictions/{source.split('/')[0]}/calibration/bead{bead_test}__y_real.csv",
             dtype=np.float64,
         )
         Y_pred = np.loadtxt(
             results_dir +
-            f"predictions/{source}/calibration/bead{bead_test}__y_pred.csv",
+            f"predictions/{source.split('/')[0]}/calibration/bead{bead_test}__y_pred.csv",
             dtype=np.float64,
         )
 
@@ -242,47 +205,5 @@ elif source == "experiment":
 
     # plot_mpc(mpc_u, mpc_y, y_means,save=False)
 
-elif source == "gradient":
-    Y_real = np.loadtxt(
-        results_dir + "predictions/gradient/y_real.csv", dtype=np.float64
-    )
-    Y_pred = np.loadtxt(
-        results_dir + "predictions/gradient/y_pred.csv", dtype=np.float64
-    )
-
-    # Angles error
-    num_outputs = Y_real.shape[1]
-    angles = gradient_angle(Y_real, Y_pred)
-    print(f"Angular error: {angles.mean():.2f}")
-    fig = plt.figure(figsize=figsize)
-    avg = np.mean(angles)
-    # plt.title("Angular error between real and predicted gradients")
-    plt.xlim(0, 90)
-    plt.xlabel("Error", fontsize=fontsize)
-    plt.ylabel("Count", fontsize=fontsize)
-    sns.histplot(angles, bins=64)
-    plt.axvline(avg, linestyle="--", color="red", label=f"Mean: {avg:.2f}")
-    plt.legend(fontsize=fontsize)
-    plt.tight_layout()
-    if save:
-        plt.savefig(results_dir + f"plots/gradient/angular_eror.{format}")
-    plt.show()
-
-
 elif source == "mpc":
-    mpc_data = pd.read_csv(results_dir + "mpc/mpc_data.csv")
-    time_array = mpc_data['t'].to_numpy()
-    control_array = mpc_data['u'].to_numpy()
-    output_array = mpc_data['y'].to_numpy()
-    reference_array = mpc_data['r'].to_numpy()
-    cost_array = mpc_data['cost'].to_numpy()
-
-    plot_mpc(time_array, control_array, output_array,
-             cost_array, reference_array, save=save)
-
-    forecast_data = pd.read_csv(results_dir + "mpc/mpc_forecast.csv")
-    u_forecast_data = forecast_data.filter(regex='^u_forecast').to_numpy()
-    y_forecast_data = forecast_data.filter(regex='^y_forecast').to_numpy()
-
-    forecast_df, horizon_metrics = plot_horizon_metrics(
-        time_array, y_forecast_data, output_array, reference_array[0])
+    pass

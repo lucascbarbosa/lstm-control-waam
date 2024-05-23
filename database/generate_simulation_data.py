@@ -134,7 +134,6 @@ for ts in [4, 8, 12, 16, 20]:
     G_discrete = control.sample_system(
         G_continuous, sampling_time, method='tustin')
 
-    print(G_discrete)
     # Convert to ss
     ss_discrete = control.tf2ss(G_discrete)
 

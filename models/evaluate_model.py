@@ -116,12 +116,12 @@ def pow2wfs(power_data):
 
 source = "simulation"
 # Load metrics
-best_model_id = 3
+best_model_id = 1
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
 best_model_filename = f"run_{best_model_id:03d}.keras"
 P = int(best_params["P"].iloc[0])
-Q = 3
+Q = int(best_params["Q"].iloc[0])
 H = 1
 # Load best model
 model = load_model(
@@ -139,7 +139,7 @@ if source == "simulation":
 
     for ts in [4, 8, 12, 16, 20]:
         input_train, output_train, input_test, output_test = load_train_data(
-            data_dir + f"simulation/TS {ts}/"
+            data_dir + f"simulation/calibration/TS {ts}/"
         )
         list_input_train.append(input_train)
         list_input_test.append(input_test)
@@ -169,7 +169,7 @@ if source == "simulation":
 
     for ts in [4, 8, 12, 16, 20]:
         _, _, input_test, output_test = load_train_data(
-            data_dir + f"simulation/TS {ts}/"
+            data_dir + f"simulation/calibration/TS {ts}/"
         )
 
         time_array = output_test[:, 0]
