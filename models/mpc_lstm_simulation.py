@@ -137,7 +137,7 @@ def optimization_function(u_forecast, lr):
     # gradient history for adaptive learning rate algorithm
     gradient_hist = np.zeros((M, 1))
     lr = lr
-    while delta_cost/initial_cost < -cost_tol and opt_step <= 30:
+    while delta_cost/initial_cost < -cost_tol and opt_step <= 50:
         steps, y_forecast = compute_step(u_hist, y_hist, u_forecast)
         output_cost, input_cost = cost_function(u_forecast, y_forecast)
         cost = output_cost + input_cost
@@ -254,7 +254,7 @@ process_outputs = output_train.shape[1]
 metrics_process = pd.read_csv(
     results_dir + "models/simulation/hp_metrics.csv"
 )
-best_process_model_id = 11
+best_process_model_id = 21
 best_process_model_filename = f"run_{best_process_model_id:03d}.keras"
 best_params = metrics_process[
     metrics_process["run_id"] == int(best_process_model_id)
@@ -270,11 +270,11 @@ process_model = load_model(
 # Define MPC optimization parameters
 M = P  # control horizon
 N = P  # prediction horizon
-weight_control = 0.1
-weight_output = 100
+weight_control = 1.0
+weight_output = 10.0
 lr = 1e-1
 cost_tol = 1e-6
-alpha = 0.9
+alpha = 0.66
 
 # Define TS and width reference
 for ts in [4, 8, 12, 16, 20]:
@@ -310,7 +310,7 @@ for ts in [4, 8, 12, 16, 20]:
 
     verbose = True
     exp_step = 1
-    exp_time = 0.0
+    exp_time = 0.2
 
     # exp_horizon = 340/(ts*0.2)
     exp_horizon = 50
