@@ -248,7 +248,7 @@ y_max = output_train.max(axis=0)
 process_inputs = input_train.shape[1]
 process_outputs = output_train.shape[1]
 
-# Load process model
+# Model information
 metrics_process = pd.read_csv(
     results_dir + "models/simulation/hp_metrics.csv"
 )
@@ -260,23 +260,25 @@ best_params = metrics_process[
 P = best_params.iloc[0, 1]
 Q = best_params.iloc[0, 2]
 
-process_model = load_model(
-    results_dir +
-    f"models/simulation/best/{best_process_model_filename}"
-)
-opt = Adam(learning_rate=best_params["lr"])
-process_model.compile(optimizer=opt, loss=mean_squared_error)
-
 # Define MPC optimization parameters
-M = P  # control horizon
-N = P  # prediction horizon
+M = 20  # control horizon
+N = 20  # prediction horizon
 weight_control = 0.1
 weight_output = 10
 lr = 1e-1
-cost_tol = 1e-6
+cost_tol = 1e-4
 
 # Define TS and width reference
 for ts in [4, 8, 12, 16, 20]:
+
+    # LOad model
+    process_model = load_model(
+        results_dir +
+        f"models/simulation/best/{best_process_model_filename}"
+    )
+    opt = Adam(learning_rate=best_params["lr"])
+    process_model.compile(optimizer=opt, loss=mean_squared_error)
+
     ts_scaled = (ts - u_min[1]) / \
         (u_max[1] - u_min[1])
 
@@ -285,8 +287,11 @@ for ts in [4, 8, 12, 16, 20]:
     u_hist[:, :] = [0.0, ts_scaled]
     y_hist = np.zeros((Q, process_outputs))
 
-    u_forecast = np.full((M, 1), 0.0)
+    # Forecast
+    # u_forecast = np.full((M, 1), 0.0)
+    u_forecast = np.linspace(1.0, 0.0, M).reshape((M, 1))
 
+    # Define plant model
     ts_gain = pd.read_csv(results_dir + "models/plant.csv")
     gain = ts_gain[ts_gain["TS"] == ts].values[0, 1]
     fs = 5.0
@@ -309,7 +314,6 @@ for ts in [4, 8, 12, 16, 20]:
     verbose = True
     exp_step = 1
     exp_time = 0.2
-
     # exp_horizon = 340/(ts*0.2)
     exp_horizon = 60
     x_row = np.zeros((2, 1))
@@ -358,7 +362,6 @@ for ts in [4, 8, 12, 16, 20]:
         u_hist = update_hist(u_hist, np.array([[u_opt, ts_scaled]]))
 
         # Train model with new samples
-        seq_input = build_sequence(u_hist, y_hist)
         seq_input = build_sequence(u_hist, y_hist)
         input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
         process_model.fit(input_tensor, np.array([[y_row_scaled]]), verbose=0)
