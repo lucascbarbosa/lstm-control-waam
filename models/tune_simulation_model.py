@@ -67,11 +67,9 @@ def run_training(
     from models.process_model import create_model, train_model, predict_data
 
     def compute_metrics(Y_pred, Y_real):
-        mses = []
         error = Y_pred - Y_real
-        sq_error = error**2
-        mses = np.mean(sq_error, axis=0)
-        return mses.mean()
+        rmse = np.sqrt(np.mean(error**2, axis=0))[0]
+        return rmse
 
     # Sequencing
     X_train, Y_train = sequence_data(
@@ -186,9 +184,9 @@ delete_models(results_dir + "models/simulation/hyperparams/")
 # set search space for hp's
 hp_search_space = {
     "P": [15, 20, 25, 30],  # np.arange(0, 51, 5)
-    "Q": [2],
+    "Q": [3],
     "H": [1],
-    "batch_size": [16, 32, 64],  # [16, 32, 64]
+    "batch_size": [16],  # [16, 32, 64]
     "num_epochs": [100],
     "validation_split": [0.1],
     "lr": [1e-3],

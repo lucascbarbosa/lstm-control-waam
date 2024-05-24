@@ -1,6 +1,8 @@
 """MPC Simulation."""
 import tensorflow as tf
 from keras.models import load_model
+from tensorflow.keras.losses import mean_squared_error
+from tensorflow.keras.optimizers import Adam
 from models.process_data import load_train_data
 import pandas as pd
 import numpy as np
@@ -127,17 +129,14 @@ def compute_step(u_hist, y_hist, u_forecast):
     return steps, y_forecast
 
 
-def optimization_function(u_forecast, lr):
+def optimization_function(u_forecast, gradient_hist):
     current_time = np.round(time.time(), 1)
     opt_step = 1
     cost = 99999999
     last_cost = cost
     delta_cost = -cost
     initial_cost = cost
-    # gradient history for adaptive learning rate algorithm
-    gradient_hist = np.zeros((M, 1))
-    lr = lr
-    while delta_cost/initial_cost < -cost_tol and opt_step <= 50:
+    while delta_cost/initial_cost < -cost_tol:
         steps, y_forecast = compute_step(u_hist, y_hist, u_forecast)
         output_cost, input_cost = cost_function(u_forecast, y_forecast)
         cost = output_cost + input_cost
@@ -173,8 +172,7 @@ def optimization_function(u_forecast, lr):
     print(
         f"Y_R: {y_ref_scaled[exp_step:exp_step+N] * (y_max - y_min) + y_min}")
 
-    return (u_forecast, y_forecast,
-            last_input_cost, last_output_cost)
+    return u_forecast, y_forecast, last_input_cost, last_output_cost
 
 
 def step_reference(amps):
@@ -254,7 +252,7 @@ process_outputs = output_train.shape[1]
 metrics_process = pd.read_csv(
     results_dir + "models/simulation/hp_metrics.csv"
 )
-best_process_model_id = 21
+best_process_model_id = 4
 best_process_model_filename = f"run_{best_process_model_id:03d}.keras"
 best_params = metrics_process[
     metrics_process["run_id"] == int(best_process_model_id)
@@ -266,15 +264,16 @@ process_model = load_model(
     results_dir +
     f"models/simulation/best/{best_process_model_filename}"
 )
+opt = Adam(learning_rate=best_params["lr"])
+process_model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Define MPC optimization parameters
 M = P  # control horizon
 N = P  # prediction horizon
-weight_control = 1.0
-weight_output = 100
+weight_control = 0.1
+weight_output = 10
 lr = 1e-1
 cost_tol = 1e-6
-alpha = 0.33
 
 # Define TS and width reference
 for ts in [4, 8, 12, 16, 20]:
@@ -285,7 +284,6 @@ for ts in [4, 8, 12, 16, 20]:
     u_hist = np.zeros((P, process_inputs))
     u_hist[:, :] = [0.0, ts_scaled]
     y_hist = np.zeros((Q, process_outputs))
-    y_hist[-1, 0] = -y_min/(y_max - y_min)
 
     u_forecast = np.full((M, 1), 0.0)
 
@@ -313,11 +311,14 @@ for ts in [4, 8, 12, 16, 20]:
     exp_time = 0.2
 
     # exp_horizon = 340/(ts*0.2)
-    exp_horizon = 50
+    exp_horizon = 60
     x_row = np.zeros((2, 1))
     y_row_descaled = np.zeros((1, 1))
     mpc_state = False
     time_array = []
+
+    # Historic gradient for adagrad
+    gradient_hist = np.zeros((M, 1))
 
     # Set reference
     ref_min = gain * np.sqrt(u_min[0])
@@ -327,13 +328,10 @@ for ts in [4, 8, 12, 16, 20]:
     y_ref_scaled = (y_ref - y_min) / \
         (y_max - y_min)
     while exp_step <= exp_horizon:
-        u_forecast, y_forecast, input_cost, output_cost = optimization_function(
-            u_forecast, lr)
+        (u_forecast, y_forecast, input_cost,
+         output_cost) = optimization_function(u_forecast, gradient_hist)
         cost = input_cost + output_cost
         u_opt = u_forecast[0, 0]
-
-        # Updates learning rate
-        lr = lr * (1.0 - alpha)
 
         u_opt_descaled = u_opt * \
             (u_max[0] - u_min[0]) + u_min[0]
@@ -342,12 +340,6 @@ for ts in [4, 8, 12, 16, 20]:
             (y_max - y_min)
         print(
             f"Experiment step {exp_step}({np.round(exp_time, 2)} s): Control {np.round(u_opt_descaled, 2)} Width {np.round(y_row_descaled[0], 3)} \n\n")
-
-        # Updates hists
-        u_hist = update_hist(u_hist, np.array([[u_opt, ts_scaled]]))
-        y_hist = update_hist(y_hist, np.array([[y_row_scaled]]))
-        exp_time += np.round(T, 1)
-        exp_step += 1
 
         # Save data
         t = np.round(exp_time, 2)
@@ -361,6 +353,22 @@ for ts in [4, 8, 12, 16, 20]:
 
         # Updates forecast
         u_forecast[:-1] = u_forecast[1:]
+
+        # Updates u_hist
+        u_hist = update_hist(u_hist, np.array([[u_opt, ts_scaled]]))
+
+        # Train model with new samples
+        seq_input = build_sequence(u_hist, y_hist)
+        seq_input = build_sequence(u_hist, y_hist)
+        input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
+        process_model.fit(input_tensor, np.array([[y_row_scaled]]), verbose=0)
+
+        # Updates y_hist
+        y_hist = update_hist(y_hist, np.array([[y_row_scaled]]))
+
+        # Iterate time
+        exp_time += np.round(T, 1)
+        exp_step += 1
 
     # Time series data
     wfs_df = pd.DataFrame(wfs_data)
@@ -382,6 +390,8 @@ for ts in [4, 8, 12, 16, 20]:
 
     # MPC data
     cost_df = pd.DataFrame(cost_data)
+    cost_df.to_csv(data_dir + f'simulation/control/ts_{ts}__step__cost.csv',
+                   index=False)
     mpc_time = cost_df['t'].to_numpy().reshape((-1, 1))
 
     u_forecast_cols, y_forecast_cols = name_forecast_cols()

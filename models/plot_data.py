@@ -208,11 +208,11 @@ def plot_control(
 
 N = None  # Horizon plotted
 end_time = None
-scale = False
-save = False
+scale = True
+save = True
 figsize = (10, 4)
 format = "eps"
-source = "simulation/control"
+source = "simulation/calibration"
 if source in ['experiment/control', 'experiment/calibration']:
     experiment_matrix = pd.read_excel(
         data_dir + f'{source}/experiment_matrix.xlsx')
@@ -248,9 +248,9 @@ if source == "simulation/calibration":
         )
 
         fig_filename = f"ts_{ts}__test"
-        wfs_command_data = np.vstack((input_train[:, 0], input_train[:, 1])).T
+        wfs_command_data = np.vstack((input_test[:, 0], input_test[:, 1])).T
 
-        ts_command_data = np.vstack((input_train[:, 0], input_train[:, 2])).T
+        ts_command_data = np.vstack((input_test[:, 0], input_test[:, 2])).T
         ts_command = int(ts_command_data[0, 1])
 
         w_data = output_test

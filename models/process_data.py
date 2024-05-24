@@ -193,5 +193,5 @@ def sequence_data(X, Y, P, Q, H):
                 Y[i + max(0, P - Q - 1): i + max(P - 1, Q), :].ravel(),
             )
         )
-        Y_seq[i, :] = Y[i + max(P-1, Q) + H - 1, :]
+        Y_seq[i, :] = Y[i + max(P - 1, Q) + H - 1, :]
     return X_seq, Y_seq

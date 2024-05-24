@@ -146,7 +146,7 @@ def plot_horizon_metrics(t, y_forecast, y, y_ref):
 
 
 source = "simulation/calibration"
-save = True
+save = False
 fontsize = 16
 figsize = (10, 4)
 format = "eps"

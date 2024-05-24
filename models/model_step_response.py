@@ -101,21 +101,25 @@ def plot_test(
         where="post",
         color="b",
         linestyle='--',
+        label='WFS command'
     )
     ax2.plot(time,
              w_data_lstm,
              color="#006400",
+             label='Width - LSTM'
              )
-    ax2.plot(time,
-             w_data_tf,
-             color="#00AA00",
-             )
+
+    if source == "simulation":
+        ax2.plot(time,
+                 w_data_tf,
+                 color="#00AA00",
+                 label='Width - TF'
+                 )
 
     ax.set_ylabel("WFS (mm/min)")
     ax2.set_ylabel("W (mm)")
 
-    fig.legend(['WFS command', 'Width - LSTM', 'Width - TF'],
-               bbox_to_anchor=(0.94, 0.8))
+    fig.legend(bbox_to_anchor=(0.94, 0.8))
     plt.tight_layout()
     if save:
         plt.savefig(
@@ -124,7 +128,7 @@ def plot_test(
 
 
 source = "simulation"
-save = True
+save = False
 format = "eps"
 best_model_id = 1
 ts_gain = pd.read_csv(results_dir + "models/plant.csv")
@@ -134,6 +138,15 @@ if source == "experiment":
      output_train,
      _,
      _) = load_train_data(data_dir + "experiment/calibration/")
+
+    best_model_id = 16
+    P, Q = 50, 3
+    best_model_filename = f"run_{best_model_id:03d}.keras"
+    # Load model
+    model = load_model(
+        results_dir + f"models/{source}/best/{best_model_filename}")
+    opt = Adam(learning_rate=1e-2)
+    model.compile(optimizer=opt, loss=mean_squared_error)
 
 elif source == "simulation":
     list_input_train = []
@@ -154,6 +167,19 @@ elif source == "simulation":
     output_train = np.concatenate(list_output_train)
     output_test = np.concatenate(list_output_test)
 
+    # Model parameters
+    metrics = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
+    best_model_filename = f"run_{best_model_id:03d}.keras"
+    best_params = metrics[metrics["run_id"] == int(best_model_id)]
+    P = best_params.iloc[0, 1]
+    Q = best_params.iloc[0, 2]
+    # Load model
+    model = load_model(
+        results_dir + f"models/{source}/best/{best_model_filename}")
+    opt = Adam(learning_rate=best_params["lr"])
+    model.compile(optimizer=opt, loss=mean_squared_error)
+
+
 input_train = input_train[:, 1:]
 output_train = output_train[:, 1:]
 
@@ -165,20 +191,6 @@ y_max = output_train.max(axis=0)
 process_inputs = input_train.shape[1]
 process_outputs = output_train.shape[1]
 
-# Model parameters
-metrics = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
-best_model_filename = f"run_{best_model_id:03d}.keras"
-best_params = metrics[metrics["run_id"] == int(best_model_id)]
-P = best_params.iloc[0, 1]
-Q = best_params.iloc[0, 2]
-
-# Load model
-model = load_model(
-    results_dir + f"models/{source}/best/{best_model_filename}"
-)
-
-opt = Adam(learning_rate=best_params["lr"])
-model.compile(optimizer=opt, loss=mean_squared_error)
 
 # Create steps
 N = 275

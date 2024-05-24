@@ -33,11 +33,9 @@ def compute_metrics(Y_pred, Y_real):
     Returns:
         mses (np.array): mean squared error for each predicted output
     """
-    mses = []
     error = Y_pred - Y_real
-    sq_error = error**2
-    mses = np.mean(sq_error, axis=0)
-    return mses
+    rmse = np.sqrt(np.mean(error**2, axis=0))
+    return rmse[0]
 
 
 def gradient_angle(Y_pred, Y_real):
@@ -116,7 +114,7 @@ def pow2wfs(power_data):
 
 source = "simulation"
 # Load metrics
-best_model_id = 1
+best_model_id = 4
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
 best_model_filename = f"run_{best_model_id:03d}.keras"
@@ -212,8 +210,8 @@ if source == "simulation":
                    np.concatenate((time_array, Y_pred), axis=1)
                    )
 
-        mses = compute_metrics(Y_pred, Y_real)
-        print(f"TS: {ts} MSE: we={mses[0]:.3f}")
+        rmse = compute_metrics(Y_pred, Y_real)
+        print(f"TS: {ts} RMSE: we={rmse:.3f}")
 
 elif source == "experiment":
     input_train, output_train, _, _ = load_train_data(
@@ -297,5 +295,5 @@ elif source == "experiment":
             np.concatenate((time_array, Y_pred), axis=1),
         )
 
-        mse = compute_metrics(Y_pred, Y_real)
-        print(f"MSE for bead {bead_idx}: we={mse[0]}")
+        rmse = compute_metrics(Y_pred, Y_real)
+        print(f"TS: {ts} RMSE: we={rmse:.3f}")
