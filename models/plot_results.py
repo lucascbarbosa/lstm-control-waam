@@ -19,8 +19,9 @@ def plot_prediction():
     plt.xlabel('t (s)', fontsize=fontsize)
     plt.ylabel("W (mm)", fontsize=fontsize)
     plt.legend(fontsize=fontsize)
-
+    plt.title(f"TS: {ts} (mm/s)")
     fig.tight_layout()
+
     if save:
         if source == "simulation":
             plt.savefig(
@@ -75,6 +76,7 @@ def histogram_error():
     # ax.set_title(r"Prediction error histogram for $w_e$")
     ax.set_xlabel(r"error")
     ax.legend()
+    plt.title(f"TS: {ts} (mm/s)")
 
     plt.subplots_adjust(hspace=0.5)
     if save:
@@ -146,7 +148,7 @@ def plot_horizon_metrics(t, y_forecast, y, y_ref):
 
 
 source = "simulation/calibration"
-save = False
+save = True
 fontsize = 16
 figsize = (10, 4)
 format = "eps"

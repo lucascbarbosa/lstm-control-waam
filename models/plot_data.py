@@ -145,12 +145,19 @@ def plot_control(
     if N is None:
         N = w_data.shape[0]
 
-    overshoots = (w_data[:, 1].max() / w_data[-1, 1]) - 1.0
+    overshoot = (w_data[:, 1].max() / w_data[-1, 1]) - 1.0
+
     du = create_control_diff(wfs_command_data[:, 1])
     du_mean = du.mean(axis=0)
 
-    print(f"Overshoots: {overshoots*100:.2f}%")
-    print(f"dU Médio: {du_mean/wfs_command_data[:, 1].max(axis=0)}")
+    setting_time = w_data[np.where(w_data[:, 1] > 0.95 * w_data[-1, 1])][0, 0]
+
+    error_ss = ref_data[-1, 1] - w_data[-1, 1]
+    print(f"Overshoots: {overshoot*100:.2f}%")
+    print(f"dU Médio: {du_mean * 100/wfs_command_data[:, 1].max(axis=0):.2f}%")
+    print(f"Tempo de assentamento: {setting_time} s")
+    print(
+        f"Erro estacionário: {error_ss:.2f} mm ({error_ss*100/ref_data[-1,1]:.2f} %)\n")
 
     fig, ax = plt.subplots(1)
     fig.set_size_inches(figsize)
@@ -158,45 +165,31 @@ def plot_control(
     ax2 = ax.twinx()
     ax2.set_xlabel("t")
     plt.title(f"TS: {ts_command} (mm/s)")
-    if scale:
-        ax.step(
-            wfs_command_data[:, 0],
-            wfs_command_data[:, 1],
-            where="post",
-            color="b",
-            linestyle='--',
-            label="Scaled WFS command",
-        )
-        ax2.plot(w_data[:, 0],
-                 w_data[:, 1],
-                 color="#006400",
-                 label="Scaled Width"
-                 )
-        ax.set_ylabel("WFS")
-        ax2.set_ylabel("W")
-    else:
-        ax.step(
-            wfs_command_data[:, 0],
-            wfs_command_data[:, 1],
-            where="post",
-            color="b",
-            linestyle='--',
-            label="WFS command",
-        )
-        ax2.plot(w_data[:, 0],
-                 w_data[:, 1],
-                 color="#006400",
-                 label="Width")
-        ax.set_ylabel("WFS (mm/min)")
-        ax2.set_ylabel("W (mm)")
-        ax2.plot(ref_data[:, 0],
-                 ref_data[:, 1],
-                 color="#00AA00",
-                 linestyle='--',
-                 label="Reference width")
+    ax.step(
+        wfs_command_data[:, 0],
+        wfs_command_data[:, 1],
+        where="post",
+        color="b",
+        linestyle='--',
+        label="WFS command",
+    )
+    ax2.plot(w_data[:, 0],
+             w_data[:, 1],
+             color="#006400",
+             label="Width")
+    ax.set_ylabel("WFS (mm/min)")
+    ax2.set_ylabel("W (mm)")
+    ax2.plot(ref_data[:, 0],
+             ref_data[:, 1],
+             color="#00AA00",
+             linestyle='--',
+             label="Reference width")
 
     fig.tight_layout()
-    fig.legend(bbox_to_anchor=(0.94, 0.92))
+    fig.legend(bbox_to_anchor=(0.94, 0.82))
+
+    if source == "simulation":
+        plt.xlim(0, 12)
 
     if save:
         fig.savefig(
@@ -209,10 +202,10 @@ def plot_control(
 N = None  # Horizon plotted
 end_time = None
 scale = True
-save = True
+save = False
 figsize = (10, 4)
 format = "eps"
-source = "simulation/calibration"
+source = "simulation/control"
 if source in ['experiment/control', 'experiment/calibration']:
     experiment_matrix = pd.read_excel(
         data_dir + f'{source}/experiment_matrix.xlsx')
@@ -331,8 +324,7 @@ if source == "experiment/control":
         )
 
 if source == "simulation/control":
-    # for ts in [4, 8, 12, 16, 20]:
-    for ts in [4]:
+    for ts in [4, 8, 12, 16, 20]:
         wfs_command_data = pd.read_csv(
             data_dir + f"simulation/control/ts_{ts}__step__wfs_command.csv"
         ).to_numpy()
@@ -353,14 +345,4 @@ if source == "simulation/control":
             ref_data,
             fig_filename,
             N
-        )
-
-        u_forecast = pd.read_csv(
-            results_dir +
-            f"predictions/simulation/control/ts_{ts}__step__u_forecast.csv"
-        )
-
-        y_forecast = pd.read_csv(
-            results_dir +
-            f"predictions/simulation/control/ts_{ts}__step__y_forecast.csv"
         )

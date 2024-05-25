@@ -252,7 +252,7 @@ process_outputs = output_train.shape[1]
 metrics_process = pd.read_csv(
     results_dir + "models/simulation/hp_metrics.csv"
 )
-best_process_model_id = 4
+best_process_model_id = 13
 best_process_model_filename = f"run_{best_process_model_id:03d}.keras"
 best_params = metrics_process[
     metrics_process["run_id"] == int(best_process_model_id)
@@ -261,10 +261,10 @@ P = best_params.iloc[0, 1]
 Q = best_params.iloc[0, 2]
 
 # Define MPC optimization parameters
-M = 20  # control horizon
-N = 20  # prediction horizon
-weight_control = 0.1
-weight_output = 10
+M = P  # control horizon
+N = P  # prediction horizon
+weight_control = 1
+weight_output = 100  # 1
 lr = 1e-1
 cost_tol = 1e-4
 
@@ -288,8 +288,8 @@ for ts in [4, 8, 12, 16, 20]:
     y_hist = np.zeros((Q, process_outputs))
 
     # Forecast
-    # u_forecast = np.full((M, 1), 0.0)
-    u_forecast = np.linspace(1.0, 0.0, M).reshape((M, 1))
+    u_forecast = np.full((M, 1), 0.5)
+    # u_forecast = np.linspace(1.0, 0.0, M).reshape((M, 1))
 
     # Define plant model
     ts_gain = pd.read_csv(results_dir + "models/plant.csv")
@@ -315,7 +315,7 @@ for ts in [4, 8, 12, 16, 20]:
     exp_step = 1
     exp_time = 0.2
     # exp_horizon = 340/(ts*0.2)
-    exp_horizon = 60
+    exp_horizon = 70
     x_row = np.zeros((2, 1))
     y_row_descaled = np.zeros((1, 1))
     mpc_state = False
