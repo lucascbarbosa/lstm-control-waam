@@ -128,12 +128,14 @@ def plot_horizon_metrics(t, y_forecast, y, y_ref):
         error_std = error.std()
         horizon_metrics.append(
             {'h': fh_index, 'mean': error_mean, 'std': error_std})
+
     horizon_metrics = pd.DataFrame(horizon_metrics)
     horizon_metrics['h'] = horizon_metrics['h'] / len(horizon_metrics)
     horizons = np.arange(0.1, 1.1, 0.1)
     horizon_metrics = horizon_metrics[horizon_metrics['h'].isin(horizons)]
     horizon_metrics['std'] = horizon_metrics['std'].fillna(1.0)
     plt.figure(figsize=figsize)
+    plt.title(f"TS: {ts} mm/s")
     sns.barplot(data=horizon_metrics, x='h', y='mean',
                 # errorbar=(horizon_metrics['mean']-3*horizon_metrics['std'],
                 #           horizon_metrics['mean']+3*horizon_metrics['std']),
@@ -141,13 +143,15 @@ def plot_horizon_metrics(t, y_forecast, y, y_ref):
     plt.xlabel('Horizonte de previsão (N)', fontsize=fontsize)
     plt.ylabel('MAPE', fontsize=fontsize)
     if save:
-        plt.savefig(results_dir + f"plots/mpc/mpc_horizons.{format}")
+        plt.savefig(
+            results_dir + f"plots/{source}/simulation_control__{model}__ts_{ts}__horizon_metrics.{format}")
+    plt.tight_layout()
     plt.show()
 
     return forecast_df, horizon_metrics
 
 
-source = "simulation/calibration"
+source = "simulation/control"
 save = True
 fontsize = 16
 figsize = (10, 4)
@@ -184,7 +188,7 @@ if source == "simulation/calibration":
 
         # plot_mpc(mpc_u, mpc_y, y_means,save=False)
 
-elif source == "experiment":
+elif source == "experiment/calibration":
     beads_test = [3, 6, 10, 15]
     for bead_test in beads_test:
         Y_real = np.loadtxt(
@@ -207,5 +211,22 @@ elif source == "experiment":
 
     # plot_mpc(mpc_u, mpc_y, y_means,save=False)
 
-elif source == "mpc":
-    pass
+elif source == "simulation/control":
+    for model in ['lstm', 'tf']:
+        for ts in [4, 8, 12, 16, 20]:
+            u_forecast = pd.read_csv(
+                results_dir + f'predictions/simulation/control/{model}__ts_{ts}__step__u_forecast.csv').to_numpy()
+            time_array = u_forecast[:, 0]
+            u_forecast = u_forecast[:, 1:]
+            y_forecast = pd.read_csv(
+                results_dir + f'predictions/simulation/control/{model}__ts_{ts}__step__y_forecast.csv').to_numpy()
+            y_forecast = y_forecast[:, 1:]
+            reference = pd.read_csv(
+                data_dir +
+                f"simulation/control/{model}__ts_{ts}__step__reference.csv"
+            ).to_numpy()[0, 1]
+            w_data = pd.read_csv(
+                data_dir + f"simulation/control/{model}__ts_{ts}__step__w.csv"
+            ).to_numpy()[:, 1]
+
+            plot_horizon_metrics(time_array, y_forecast, w_data, reference)

@@ -16,12 +16,6 @@ def wfs2pow(self, f):
     return np.round((f-1.5)*100/9)
 
 
-def create_control_diff(u_forecast):
-    u_diff = u_forecast.copy()
-    u_diff[1:] = u_diff[1:] - u_diff[:-1]
-    return u_diff
-
-
 def build_input_jacobian():
     input_jacobian = np.eye(M)
     for i in range(M):
@@ -30,11 +24,17 @@ def build_input_jacobian():
     return input_jacobian
 
 
-def cost_function(u_forecast, y_forecast):
-    u_diff_forecast = create_control_diff(u_forecast)
-    output_error = y_ref[exp_step:exp_step+N] - y_forecast
+def create_control_diff(u_forecast):
+    u_diff = u_forecast.copy()
+    u_diff[1:] = u_diff[1:] - u_diff[:-1]
+    return u_diff
 
+
+def cost_function(u_forecast, y_forecast):
+    output_error = y_ref[exp_step:exp_step+N] - y_forecast
     output_cost = np.sum(output_error**2 * weight_output)
+
+    u_diff_forecast = create_control_diff(u_forecast)
     control_cost = np.sum(u_diff_forecast**2 * weight_control)
     return output_cost,  control_cost
 
@@ -229,9 +229,9 @@ for ts in [4, 8, 12, 16, 20]:
     plant_ss = control.tf2ss(plant_discrete)
 
     # Define MPC model
-    desvio = 0.9
+    desvio = 0.95
     numerator = [0, 0, gain*desvio]
-    denominator = [0.2*(desvio**2), 1.2*desvio, 1]
+    denominator = [0.2, 1.2, 1]
     model_continuous = control.TransferFunction(numerator, denominator)
     model_discrete = control.sample_system(
         model_continuous, T, method='tustin')

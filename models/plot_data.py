@@ -120,6 +120,7 @@ def plot_control(
     ts_command,
     w_data,
     ref_data,
+    cost_data,
     fig_filename,
     N
 ):
@@ -159,13 +160,13 @@ def plot_control(
     print(
         f"Erro estacionário: {error_ss:.2f} mm ({error_ss*100/ref_data[-1,1]:.2f} %)\n")
 
-    fig, ax = plt.subplots(1)
+    fig, axs = plt.subplots(2)
     fig.set_size_inches(figsize)
-    ax.set_xlabel("t")
-    ax2 = ax.twinx()
+    axs[0].set_xlabel("t")
+    ax2 = axs[0].twinx()
     ax2.set_xlabel("t")
     plt.title(f"TS: {ts_command} (mm/s)")
-    ax.step(
+    axs[0].step(
         wfs_command_data[:, 0],
         wfs_command_data[:, 1],
         where="post",
@@ -177,16 +178,31 @@ def plot_control(
              w_data[:, 1],
              color="#006400",
              label="Width")
-    ax.set_ylabel("WFS (mm/min)")
+    axs[0].set_ylabel("WFS (mm/min)")
     ax2.set_ylabel("W (mm)")
     ax2.plot(ref_data[:, 0],
              ref_data[:, 1],
              color="#00AA00",
              linestyle='--',
              label="Reference width")
+    fig.legend(bbox_to_anchor=(0.94, 0.92))
 
+    # Costs
+    axs[1].set_title("Cost")
+    axs[1].plot(cost_data[:, 0],
+                cost_data[:, 1],
+                color="b",
+                label='Input Cost')
+    # axs[1].fill_between(cost_data[:, 0], 0, cost_data[:, 1],
+    #                     color='b', alpha=0.3)
+    axs[1].plot(cost_data[:, 0],
+                cost_data[:, 2],
+                color="#006400",
+                label='Output Cost')
+    # axs[1].fill_between(cost_data[:, 0], cost_data[:, 1], cost_data[:, 2],
+    #                     color='#006400', alpha=0.3)
+    axs[1].legend()
     fig.tight_layout()
-    fig.legend(bbox_to_anchor=(0.94, 0.82))
 
     if source == "simulation":
         plt.xlim(0, 12)
@@ -202,7 +218,7 @@ def plot_control(
 N = None  # Horizon plotted
 end_time = None
 scale = True
-save = False
+save = True
 figsize = (10, 4)
 format = "eps"
 source = "simulation/control"
@@ -324,7 +340,7 @@ if source == "experiment/control":
         )
 
 if source == "simulation/control":
-    for model in ['tf']:
+    for model in ['lstm', 'tf']:
         for ts in [4, 8, 12, 16, 20]:
             wfs_command_data = pd.read_csv(
                 data_dir +
@@ -337,6 +353,10 @@ if source == "simulation/control":
             w_data = pd.read_csv(
                 data_dir + f"simulation/control/{model}__ts_{ts}__step__w.csv"
             ).to_numpy()
+            cost_data = pd.read_csv(
+                data_dir +
+                f"simulation/control/{model}__ts_{ts}__step__cost.csv"
+            ).to_numpy()
             ref_data = pd.read_csv(
                 data_dir +
                 f"simulation/control/{model}__ts_{ts}__step__reference.csv"
@@ -347,6 +367,7 @@ if source == "simulation/control":
                 ts,
                 w_data,
                 ref_data,
+                cost_data,
                 fig_filename,
                 N
             )
