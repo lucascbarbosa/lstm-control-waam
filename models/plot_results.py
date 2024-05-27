@@ -151,8 +151,8 @@ def plot_horizon_metrics(t, y_forecast, y, y_ref):
     return forecast_df, horizon_metrics
 
 
-source = "simulation/control"
-save = True
+source = "simulation/calibration"
+save = False
 fontsize = 16
 figsize = (10, 4)
 format = "eps"

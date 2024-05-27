@@ -187,7 +187,7 @@ hp_search_space = {
     "Q": [1, 2, 3, 4],
     "H": [1],
     "batch_size": [16],  # [16, 32, 64]
-    "num_epochs": [100],
+    "num_epochs": [200],
     "validation_split": [0.1],
     "lr": [1e-3],
 }
