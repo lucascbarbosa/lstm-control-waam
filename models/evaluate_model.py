@@ -114,7 +114,7 @@ def pow2wfs(power_data):
 
 source = "simulation"
 # Load metrics
-best_model_id = 3
+best_model_id = 16
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
 best_model_filename = f"run_{best_model_id:03d}.keras"
