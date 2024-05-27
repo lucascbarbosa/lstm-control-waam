@@ -253,7 +253,7 @@ process_outputs = output_train.shape[1]
 metrics_process = pd.read_csv(
     results_dir + "models/simulation/hp_metrics.csv"
 )
-best_process_model_id = 13
+best_process_model_id = 3
 best_process_model_filename = f"run_{best_process_model_id:03d}.keras"
 best_params = metrics_process[
     metrics_process["run_id"] == int(best_process_model_id)
@@ -264,12 +264,12 @@ Q = best_params.iloc[0, 2]
 # Define MPC optimization parameters
 M = P  # control horizon
 N = P  # prediction horizon
-weight_control = 1
+weight_control = 0.1
 weight_output = 50  # 1
 lr = 1e-1
-cost_tol = 1e-3
+cost_tol = 1e-4
 
-reference = "sine"
+reference = "step"
 for ts in [4, 8, 12, 16, 20]:
 
     # LOad model
@@ -333,7 +333,7 @@ for ts in [4, 8, 12, 16, 20]:
     if reference == "sine":
         y_ref = sine_reference(20*T, ref_mean, ref_mean*0.1)
     elif reference == "step":
-        y_ref = step_reference(y_ref)
+        y_ref = step_reference(ref_mean)
     y_ref_scaled = (y_ref - y_min) / \
         (y_max - y_min)
     while exp_step <= exp_horizon:

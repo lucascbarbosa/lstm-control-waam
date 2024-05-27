@@ -324,25 +324,29 @@ if source == "experiment/control":
         )
 
 if source == "simulation/control":
-    for ts in [4, 8, 12, 16, 20]:
-        wfs_command_data = pd.read_csv(
-            data_dir + f"simulation/control/ts_{ts}__step__wfs_command.csv"
-        ).to_numpy()
-        ts_command_data = pd.read_csv(
-            data_dir + f"simulation/control/ts_{ts}__step__ts_command.csv"
-        ).to_numpy()
-        w_data = pd.read_csv(
-            data_dir + f"simulation/control/ts_{ts}__step__w.csv"
-        ).to_numpy()
-        ref_data = pd.read_csv(
-            data_dir + f"simulation/control/ts_{ts}__step__reference.csv"
-        ).to_numpy()
-        fig_filename = f"ts_{ts}__step"
-        plot_control(
-            wfs_command_data,
-            ts,
-            w_data,
-            ref_data,
-            fig_filename,
-            N
-        )
+    for model in ['tf']:
+        for ts in [4, 8, 12, 16, 20]:
+            wfs_command_data = pd.read_csv(
+                data_dir +
+                f"simulation/control/{model}__ts_{ts}__step__wfs_command.csv"
+            ).to_numpy()
+            ts_command_data = pd.read_csv(
+                data_dir +
+                f"simulation/control/{model}__ts_{ts}__step__ts_command.csv"
+            ).to_numpy()
+            w_data = pd.read_csv(
+                data_dir + f"simulation/control/{model}__ts_{ts}__step__w.csv"
+            ).to_numpy()
+            ref_data = pd.read_csv(
+                data_dir +
+                f"simulation/control/{model}__ts_{ts}__step__reference.csv"
+            ).to_numpy()
+            fig_filename = f"{model}__ts_{ts}__step"
+            plot_control(
+                wfs_command_data,
+                ts,
+                w_data,
+                ref_data,
+                fig_filename,
+                N
+            )

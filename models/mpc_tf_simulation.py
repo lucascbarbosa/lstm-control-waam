@@ -62,7 +62,7 @@ def compute_step(x_row, u_forecast):
         if i >= M:
             u_row = u_forecast[-1, 0]
         for j in range(process_outputs):
-            x_row, y_row = predict_output(plant_ss, x_row, u_row)
+            x_row, y_row = predict_output(model_ss, x_row, u_row)
             output_jacobian[i, i] = model_ss.D
             output_jacobian[i+1:, i] = create_control_vector(i)
             y_forecast[i, :] = y_row
@@ -205,13 +205,13 @@ process_outputs = output_train.shape[1]
 # Define MPC optimization parameters
 M = 30  # control horizon
 N = 30  # prediction horizon
-weight_control = 1
-weight_output = 10  # 1
-lr = 1e-2
-cost_tol = 1e-6
+weight_control = 0.1
+weight_output = 100  # 1
+lr = 1e0
+cost_tol = 1e-3
 
 reference = "step"
-for ts in [4]:
+for ts in [4, 8, 12, 16, 20]:
     # Forecast
     u_forecast = np.full((M, 1), 0.5)
     # u_forecast = np.linspace(1.0, 0.0, M).reshape((M, 1))
@@ -229,12 +229,9 @@ for ts in [4]:
     plant_ss = control.tf2ss(plant_discrete)
 
     # Define MPC model
-    ts_gain = pd.read_csv(results_dir + "models/plant.csv")
-    gain = ts_gain[ts_gain["TS"] == ts].values[0, 1]
-    fs = 5.0
-    numerator = [0, 0, gain]
-    denominator = [0.2, 1.2, 1]
-    T = 1 / fs
+    desvio = 0.9
+    numerator = [0, 0, gain*desvio]
+    denominator = [0.2*(desvio**2), 1.2*desvio, 1]
     model_continuous = control.TransferFunction(numerator, denominator)
     model_discrete = control.sample_system(
         model_continuous, T, method='tustin')
@@ -269,7 +266,7 @@ for ts in [4]:
     if reference == "sine":
         y_ref = sine_reference(20*T, ref_mean, ref_mean*0.1)
     elif reference == "step":
-        y_ref = step_reference(y_ref)
+        y_ref = step_reference(ref_mean)
 
     x_row = np.zeros((2, 1))
     while exp_step <= exp_horizon:
