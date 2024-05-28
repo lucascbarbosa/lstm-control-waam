@@ -5,7 +5,7 @@ from models.process_data import (
     normalize_data,
     denormalize_data,
 )
-from models.process_model import predict_data
+from models.simulation_model import predict_data
 import pandas as pd
 import numpy as np
 import tensorflow as tf
@@ -112,9 +112,9 @@ def pow2wfs(power_data):
     return (power_data * 9 / 100) + 1.5
 
 
-source = "simulation"
+source = "experiment"
 # Load metrics
-best_model_id = 16
+best_model_id = 8
 metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
 best_params = metrics_df[metrics_df["run_id"] == int(best_model_id)]
 best_model_filename = f"run_{best_model_id:03d}.keras"
@@ -229,10 +229,10 @@ elif source == "experiment":
         bead_filename = data_dir + \
             f"{source}/calibration/series/bead{bead_idx}"
         wfs_test = pd.read_csv(
-            bead_filename + "_wfs.csv"
+            bead_filename + "_wfs_command.csv"
         ).to_numpy()
         ts_test = pd.read_csv(
-            bead_filename + "_ts.csv"
+            bead_filename + "_ts_command.csv"
         ).to_numpy()
         output_test = pd.read_csv(
             bead_filename + "_w.csv"
@@ -296,4 +296,4 @@ elif source == "experiment":
         )
 
         rmse = compute_metrics(Y_pred, Y_real)
-        print(f"TS: {ts} RMSE: we={rmse:.3f}")
+        print(f"TS: {ts_test[0, 1]} RMSE: we={rmse:.3f}")

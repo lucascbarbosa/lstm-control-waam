@@ -151,8 +151,8 @@ def plot_horizon_metrics(t, y_forecast, y, y_ref):
     return forecast_df, horizon_metrics
 
 
-source = "simulation/calibration"
-save = False
+source = "experiment/calibration"
+save = True
 fontsize = 16
 figsize = (10, 4)
 format = "eps"
@@ -190,7 +190,8 @@ if source == "simulation/calibration":
 
 elif source == "experiment/calibration":
     beads_test = [3, 6, 10, 15]
-    for bead_test in beads_test:
+    list_ts = [8, 12, 16, 20]
+    for (bead_test, ts) in zip(beads_test, list_ts):
         Y_real = np.loadtxt(
             results_dir +
             f"predictions/{source.split('/')[0]}/calibration/bead{bead_test}__y_real.csv",
