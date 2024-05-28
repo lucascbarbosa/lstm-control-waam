@@ -64,7 +64,7 @@ def run_training(
         sequence_data,
         denormalize_data,
     )
-    from models.process_model import create_model, train_model, predict_data
+    from models.experiment_model import create_model, train_model, predict_data
 
     def compute_metrics(Y_pred, Y_real):
         mses = []

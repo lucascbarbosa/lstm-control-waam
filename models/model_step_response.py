@@ -128,9 +128,9 @@ def plot_test(
 
 
 source = "simulation"
-save = True
+save = False
 format = "eps"
-best_model_id = 3
+best_model_id = 16
 ts_gain = pd.read_csv(results_dir + "models/plant.csv")
 if source == "experiment":
     # Load data
