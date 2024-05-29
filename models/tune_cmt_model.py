@@ -105,11 +105,11 @@ def compute_mse(Y_pred, Y_real):
     return mses
 
 
-# Load database
+show = False
 experiment_matrix = pd.read_excel(
     data_dir + 'experiment/calibration/experiment_matrix.xlsx')[['bead', 'TS (mm/s)']].drop_duplicates()
 list_ts = experiment_matrix['TS (mm/s)'].unique()
-
+ts_gain = []
 for ts in list_ts:
     beads_ts = experiment_matrix[experiment_matrix['TS (mm/s)'] == ts]['bead']
     wfs_train = []
@@ -121,7 +121,6 @@ for ts in list_ts:
             wfs_array = pd.read_csv(
                 data_dir + filename + "_wfs_command.csv"
             ).to_numpy()
-            # wfs_array = np.sqrt(wfs_array)
             wfs_train.append(wfs_array)
             ts_array = pd.read_csv(
                 data_dir + filename + "_ts_command.csv"
@@ -139,7 +138,7 @@ for ts in list_ts:
 
         time = input_train[:, 0]
         u_train = input_train[:, 1]
-        # u_train = np.sqrt(u_train)
+        u_train = np.sqrt(u_train)
         y_train = output_train[:, 1]
 
         # Constant
@@ -155,8 +154,7 @@ for ts in list_ts:
 
         # Extract optimized parameters
         gain_opt = result.x.round(2)[0]
-        np.savetxt(results_dir +
-                   f"models/tf/ts_{ts}.txt", [np.round(gain_opt, 2)])
+        ts_gain.append({'TS': ts, 'Ganho': gain_opt})
         num_opt = [0, 0, gain_opt]
         ss_opt = create_ss(num_opt, denominator)
 
@@ -180,7 +178,7 @@ for ts in list_ts:
 
         time = input_test[:, 0]
         u_real = input_test[:, 1]
-        # u_real = np.sqrt(u_real)
+        u_real = np.sqrt(u_real)
         y_real = output_test[:, 1]
         # Generate output prediction
         y_pred = predict_data(ss_opt, u_real, y_real)
@@ -199,16 +197,14 @@ for ts in list_ts:
         plt.legend()
 
         plt.tight_layout()
-        plt.savefig(
-            results_dir + f'plots/experiment/calibration/calibration_bead{bead_test}_tf_prediction.eps')
-        plt.show()
+        if show:
+            plt.show()
     else:
         bead_train = beads_ts[0]
         filename = f"experiment/calibration/series/bead{bead_train}"
         wfs_array = pd.read_csv(
             data_dir + filename + "_wfs_command.csv"
         ).to_numpy()
-        # wfs_array = np.sqrt(wfs_array)
         wfs_train.append(wfs_array)
         ts_array = pd.read_csv(
             data_dir + filename + "_ts_command.csv"
@@ -223,7 +219,6 @@ for ts in list_ts:
         ts_train = np.concatenate(ts_train, axis=0)
         input_train = np.concatenate([wfs_train, ts_train[:, 1:]], axis=1)
         output_train = np.concatenate(output_train, axis=0)
-        # Load data
 
         time = input_train[:, 0]
         u_train = input_train[:, 1]
@@ -242,5 +237,7 @@ for ts in list_ts:
 
         # Extract optimized parameters
         gain_opt = result.x.round(2)[0]
-        np.savetxt(results_dir +
-                   f"models/tf/ts_{ts}.txt", [np.round(gain_opt, 2)])
+        ts_gain.append({'TS': ts, 'Ganho': gain_opt})
+
+plant_df = pd.DataFrame(ts_gain)
+plant_df.to_csv(results_dir + f"models/experiment/plant.csv", index=False)

@@ -20,12 +20,6 @@ class MPC:
     def __init__(self, bead_idx):
         self.bead_idx = bead_idx
 
-        # Optimization parameters
-        self.lr = 1e-1
-        self.alpha_time = 1e-3
-        self.alpha_opt = 1e-3
-        self.cost_tol = 1e-2
-
         # Process data
         (self.process_input_train,
          self.process_output_train,
@@ -43,7 +37,7 @@ class MPC:
         self.metrics_process = pd.read_csv(results_dir +
                                            f"models/experiment/hp_metrics.csv"
                                            )
-        process_best_model_id = 10
+        process_best_model_id = 8
         process_best_model_filename = f"run_{process_best_model_id:03d}.keras"
         self.process_best_params = self.metrics_process[
             self.metrics_process["run_id"] == int(process_best_model_id)
@@ -57,12 +51,17 @@ class MPC:
         )
         self.opt = Adam(learning_rate=self.process_best_params["lr"])
         self.process_model.compile(optimizer=self.opt, loss=mean_squared_error)
+        self.W = self.process_model.layers[0].weights[0].numpy()
+        self.b = self.process_model.layers[0].weights[1].numpy()[0]
+        self.compute_gradient()
 
         # Define MPC parameters
         self.M = 20   # control horizon
         self.N = 20  # prediction horizon
         self.weight_control = 1.0
-        self.weight_output = 10.0
+        self.weight_output = 50.0
+        self.lr = 1e-2
+        self.cost_tol = 1e-4
 
         # Width count
         self.resample_factor = 11
@@ -74,8 +73,7 @@ class MPC:
         self.ts = self.reference_data[0, -2]
         self.ts = (self.ts - self.process_u_min[1]) / \
             (self.process_u_max[1] - self.process_u_min[1])
-        # self.y_ref = self.reference_data[0, -1]
-        self.y_ref = 7.0
+        self.y_ref = self.reference_data[0, -1]
         self.y_ref = (self.y_ref - self.process_y_min) / \
             (self.process_y_max[0] - self.process_y_min[0])
 
@@ -83,26 +81,37 @@ class MPC:
         self.u_hist = np.zeros((self.P, self.process_inputs))
         self.u_hist[:, :] = [0.0, self.ts]
         self.y_hist = np.zeros((self.Q, self.process_outputs))
+
         # ROSPY Parameters
         rospy.init_node("mpc_node", anonymous=True)
         rospy.Subscriber("kr90/arc_state", Bool, self.callback_arc)
         self.arc_state = False
         rospy.Subscriber("xiris/bead/filtered", Float64, self.callback_width)
-        self.pub = rospy.Publisher(
+        self.pub__command = rospy.Publisher(
             "fronius_remote_command", Float64MultiArray, queue_size=10)
+        self.pub__u_forecast = rospy.Publisher(
+            "mpc/u_forecast", Float64MultiArray, queue_size=10)
+        self.pub__y_forecast = rospy.Publisher(
+            "mpc/y_forecast", Float64MultiArray, queue_size=10)
+        self.pub__control_cost = rospy.Publisher(
+            "mpc/control_cost", Float64, queue_size=10)
+        self.pub__output_cost = rospy.Publisher(
+            "mpc/output_cost", Float64, queue_size=10)
+        self.pub__reference = rospy.Publisher(
+            "mpc/reference", Float64, queue_size=10)
+        self.pub__mpc_state = rospy.Publisher(
+            "mpc/mpc_state", Bool, queue_size=10)
+
         self.pub_freq = 5  # sampling frequency of published data
         self.step_time = 1 / self.pub_freq
-        self.rate = rospy.Rate(self.pub_freq * 2)
-
-        # Forecast data
-        self.command_forecast = np.ones((self.M, 1)) * 40.0
+        self.rate = rospy.Rate(self.pub_freq)
 
         # Forecast data
         # self.u_forecast = np.random.normal(loc=0.5, scale=0.1,
         #                                    size=(self.M, 1))
         self.u_forecast = np.full((self.M, 1), 0.5)
-        self.u_forecast_data = []
-        self.y_forecast_data = []
+        # gradient history for adaptive learning rate algorithm
+        self.gradient_hist = np.zeros(self.u_forecast.shape)
 
     def pow2wfs(self, p):
         return np.round((p*9/100)+1.5, 3)
@@ -167,7 +176,6 @@ class MPC:
             if i < self.M - 1:
                 input_jacobian[i + 1, i] = -1
         return input_jacobian
-    # Cost function method
 
     def cost_function(self):
         u_diff_forecast = self.create_control_diff(self.u_forecast)
@@ -175,28 +183,14 @@ class MPC:
             (self.process_y_max-self.process_y_min)
         output_cost = np.sum(output_error**2 * self.weight_output)
         control_cost = np.sum(u_diff_forecast**2 * self.weight_control)
-        return output_cost + control_cost
+        return output_cost, control_cost
 
-    def compute_gradient(self, input_tensor, j):
-        # start_time = time.time()
-        with tf.GradientTape() as t:
-            t.watch(input_tensor)
-            output_tensor = self.process_model(input_tensor)
-            gradient = t.gradient(
-                output_tensor[:, j], input_tensor
-            ).numpy()[0, :, 0]
-        # print(time.time() - start_time)
-        return output_tensor, gradient
-
-    def split_gradient(self, grad):
-        grad = grad.reshape(
-            (1 * (self.P * self.process_inputs + self.Q * self.process_outputs),
-             ))
-        u = grad[: self.process_inputs *
-                 self.P].reshape((self.P, self.process_inputs))[:, 0]
-        y = grad[self.process_inputs *
-                 self.P:].reshape((self.Q, self.process_outputs))
-        return u, y
+    def compute_gradient(self):
+        grad = self.W.reshape(
+            (self.P * self.process_inputs + self.Q * self.process_outputs,))
+        grad = grad[: self.process_inputs *
+                    self.P].reshape((self.P, self.process_inputs))
+        self.gradient = grad[:, 0]
 
     def compute_step(self):
         u_forecast = self.u_forecast.copy()
@@ -210,20 +204,17 @@ class MPC:
             if i >= self.M:
                 u_row = np.array([[u_forecast[-1, 0], self.ts]])
             u_hist = self.update_hist(u_hist, u_row)
-            seq_input = self.build_sequence(u_hist, y_hist)
-            input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
+            seq_input = self.build_sequence(u_hist, y_hist).reshape((1, -1))
             for j in range(self.process_outputs):
-                output_tensor, gradient_real = self.compute_gradient(
-                    input_tensor, j)
-                input_gradient, _ = self.split_gradient(gradient_real)
-
+                output_tensor = seq_input @ self.W + self.b
                 if i < self.P - 1:
-                    output_jacobian[i, : i + 1] = input_gradient[-(i + 1):]
+                    output_jacobian[i, : i + 1] = self.gradient[-(i + 1):]
                 else:
-                    output_jacobian[i, :] = input_gradient[:]
-            y_row = output_tensor.numpy().reshape((1, 1))
+                    output_jacobian[i, :] = self.gradient[:]
+            y_row = output_tensor.reshape((1, 1))
             y_forecast[i, :] = y_row
             y_hist = self.update_hist(y_hist, y_row)
+
         input_jacobian = self.build_input_jacobian()
         steps = np.zeros(u_forecast.shape)
         u_diff_forecast = self.create_control_diff(u_forecast)
@@ -252,76 +243,63 @@ class MPC:
         cost = np.inf
         last_cost = cost
         delta_cost = -cost
-        # gradient history for adaptive learning rate algorithm
-        gradient_hist = []
         lr = self.lr
-        while delta_cost < -self.cost_tol and opt_step < 15:
+        opt_time = current_time
+        while delta_cost < -self.cost_tol and opt_time - current_time < 0.2:
             steps, self.y_forecast = self.compute_step()
-            cost = self.cost_function()
+            output_cost, control_cost = self.cost_function()
+            cost = output_cost + control_cost
             delta_cost = cost - last_cost
-            gradient_hist.append(steps[:, 0].ravel().tolist())
-            ada_grad = np.sqrt(np.sum(np.array(gradient_hist)[
-                :opt_step, :]**2, axis=0)+1e-10).reshape((self.M, 1))
-            if verbose:
-                print(f"Opt step: {opt_step} Cost: {cost}\n")
+            self.gradient_hist += steps ** 2
+            ada_grad = np.sqrt(self.gradient_hist + 1e-10)
+            # if verbose:
+            #     print(f"Opt step: {opt_step} Cost: {cost}")
             if delta_cost < 0:
                 self.u_forecast += (-lr/ada_grad)*steps
                 self.u_forecast = np.clip(
                     self.u_forecast, a_min=0.0, a_max=1.0)
-                lr = lr * (1.0 - self.alpha_opt)
                 last_cost = cost
+                last_control_cost = control_cost
+                last_output_cost = output_cost
             else:
                 if verbose:
                     print("Passed optimal solution")
                 break
             opt_step += 1
-        opt_time = time.time() - current_time
+            opt_time = np.round(time.time(), 1)
+
+        print(f"Opt step: {opt_step} Cost: {last_cost}")
+
         print(f"Steps: {opt_step} Time: {opt_time:.2f} " +
               f"Time per step: {opt_time/opt_step:.2f} " +
               f"Time per grad: {opt_time/(opt_step*self.N):.3f}")
-        print(
-            f"U_F: {self.u_forecast * (self.process_u_max[0] - self.process_u_min[0]) + self.process_u_min[0]}")
-        print(
-            f"Y_F: {self.y_forecast * (self.process_y_max - self.process_y_min) + self.process_y_min}")
-        print(
-            f"Y_R: {self.y_ref * (self.process_y_max - self.process_y_min) + self.process_y_min}")
-        # Save forecast
-        self.u_forecast_data.append(self.u_forecast.ravel().tolist())
-        self.y_forecast_data.append(self.y_forecast.ravel().tolist())
+        # print(
+        #     f"U_F: {self.u_forecast * (self.process_u_max[0] - self.process_u_min[0]) + self.process_u_min[0]}")
+        # print(
+        #     f"Y_F: {self.y_forecast * (self.process_y_max - self.process_y_min) + self.process_y_min}")
+        # print(
+        #     f"Y_R: {self.y_ref * (self.process_y_max - self.process_y_min) + self.process_y_min}")
 
-        # Convert to WFS
-        self.command_forecast = self.wfs2pow(
-            self.command_forecast)  # convert to power
+        command = self.u_forecast[0, 0] * (
+            self.process_u_max[0] - self.process_u_min[0]) + \
+            self.process_u_min[0]
+
+        # Convert to Power
+        command = self.wfs2pow(command)  # convert to power
+        rospy.loginfo("Sending command: %f", command)
+        msg = Float64MultiArray()
+        msg.data = [command]
+        dim = []
+        dim.append(MultiArrayDimension('PwrSrc', 1, 4))
+        msg.layout.dim = dim
+        self.pub__command.publish(msg)
 
         # Send command
         self.u_forecast[:-1] = self.u_forecast[1:]
-        self.lr = self.lr * (1.0 - self.alpha_time)
-
-    def publish_command(self, command_index):
-        # Descaling
-        command_forecast = self.u_forecast * (self.process_u_max[0] -
-                                              self.process_u_min[0]) + \
-            self.process_u_min[0]
-        command = command_forecast[min(command_index, len(command_forecast)-1)]
-        command = self.wfs2pow(command)
-        msg.data = [command]
-        self.pub.publish(msg)
-        # rospy.loginfo("Sending command: %f", command)
-
-    def export_forecast(self):
-        np.savetxt(results_dir + "predictions/forecast/u_forecast.csv",
-                   @ @ -332, 60 + 352, 76 @ @ def export_forecast(self):
-                   np.array(self.y_forecast_data))
-
-
-def very_long_fun(x, y):
-    print('Doing')
-    time.sleep(5)
-    print('Done')
 
 
 # Filepaths
-data_dir = f"/home/lbarbosa/Documents/Github/lstm-control-waam/database/"
+data_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/database/"
 results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
 
 # Create an instance of the MPC class
@@ -333,18 +311,13 @@ verbose = True
 # MPC loop
 initial_delay = 3.0
 msg = Float64MultiArray()
-msg.data = [40.0]
+msg.data = [60.0]
 dim = []
 dim.append(MultiArrayDimension('PwrSrc', 1, 4))
 msg.layout.dim = dim
 rospy.wait_for_message("xiris/bead/filtered", Float64)  # Wait for width
-mpc.pub.publish(msg)
+mpc.pub__command.publish(msg)
 
-# Timing parameters
-forecast_time = mpc.N * mpc.step_time  # forecast period in seconds
-# time in seconds after command_time to trigger optimization
-trigger_time = forecast_time / 2
-command_index = 0  # Index of command in command_forecast
 start_time = None
 u_forecast = None
 while not rospy.is_shutdown():
@@ -352,19 +325,11 @@ while not rospy.is_shutdown():
         if start_time is None:
             start_time = np.round(time.time(), 1)
             exp_time = 0.0
-            command_time = 0.0
         else:
             exp_time = np.round(time.time() - start_time, 1)
+        print(f"Time: {exp_time} s")
         if exp_time >= initial_delay:
-            print(
-                f"Time: {exp_time} Command_time: {command_time} Command: {command_index // 2}")
-            if exp_time == command_time + trigger_time:
-                threading.Thread(target=mpc.optimization_function).start()
-            mpc.publish_command(command_index//2)
-            command_time = (exp_time // forecast_time) * forecast_time
-            command_index += 1
-            if exp_time == command_time + forecast_time:
-                command_index = 0
+            threading.Thread(target=mpc.optimization_function).start()
         mpc.rate.sleep()
     else:
         pass

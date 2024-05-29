@@ -110,7 +110,7 @@ class MPC:
         control_cost = np.sum(u_diff_forecast**2 * self.weight_control)
         return output_cost + control_cost
 
-    def create_controL_vector(self, i):
+    def create_control_vector(self, i):
         control_vector = np.zeros(self.N-i-1)
         for i in range(control_vector.shape[0]):
             control_vector[i] = np.dot(
@@ -136,7 +136,7 @@ class MPC:
             if i < self.M:
                 u_row = u_forecast[i]
                 output_jacobian[i, i] = self.ss_discrete.D
-                output_jacobian[i+1:, i] = self.create_controL_vector(i)
+                output_jacobian[i+1:, i] = self.create_control_vector(i)
             if i >= self.M:
                 u_row = u_forecast[-1]
             for j in range(self.process_inputs):

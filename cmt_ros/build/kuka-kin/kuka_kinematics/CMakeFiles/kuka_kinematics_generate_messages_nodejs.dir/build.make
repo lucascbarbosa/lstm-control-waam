@@ -58,12 +58,12 @@ kuka-kin/kuka_kinematics/CMakeFiles/kuka_kinematics_generate_messages_nodejs: /h
 
 /home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/devel/share/gennodejs/ros/kuka_kinematics/srv/SolvePositionIK.js: /opt/ros/noetic/lib/gennodejs/gen_nodejs.py
 /home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/devel/share/gennodejs/ros/kuka_kinematics/srv/SolvePositionIK.js: /home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/src/kuka-kin/kuka_kinematics/srv/SolvePositionIK.srv
-/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/devel/share/gennodejs/ros/kuka_kinematics/srv/SolvePositionIK.js: /opt/ros/noetic/share/geometry_msgs/msg/Point.msg
 /home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/devel/share/gennodejs/ros/kuka_kinematics/srv/SolvePositionIK.js: /opt/ros/noetic/share/std_msgs/msg/Header.msg
-/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/devel/share/gennodejs/ros/kuka_kinematics/srv/SolvePositionIK.js: /opt/ros/noetic/share/geometry_msgs/msg/Pose.msg
 /home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/devel/share/gennodejs/ros/kuka_kinematics/srv/SolvePositionIK.js: /opt/ros/noetic/share/sensor_msgs/msg/JointState.msg
+/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/devel/share/gennodejs/ros/kuka_kinematics/srv/SolvePositionIK.js: /opt/ros/noetic/share/geometry_msgs/msg/Pose.msg
 /home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/devel/share/gennodejs/ros/kuka_kinematics/srv/SolvePositionIK.js: /opt/ros/noetic/share/geometry_msgs/msg/PoseStamped.msg
 /home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/devel/share/gennodejs/ros/kuka_kinematics/srv/SolvePositionIK.js: /opt/ros/noetic/share/geometry_msgs/msg/Quaternion.msg
+/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/devel/share/gennodejs/ros/kuka_kinematics/srv/SolvePositionIK.js: /opt/ros/noetic/share/geometry_msgs/msg/Point.msg
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --blue --bold --progress-dir=/home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Generating Javascript code from kuka_kinematics/SolvePositionIK.srv"
 	cd /home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/build/kuka-kin/kuka_kinematics && ../../catkin_generated/env_cached.sh /usr/bin/python3 /opt/ros/noetic/share/gennodejs/cmake/../../../lib/gennodejs/gen_nodejs.py /home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/src/kuka-kin/kuka_kinematics/srv/SolvePositionIK.srv -Igeometry_msgs:/opt/ros/noetic/share/geometry_msgs/cmake/../msg -Isensor_msgs:/opt/ros/noetic/share/sensor_msgs/cmake/../msg -Istd_msgs:/opt/ros/noetic/share/std_msgs/cmake/../msg -p kuka_kinematics -o /home/lbarbosa/Documents/Github/lstm-control-waam/cmt_ros/devel/share/gennodejs/ros/kuka_kinematics/srv
 

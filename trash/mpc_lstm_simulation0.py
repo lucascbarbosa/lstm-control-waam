@@ -62,25 +62,6 @@ def cost_function(u_forecast, y_forecast):
     return output_cost,  control_cost
 
 
-# def compute_gradient(input_tensor, j):
-#     with tf.GradientTape() as t:
-#         t.watch(input_tensor)
-#         output_tensor = process_model(input_tensor)
-#         gradient = t.gradient(
-#             output_tensor[:, j], input_tensor
-#         ).numpy()[0, :, 0]
-#     return output_tensor, gradient
-#
-#
-# def split_gradient(grad):
-#     grad = grad.reshape(
-#         (P * process_inputs + Q * process_outputs,))
-#     u = grad[: process_inputs *
-#              P].reshape((P, process_inputs))
-#     y = grad[process_inputs *
-#              P:].reshape((Q, process_outputs))
-#     return u[:, 0], y
-
 def compute_gradient():
     grad = W.reshape(
         (P * process_inputs + Q * process_outputs,))
@@ -102,11 +83,7 @@ def compute_step(u_hist, y_hist, u_forecast):
             u_row = np.array([[u_forecast[-1, 0], ts_scaled]])
         u_hist = update_hist(u_hist, u_row)
         seq_input = build_sequence(u_hist, y_hist).reshape((1, -1))
-        # input_tensor = tf.convert_to_tensor(seq_input, dtype=tf.float32)
         for j in range(process_outputs):
-            # output_tensor, gradient = compute_gradient(
-            #     input_tensor, j)
-            # gradient, _ = split_gradient(gradient)
             output_tensor = seq_input @ W + b
             gradient = compute_gradient()
             if i < P - 1:
@@ -279,7 +256,7 @@ lr = 1e-2
 cost_tol = 1e-6
 
 reference = "step"
-for ts in [4]:
+for ts in [4, 8, 12, 16, 20]:
 
     # LOad model
     process_model = load_model(
@@ -304,8 +281,8 @@ for ts in [4]:
     # u_forecast = np.linspace(1.0, 0.0, M).reshape((M, 1))
 
     # Define plant model
-    ts_gain = pd.read_csv(results_dir + "models/plant.csv")
-    gain = ts_gain[ts_gain["TS"] == ts].values[0, 1]
+    plant_df = pd.read_csv(results_dir + "models/plant.csv")
+    gain = plant_df[plant_df["TS"] == ts].values[0, 1]
     fs = 5.0
     numerator = [0, 0, gain]
     denominator = [0.2, 1.2, 1]

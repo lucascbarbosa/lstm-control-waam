@@ -13,19 +13,19 @@ class Cell(object):
         self.ts = ts
 
         # Read gain
-        with open(results_dir + f'models/tf/ts_{ts}.txt', 'r') as f:
-            gain = float(f.read())
+        plant_df = pd.read_csv(results_dir + "models/experiment/plant.csv")
+        gain = plant_df[plant_df["TS"] == ts].values[0, 1]
 
         # Rospy setup
         rospy.init_node("cell_node", anonymous=True)
         rospy.Subscriber("fronius_remote_command",
                          Float64MultiArray, self.callback)
+        rospy.Subscriber("mpc_state", Bool, self.callback_mpc)
         self.pub_arc = rospy.Publisher("kr90/arc_state", Bool, queue_size=10)
-        self.arc_idxs = [50, 750]
         self.pub_width = rospy.Publisher(
             "xiris/bead/filtered", Float64, queue_size=10)
 
-        self.fs = 55
+        self.fs = 10
         self.rate = rospy.Rate(self.fs)
 
         # Define model
@@ -39,6 +39,8 @@ class Cell(object):
 
         # Arc state
         self.arc_state = False
+        # MPC state
+        self.mpc_state = False
 
         # Current values
         self.time = 0.0
@@ -49,8 +51,12 @@ class Cell(object):
 
     def callback(self, data):
         self.p = data.data[0]
-        self.u = self.pow2wfs(self.p)
+        self.u = np.sqrt(self.pow2wfs(self.p))
         rospy.loginfo("Received command wfs: %f", self.u)
+
+    def callback_mpc(self, data):
+        self.mpc_state = data.data
+        rospy.loginfo("MPC state: %f", self.mpc_state)
 
     def predict_output(self):
         self.x = np.dot(self.ss_discrete.A, self.x) + \
@@ -61,7 +67,7 @@ class Cell(object):
         rospy.loginfo("Sending y: %s", self.y)
 
     def set_arcstate(self, t):
-        arc_state = t > self.arc_idxs[0] and t < self.arc_idxs[1]
+        arc_state = t < arc_off
         self.pub_arc.publish(arc_state)
         rospy.loginfo("Sending arc_state: %s", arc_state)
         if self.arc_state and not arc_state:
@@ -76,20 +82,17 @@ class Cell(object):
         return np.round((p*9/100)+1.5, 3)
 
 
-data_dir = f"/home/lbarbosa/Documents/Github/lstm-control-waam/database/"
 results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
 args = rospy.myargv(argv=sys.argv)
 ts = int(args[1])
+arc_off = 2000
 cell = Cell(ts)
 k = 0
-try:
-    while not rospy.is_shutdown():
-        cell.set_arcstate(k)
-        cell.time += cell.T
-        cell.predict_output()
-        k += 1
-        cell.rate.sleep()
-except rospy.ROSInterruptException:
-    pass
+while not rospy.is_shutdown():
+    cell.set_arcstate(k)
+    cell.time += cell.T
+    cell.predict_output()
+    k += 1
+    cell.rate.sleep()
 
 rospy.spin()

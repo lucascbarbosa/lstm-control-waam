@@ -13,8 +13,8 @@ class Cell(object):
         self.ts = ts
 
         # Read gain
-        with open(results_dir + f'models/tf/ts_{ts}.txt', 'r') as f:
-            gain = float(f.read())
+        plant_df = pd.read_csv(results_dir + "models/experiment/plant.csv")
+        gain = plant_df[plant_df["TS"] == ts].values[0, 1]
 
         # Rospy setup
         rospy.init_node("cell_node", anonymous=True)
@@ -51,8 +51,8 @@ class Cell(object):
 
     def callback(self, data):
         self.p = data.data[0]
-        self.u = self.pow2wfs(self.p)
-        rospy.loginfo("Received command wfs: %f", self.u)
+        rospy.loginfo("Received command power: %f", self.p)
+        self.u = np.sqrt(self.pow2wfs(self.p))
 
     def callback_mpc(self, data):
         self.mpc_state = data.data
@@ -85,37 +85,14 @@ class Cell(object):
 results_dir = "/home/lbarbosa/Documents/Github/lstm-control-waam/results/"
 args = rospy.myargv(argv=sys.argv)
 ts = int(args[1])
-if len(args) > 2:
-    simulation = bool(args[2] == '-s')
-else:
-    simulation = False
 arc_off = 2000
 cell = Cell(ts)
 k = 0
-if simulation:
-    for i in range(10):
-        cell.pub_arc.publish(False)
-        cell.rate.sleep()
-    try:
-        while not rospy.is_shutdown():
-            cell.set_arcstate(k)
-            cell.predict_output()
-            if cell.mpc_state:
-                rospy.wait_for_message("fronius_remote_command",
-                                       Float64MultiArray)
-            k += 1
-            cell.rate.sleep()
-    except rospy.ROSInterruptException:
-        pass
-else:
-    try:
-        while not rospy.is_shutdown():
-            cell.set_arcstate(k)
-            cell.time += cell.T
-            cell.predict_output()
-            k += 1
-            cell.rate.sleep()
-    except rospy.ROSInterruptException:
-        pass
+while not rospy.is_shutdown():
+    cell.set_arcstate(k)
+    cell.time += cell.T
+    cell.predict_output()
+    k += 1
+    cell.rate.sleep()
 
 rospy.spin()
