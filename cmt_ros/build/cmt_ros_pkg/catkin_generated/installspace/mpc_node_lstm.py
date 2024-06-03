@@ -58,8 +58,8 @@ class MPC:
         # Define MPC parameters
         self.M = 20   # control horizon
         self.N = 20  # prediction horizon
-        self.weight_control = 1.0
-        self.weight_output = 50.0
+        self.weight_control = 0.1
+        self.weight_output = 100.0
         self.lr = 1e-2
         self.cost_tol = 1e-4
 
@@ -97,8 +97,6 @@ class MPC:
             "mpc/control_cost", Float64, queue_size=10)
         self.pub__output_cost = rospy.Publisher(
             "mpc/output_cost", Float64, queue_size=10)
-        self.pub__reference = rospy.Publisher(
-            "mpc/reference", Float64, queue_size=10)
         self.pub__mpc_state = rospy.Publisher(
             "mpc/mpc_state", Bool, queue_size=10)
 
@@ -245,7 +243,7 @@ class MPC:
         delta_cost = -cost
         lr = self.lr
         opt_time = current_time
-        while delta_cost < -self.cost_tol and opt_time - current_time < 0.1:
+        while delta_cost < -self.cost_tol and opt_time - current_time < 0.2:
             steps, self.y_forecast = self.compute_step()
             output_cost, control_cost = self.cost_function()
             cost = output_cost + control_cost
@@ -266,7 +264,8 @@ class MPC:
                     print("Passed optimal solution")
                 break
             opt_step += 1
-        opt_time = time.time() - current_time
+            opt_time = np.round(time.time(), 1)
+
         print(f"Steps: {opt_step} Time: {opt_time:.2f} " +
               f"Time per step: {opt_time/opt_step:.2f} " +
               f"Time per grad: {opt_time/(opt_step*self.N):.3f}")
@@ -283,6 +282,8 @@ class MPC:
 
         # Convert to Power
         command = self.wfs2pow(command)  # convert to power
+
+        # Publish command
         rospy.loginfo("Sending command: %f", command)
         msg = Float64MultiArray()
         msg.data = [command]
@@ -291,7 +292,34 @@ class MPC:
         msg.layout.dim = dim
         self.pub__command.publish(msg)
 
-        # Send command
+        # Publish costs
+        rospy.loginfo("Sending control_cost: %f", last_control_cost)
+        self.pub__control_cost.publish(last_control_cost)
+        rospy.loginfo("Sending output_cost: %f", last_output_cost)
+        self.pub__output_cost.publish(last_output_cost)
+
+        # # Publish forecasts
+        # msg = Float64MultiArray()
+        # data = self.u_forecast.ravel(
+        # ) * (self.process_u_max[0] - self.process_u_min[0]) + self.process_u_min[0]
+        # data = data.tolist()
+        # msg.data = data
+        # dim = []
+        # dim.append(MultiArrayDimension('u_forecast', self.M, 4))
+        # msg.layout.dim = dim
+        # self.pub__u_forecast.publish(msg)
+
+        msg = Float64MultiArray()
+        data = self.y_forecast.ravel(
+        ) * (self.process_y_max - self.process_y_min) + self.process_y_min
+        data = data.tolist()
+        msg.data = data
+        dim = []
+        dim.append(MultiArrayDimension('y_forecast', self.N, 4))
+        msg.layout.dim = dim
+        self.pub__y_forecast.publish(msg)
+
+        # Update u_forecast
         self.u_forecast[:-1] = self.u_forecast[1:]
 
 
@@ -317,6 +345,7 @@ mpc.pub__command.publish(msg)
 
 start_time = None
 u_forecast = None
+mpc_state = False
 while not rospy.is_shutdown():
     if mpc.arc_state:
         if start_time is None:
@@ -327,6 +356,9 @@ while not rospy.is_shutdown():
         print(f"Time: {exp_time} s")
         if exp_time >= initial_delay:
             threading.Thread(target=mpc.optimization_function).start()
+            if not mpc_state:
+                mpc_state = True
+                mpc.pub__mpc_state.publish(True)
         mpc.rate.sleep()
     else:
         pass

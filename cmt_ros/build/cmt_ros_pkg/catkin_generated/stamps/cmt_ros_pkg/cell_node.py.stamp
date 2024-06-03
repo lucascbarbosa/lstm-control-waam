@@ -19,8 +19,19 @@ class Cell(object):
         # Rospy setup
         rospy.init_node("cell_node", anonymous=True)
         rospy.Subscriber("fronius_remote_command",
-                         Float64MultiArray, self.callback)
-        rospy.Subscriber("mpc_state", Bool, self.callback_mpc)
+                         Float64MultiArray, self.callback__command)
+        rospy.Subscriber("mpc_state", Bool, self.callback__mpc_state)
+        rospy.Subscriber(
+            "mpc/u_forecast", Float64MultiArray, self.callback__u_forecast)
+        rospy.Subscriber(
+            "mpc/y_forecast", Float64MultiArray, self.callback__y_forecast)
+        rospy.Subscriber(
+            "mpc/control_cost", Float64, self.callback__control_cost)
+        rospy.Subscriber(
+            "mpc/output_cost", Float64, self.callback__output_cost)
+        rospy.Subscriber(
+            "mpc/mpc_state", Bool, self.callback__mpc_state)
+
         self.pub_arc = rospy.Publisher("kr90/arc_state", Bool, queue_size=10)
         self.pub_width = rospy.Publisher(
             "xiris/bead/filtered", Float64, queue_size=10)
@@ -49,14 +60,30 @@ class Cell(object):
         self.x = np.zeros((2, 1))
         self.y = 0.0
 
-    def callback(self, data):
+    def callback__command(self, data):
         self.p = data.data[0]
+        rospy.loginfo("Received command power: %f", self.p)
         self.u = np.sqrt(self.pow2wfs(self.p))
-        rospy.loginfo("Received command wfs: %f", self.u)
 
-    def callback_mpc(self, data):
+    def callback__mpc_state(self, data):
         self.mpc_state = data.data
-        rospy.loginfo("MPC state: %f", self.mpc_state)
+        rospy.loginfo("Received MPC state: %f", self.mpc_state)
+
+    def callback__control_cost(self, data):
+        self.control_cost = data.data
+        rospy.loginfo("Received MPC control_cost: %f", self.control_cost)
+
+    def callback__output_cost(self, data):
+        self.output_cost = data.data
+        rospy.loginfo("Received MPC output_cost: %f", self.output_cost)
+
+    def callback__u_forecast(self, data):
+        self.u_forecast = data.data
+        print(f"Received u_forecast: {self.u_forecast}")
+
+    def callback__y_forecast(self, data):
+        self.y_forecast = data.data
+        print(f"Received y_forecast: {self.y_forecast}")
 
     def predict_output(self):
         self.x = np.dot(self.ss_discrete.A, self.x) + \

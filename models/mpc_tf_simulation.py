@@ -323,8 +323,6 @@ for ts in [4, 8, 12, 16, 20]:
 
     u_forecast_cols, y_forecast_cols = name_forecast_cols()
     u_forecast_array = np.array(u_forecast_data)
-    u_forecast_array = u_forecast_array * (
-        u_max - u_min) + u_min
     u_forecast_array = np.hstack((mpc_time, u_forecast_array))
     u_forecast_df = pd.DataFrame(u_forecast_array,
                                  columns=u_forecast_cols)

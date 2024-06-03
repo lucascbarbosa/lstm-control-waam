@@ -13,7 +13,7 @@ class Cell(object):
         self.ts = ts
 
         # Read gain
-        plant_df = pd.read_csv(results_dir + "models/experiment/plant.csv")
+        plant_df = pd.read_csv(results_dir + "models/experiment/model.csv")
         gain = plant_df[plant_df["TS"] == ts].values[0, 1]
 
         # Rospy setup

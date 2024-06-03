@@ -38,24 +38,26 @@ def plot_prediction():
     plt.show()
 
 
-def plot_heatmap(source, save=False):
+def plot_heatmap():
     fig = plt.figure(figsize=figsize)
 
-    heatmap_df = metrics_df[["P", "Q", "test_loss"]].pivot(
-        index="Q", columns="P", values="test_loss")
+    heatmap_df = metrics_df[["P", "batch_size", "test_loss"]].pivot(
+        index="batch_size", columns="P", values="test_loss")
 
     sns.heatmap(heatmap_df, annot=True, cmap="magma", fmt=".4f")
-    plt.title(f"Hyperparameters heatmap error")
     fig.tight_layout()
+    plt.tight_layout()
+    plt.xlabel('P')
+    plt.ylabel('B')
 
     if save:
         plt.savefig(
             results_dir +
-            f"plots/{source}/calibration/calibration_heatmap.{format}"
+            f"plots/{source}/{figname}.{format}"
         )
-
-    plt.tight_layout()
-    plt.show()
+        plt.close()
+    else:
+        plt.show()
 
 
 def histogram_error():
@@ -151,21 +153,20 @@ def plot_horizon_metrics(t, y_forecast, y, y_ref):
     return forecast_df, horizon_metrics
 
 
-source = "experiment/calibration"
+source = "simulation/calibration"
 save = True
 fontsize = 16
 figsize = (10, 4)
 format = "eps"
 weight_control = 1.0
 weight_output = 1.0
-if source == "experiment" or source == "simulation":
-    metrics_df = pd.read_csv(results_dir + f"models/{source}/hp_metrics.csv")
-    metrics_df["test_loss"] = metrics_df["test_loss"].apply(
-        lambda x: np.nan if x > 1 else x
-    )
 
 if source == "simulation/calibration":
-    for ts in [4, 8, 12, 16, 20]:
+    metrics_df = pd.read_csv(
+        results_dir + f"models/simulation/hp_metrics.csv")
+    metrics_df["test_loss"] = metrics_df["test_loss"].apply(
+        lambda x: np.nan if x > 1 else x)
+    for ts in [8, 12, 16, 20]:
         Y_real = np.loadtxt(
             results_dir +
             f"predictions/{source.split('/')[0]}/calibration/ts__{ts}__y_real.csv",
@@ -177,18 +178,20 @@ if source == "simulation/calibration":
             dtype=np.float64
         )
 
-        plot_prediction()
+        # plot_prediction()
+        #
+        # bins = 128
+        # histogram_error()
 
-        bins = 128
-        histogram_error()
+    figname = f"simulation_calibration__heatmap"
+    plot_heatmap()
 
-        # batch_sizes = [16, 32, 64]
-        # for batch_size in batch_sizes:
-        #     plot_heatmap(batch_size, source=source, save=True)
-
-        # plot_mpc(mpc_u, mpc_y, y_means,save=False)
 
 elif source == "experiment/calibration":
+    metrics_df = pd.read_csv(
+        results_dir + f"models/experiment/hp_metrics.csv")
+    metrics_df["test_loss"] = metrics_df["test_loss"].apply(
+        lambda x: np.nan if x > 1 else x)
     beads_test = [3, 6, 10, 15]
     list_ts = [8, 12, 16, 20]
     for (bead_test, ts) in zip(beads_test, list_ts):
@@ -203,18 +206,18 @@ elif source == "experiment/calibration":
             dtype=np.float64,
         )
 
-        plot_prediction()
+        # plot_prediction()
+        #
+        # bins = 32
+        # histogram_error()
 
-        bins = 32
-        histogram_error()
+    figname = f"experiment_calibration__heatmap"
+    plot_heatmap()
 
-    # plot_heatmap(source=source, save=True)
-
-    # plot_mpc(mpc_u, mpc_y, y_means,save=False)
 
 elif source == "simulation/control":
     for model in ['lstm', 'tf']:
-        for ts in [4, 8, 12, 16, 20]:
+        for ts in [8, 12, 16, 20]:
             u_forecast = pd.read_csv(
                 results_dir + f'predictions/simulation/control/{model}__ts_{ts}__step__u_forecast.csv').to_numpy()
             time_array = u_forecast[:, 0]
