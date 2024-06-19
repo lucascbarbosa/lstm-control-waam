@@ -23,19 +23,18 @@ def plot_prediction():
     fig.tight_layout()
 
     if save:
-        if source == "simulation":
+        if source.split('/')[0] == "simulation":
             plt.savefig(
                 results_dir
                 + f"plots/simulation/calibration/simulation_calibration__ts_{ts}__prediction.{format}"
             )
-        elif source == "experiment":
+        if source.split('/')[0] == "experiment":
             plt.savefig(
                 results_dir
                 + f"plots/experiment/calibration/experiment_calibration__ bead{bead_test}__prediction.{format}"
             )
-        elif source == "mpc":
-            plt.savefig(results_dir + f"plots/mpc_lstm_prediction.{format}")
-    plt.show()
+    else:
+        plt.show()
 
 
 def plot_heatmap():
@@ -81,19 +80,21 @@ def histogram_error():
     plt.title(f"TS: {ts} (mm/s)")
 
     plt.subplots_adjust(hspace=0.5)
+    plt.tight_layout()
+
     if save:
-        if source == "experiment":
+        if source.split('/')[0] == "experiment":
             plt.savefig(
                 results_dir
                 + f"plots/experiment/calibration/experiment_calibration__bead{bead_test}__error_histogram.{format}"
             )
-        elif source == "simulation":
+        if source.split('/')[0] == "simulation":
             plt.savefig(
                 results_dir
                 + f"plots/simulation/calibration/simulation_calibraation__ts_{ts}__error_histogram.{format}"
             )
-    plt.tight_layout()
-    plt.show()
+    else:
+        plt.show()
 
 
 def plot_horizon_metrics(t, y_forecast, y, y_ref):
@@ -144,20 +145,21 @@ def plot_horizon_metrics(t, y_forecast, y, y_ref):
                 palette=colors_from_values(horizon_metrics['mean'], "rocket"))
     plt.xlabel('Horizonte de previsão (N)', fontsize=fontsize)
     plt.ylabel('MAPE', fontsize=fontsize)
+    plt.tight_layout()
     if save:
         plt.savefig(
             results_dir + f"plots/{source}/simulation_control__{model}__ts_{ts}__horizon_metrics.{format}")
-    plt.tight_layout()
-    plt.show()
+    else:
+        plt.show()
 
     return forecast_df, horizon_metrics
 
 
-source = "simulation/calibration"
+source = "experiment/calibration"
 save = True
 fontsize = 16
 figsize = (10, 4)
-format = "eps"
+format = "png"
 weight_control = 1.0
 weight_output = 1.0
 
@@ -178,10 +180,9 @@ if source == "simulation/calibration":
             dtype=np.float64
         )
 
-        # plot_prediction()
-        #
-        # bins = 128
-        # histogram_error()
+        plot_prediction()
+        bins = 128
+        histogram_error()
 
     figname = f"simulation_calibration__heatmap"
     plot_heatmap()
@@ -206,10 +207,10 @@ elif source == "experiment/calibration":
             dtype=np.float64,
         )
 
-        # plot_prediction()
-        #
-        # bins = 32
-        # histogram_error()
+        plot_prediction()
+
+        bins = 32
+        histogram_error()
 
     figname = f"experiment_calibration__heatmap"
     plot_heatmap()

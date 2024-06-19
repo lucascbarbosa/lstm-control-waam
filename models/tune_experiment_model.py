@@ -138,8 +138,6 @@ def run_training(
 
 
 # Load database
-# beads = np.arange(1, 16)
-# beads_train, beads_test = split_train_test(beads, 4)
 beads_test = [3, 6, 10, 15]
 beads_train = [1, 2, 4, 5, 7, 8, 9, 11, 12, 13, 14]
 

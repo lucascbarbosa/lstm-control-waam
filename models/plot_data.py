@@ -154,6 +154,7 @@ def plot_control(
     setting_time = w_data[np.where(w_data[:, 1] > 0.95 * w_data[-1, 1])][0, 0]
 
     error_ss = ref_data[-1, 1] - w_data[-1, 1]
+    print(f"Model: {model} TS: {ts}")
     print(f"Overshoots: {overshoot*100:.2f}%")
     print(f"dU Médio: {du_mean * 100/wfs_command_data[:, 1].max(axis=0):.2f}%")
     print(f"Tempo de assentamento: {setting_time} s")
@@ -217,10 +218,10 @@ def plot_control(
 
 N = None  # Horizon plotted
 end_time = None
-scale = True
+scale = False
 save = True
 figsize = (10, 4)
-format = "eps"
+format = "png"
 source = "simulation/control"
 if source in ['experiment/control', 'experiment/calibration']:
     experiment_matrix = pd.read_excel(
@@ -341,7 +342,7 @@ if source == "experiment/control":
 
 if source == "simulation/control":
     for model in ['lstm', 'tf']:
-        for ts in [4, 8, 12, 16, 20]:
+        for ts in [8, 12, 16, 20]:
             wfs_command_data = pd.read_csv(
                 data_dir +
                 f"simulation/control/{model}__ts_{ts}__step__wfs_command.csv"

@@ -12,14 +12,9 @@ import matplotlib.pyplot as plt
 data_dir = "database/"
 results_dir = "results/"
 
-# Load database
-beads_train = [1]
-beads_test = [1]
 
 #############
 # Functions #
-
-
 def pow2wfs(p):
     return 0.09*p + 1.5
 
@@ -187,7 +182,7 @@ for ts in list_ts:
 
         # Plot results
         fig = plt.figure(figsize=(12, 6))
-        plt.title('Outputs')
+        plt.title(f'TS: {ts} (mm/s)')
         plt.plot(time, y_real, label='Measured width', color='k')
         plt.plot(time, y_pred, label='Predicted width with WFS value',
                  color='r', linestyle='--')
@@ -199,6 +194,9 @@ for ts in list_ts:
         plt.tight_layout()
         if show:
             plt.show()
+        else:
+            plt.savefig(
+                results_dir + f'plots/experiment/calibration/experiment_calibration__ts_{ts}__cmt_model.png')
     else:
         bead_train = beads_ts[0]
         filename = f"experiment/calibration/series/bead{bead_train}"
